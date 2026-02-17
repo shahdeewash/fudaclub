@@ -5,12 +5,15 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Badge } from "@/components/ui/badge";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Label } from "@/components/ui/label";
 import { trpc } from "@/lib/trpc";
-import { BarChart3, DollarSign, Package, Users, Star } from "lucide-react";
+import { BarChart3, DollarSign, Package, Users, Star, Plus } from "lucide-react";
+import { useLocation } from "wouter";
 import { toast } from "sonner";
 
 export default function Admin() {
   const { user, isAuthenticated } = useAuth();
+  const [, setLocation] = useLocation();
   const [selectedSpecial, setSelectedSpecial] = useState<string>("");
 
   const { data: stats } = trpc.stats.getToday.useQuery(undefined, {
@@ -72,6 +75,7 @@ export default function Admin() {
           <TabsList>
             <TabsTrigger value="overview">Overview</TabsTrigger>
             <TabsTrigger value="companies">By Company</TabsTrigger>
+            <TabsTrigger value="menu">Menu Management</TabsTrigger>
             <TabsTrigger value="specials">Today's Special</TabsTrigger>
           </TabsList>
 
@@ -197,6 +201,61 @@ export default function Admin() {
           </TabsContent>
 
           {/* Today's Special Tab */}
+          {/* Menu Management Tab */}
+          <TabsContent value="menu" className="space-y-6">
+            <Card>
+              <CardHeader>
+                <div className="flex items-center justify-between">
+                  <div>
+                    <CardTitle>Menu Items</CardTitle>
+                    <CardDescription>
+                      Manage custom menu items (Square items are synced automatically)
+                    </CardDescription>
+                  </div>
+                  <Button
+                    onClick={() => setLocation("/admin/dish/new")}
+                    className="bg-[#DC2626] hover:bg-[#DC2626]/90"
+                  >
+                    <Plus className="h-4 w-4 mr-2" />
+                    Create New Dish
+                  </Button>
+                </div>
+              </CardHeader>
+              <CardContent>
+                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                  {menuItems?.map((item) => (
+                    <Card key={item.id}>
+                      <CardContent className="p-4">
+                        <div className="flex gap-3">
+                          <img
+                            src={item.imageUrl || ""}
+                            alt={item.name}
+                            className="w-20 h-20 object-cover rounded-lg"
+                          />
+                          <div className="flex-1">
+                            <h3 className="font-bold text-sm">{item.name}</h3>
+                            <p className="text-xs text-muted-foreground line-clamp-2">
+                              {item.description}
+                            </p>
+                            <div className="flex items-center justify-between mt-2">
+                              <span className="font-semibold">
+                                ${(item.price / 100).toFixed(2)}
+                              </span>
+                              <Badge variant="outline" className="text-xs">
+                                {item.category}
+                              </Badge>
+                            </div>
+                          </div>
+                        </div>
+                      </CardContent>
+                    </Card>
+                  ))}
+                </div>
+              </CardContent>
+            </Card>
+          </TabsContent>
+
+          {/* Today's Special Tab */}
           <TabsContent value="specials" className="space-y-6">
             <Card>
               <CardHeader>
@@ -260,13 +319,5 @@ export default function Admin() {
         </Tabs>
       </main>
     </div>
-  );
-}
-
-function Label({ htmlFor, children }: { htmlFor: string; children: React.ReactNode }) {
-  return (
-    <label htmlFor={htmlFor} className="text-sm font-medium">
-      {children}
-    </label>
   );
 }

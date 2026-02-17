@@ -1,0 +1,70 @@
+{
+  "query": "SELECT id, name, domain FROM companies;",
+  "command": "mysql --batch --raw --column-names --default-character-set=utf8mb4 --host gateway02.us-east-1.prod.aws.tidbcloud.com --port 4000 --user 26Zg4bMSKinv2hB.b060407587d5 --database Y3xsU4JPingL5a2iZMTuYr --execute SELECT id, name, domain FROM companies;",
+  "rows": [
+    {
+      "id": "1",
+      "name": "Testcompany",
+      "domain": "testcompany.com"
+    },
+    {
+      "id": "2",
+      "name": "Apple",
+      "domain": "apple.com"
+    },
+    {
+      "id": "3",
+      "name": "Gmail",
+      "domain": "gmail.com"
+    },
+    {
+      "id": "4",
+      "name": "Deliverytest",
+      "domain": "deliverytest.com"
+    },
+    {
+      "id": "5",
+      "name": "Company",
+      "domain": "company.com"
+    },
+    {
+      "id": "6",
+      "name": "Cutofftest",
+      "domain": "cutofftest.com"
+    },
+    {
+      "id": "7",
+      "name": "Ordertest",
+      "domain": "ordertest.com"
+    },
+    {
+      "id": "8",
+      "name": "Statustest",
+      "domain": "statustest.com"
+    },
+    {
+      "id": "30001",
+      "name": "Fuda",
+      "domain": "fuda.com"
+    },
+    {
+      "id": "30002",
+      "name": "Woolies",
+      "domain": "woolies.com"
+    },
+    {
+      "id": "60001",
+      "name": "Microsoft",
+      "domain": "microsoft.com"
+    },
+    {
+      "id": "60002",
+      "name": "Google",
+      "domain": "google.com"
+    }
+  ],
+  "messages": [],
+  "stdout": "id\tname\tdomain\n1\tTestcompany\ttestcompany.com\n2\tApple\tapple.com\n3\tGmail\tgmail.com\n4\tDeliverytest\tdeliverytest.com\n5\tCompany\tcompany.com\n6\tCutofftest\tcutofftest.com\n7\tOrdertest\tordertest.com\n8\tStatustest\tstatustest.com\n30001\tFuda\tfuda.com\n30002\tWoolies\twoolies.com\n60001\tMicrosoft\tmicrosoft.com\n60002\tGoogle\tgoogle.com\n",
+  "stderr": "",
+  "execution_time_ms": 1517
+}

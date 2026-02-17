@@ -28,6 +28,11 @@ export default function Home() {
                   Admin
                 </Button>
               )}
+              {(user?.role === "admin" || user?.role === "kitchen") && (
+                <Button variant="outline" onClick={() => setLocation("/kitchen")}>
+                  Kitchen
+                </Button>
+              )}
             </div>
           ) : (
             <Button variant="secondary" onClick={() => window.location.href = getLoginUrl()}>

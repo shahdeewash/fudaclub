@@ -23,6 +23,9 @@ export default function Menu() {
   const { data: colleagues } = trpc.order.getColleaguesWhoOrdered.useQuery(undefined, {
     enabled: isAuthenticated,
   });
+  const { data: dailyCredit } = trpc.order.getDailyCredit.useQuery(undefined, {
+    enabled: isAuthenticated,
+  });
 
   const utils = trpc.useUtils();
   const createOrder = trpc.order.create.useMutation({
@@ -89,17 +92,25 @@ export default function Menu() {
   };
 
   const handleCheckout = () => {
-    const items = Array.from(cart.entries()).map(([menuItemId, quantity]) => ({
-      menuItemId,
-      quantity,
-    }));
-
-    if (items.length === 0) {
+    if (cart.size === 0) {
       toast.error("Cart is empty");
       return;
     }
 
-    createOrder.mutate({ items });
+    // Save cart to localStorage for checkout page
+    const cartItems = Array.from(cart.entries()).map(([id, quantity]) => {
+      const item = menuItems?.find(m => m.id === id) || todaysSpecial;
+      return item ? {
+        id: item.id,
+        name: item.name,
+        price: item.price,
+        quantity,
+        imageUrl: item.imageUrl,
+      } : null;
+    }).filter(Boolean);
+
+    localStorage.setItem("fuda_cart", JSON.stringify(cartItems));
+    setLocation("/checkout");
   };
 
   const cartTotal = cart.size;
@@ -108,8 +119,9 @@ export default function Menu() {
   const deliveryProgress = Math.min((colleagueCount / deliveryThreshold) * 100, 100);
   const freeDeliveryUnlocked = colleagueCount >= deliveryThreshold;
 
-  // Check if daily credit is available (simplified - first item is free)
-  const hasDailyCredit = true; // In real app, check if credit was used today
+  // Check if daily credit is available
+  const hasDailyCredit = dailyCredit?.available || false;
+  const hasUsedCreditToday = dailyCredit?.usedToday || false;
 
   return (
     <div className="min-h-screen bg-background">
@@ -187,7 +199,7 @@ export default function Menu() {
                   <p className="text-muted-foreground mb-3">{todaysSpecial.description}</p>
                   <div className="flex items-center justify-between">
                     <span className="text-2xl font-bold">
-                      {hasDailyCredit && cart.size === 0 ? (
+                      {hasDailyCredit && !hasUsedCreditToday && cart.size === 0 ? (
                         <span className="text-secondary">$0.00</span>
                       ) : (
                         `$${(todaysSpecial.price / 100).toFixed(2)}`
@@ -210,10 +222,10 @@ export default function Menu() {
             <div className="text-center py-12">Loading menu...</div>
           ) : (
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-              {menuItems?.map((item, index) => {
+              {menuItems?.map((item) => {
                 const inCart = cart.get(item.id) || 0;
-                const isFirstItem = cart.size === 0 && index === 0;
-                const isFree = hasDailyCredit && isFirstItem;
+                const isFirstItemInCart = cart.size === 0;
+                const isFree = hasDailyCredit && !hasUsedCreditToday && isFirstItemInCart;
 
                 return (
                   <Card key={item.id}>

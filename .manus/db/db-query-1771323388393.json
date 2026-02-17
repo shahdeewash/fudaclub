@@ -1,0 +1,9 @@
+{
+  "query": "UPDATE menuItems SET price = 1750 WHERE name = 'Thai Green Curry';",
+  "command": "mysql --batch --raw --column-names --default-character-set=utf8mb4 --host gateway02.us-east-1.prod.aws.tidbcloud.com --port 4000 --user 26Zg4bMSKinv2hB.b060407587d5 --database Y3xsU4JPingL5a2iZMTuYr --execute UPDATE menuItems SET price = 1750 WHERE name = 'Thai Green Curry';",
+  "rows": [],
+  "messages": [],
+  "stdout": "",
+  "stderr": "",
+  "execution_time_ms": 1519
+}

@@ -9,16 +9,21 @@ import Subscribe from "./pages/Subscribe";
 import Menu from "./pages/Menu";
 import Orders from "./pages/Orders";
 import Admin from "./pages/Admin";
+import AdminDishForm from "./pages/AdminDishForm";
 import Kitchen from "./pages/Kitchen";
+import Checkout from "./pages/Checkout";
+import DevLogin from "./pages/DevLogin";
 
 function Router() {
   return (
     <Switch>
       <Route path={"/"} component={Home} />
-      <Route path={"/subscribe"} component={Subscribe} />
-      <Route path={"/menu"} component={Menu} />
+      <Route path={"/subscribe"} component={Subscribe} />      <Route path={"/menu"} component={Menu} />
+      <Route path={"/checkout"} component={Checkout} />
+      <Route path={"/dev-login"} component={DevLogin} />
       <Route path={"/orders"} component={Orders} />
       <Route path={"/admin"} component={Admin} />
+      <Route path={"/admin/dish/new"} component={AdminDishForm} />
       <Route path={"/kitchen"} component={Kitchen} />
       <Route path={"/404"} component={NotFound} />
       <Route component={NotFound} />

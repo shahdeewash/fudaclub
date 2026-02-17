@@ -3,6 +3,7 @@ import { z } from "zod";
 import { COOKIE_NAME } from "@shared/const";
 import { getSessionCookieOptions } from "./_core/cookies";
 import { systemRouter } from "./_core/systemRouter";
+import { devRouter } from "./dev-routers";
 import { publicProcedure, protectedProcedure, router } from "./_core/trpc";
 import * as db from "./db";
 import { nanoid } from "nanoid";
@@ -27,6 +28,7 @@ function capitalizeCompanyName(domain: string): string {
 
 export const appRouter = router({
   system: systemRouter,
+  dev: devRouter,
   
   auth: router({
     me: publicProcedure.query(opts => opts.ctx.user),
@@ -157,8 +159,12 @@ export const appRouter = router({
           throw new TRPCError({ code: 'FORBIDDEN' });
         }
 
+        // Convert price from dollars to cents
+        const priceInCents = Math.round(input.price * 100);
+
         return await db.createMenuItem({
           ...input,
+          price: priceInCents,
           isAvailable: true,
           isTodaysSpecial: false,
         });
@@ -339,6 +345,16 @@ export const appRouter = router({
         id: u!.id,
         name: u!.name || 'Anonymous',
       }));
+    }),
+
+    getDailyCredit: protectedProcedure.query(async ({ ctx }) => {
+      const dailyCredit = await db.getDailyCreditForToday(ctx.user.id);
+      
+      return {
+        available: true, // User has subscription, so credit is available
+        usedToday: dailyCredit ? dailyCredit.isUsed : false,
+        creditDate: dailyCredit?.creditDate || new Date(),
+      };
     }),
   }),
 
