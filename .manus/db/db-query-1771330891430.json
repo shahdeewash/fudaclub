@@ -1,0 +1,45 @@
+{
+  "query": "SELECT orderNumber, orderDate, subtotal, total, dailyCreditUsed FROM orders WHERE DATE(orderDate) = CURDATE() ORDER BY orderDate DESC LIMIT 5;",
+  "command": "mysql --batch --raw --column-names --default-character-set=utf8mb4 --host gateway02.us-east-1.prod.aws.tidbcloud.com --port 4000 --user 26Zg4bMSKinv2hB.b060407587d5 --database Y3xsU4JPingL5a2iZMTuYr --execute SELECT orderNumber, orderDate, subtotal, total, dailyCreditUsed FROM orders WHERE DATE(orderDate) = CURDATE() ORDER BY orderDate DESC LIMIT 5;",
+  "rows": [
+    {
+      "orderNumber": "ORD-B7JLS0NL",
+      "orderDate": "2026-02-17 12:15:10",
+      "subtotal": "3800",
+      "total": "4180",
+      "dailyCreditUsed": "0"
+    },
+    {
+      "orderNumber": "ORD-MTSJ6DWP",
+      "orderDate": "2026-02-17 12:01:48",
+      "subtotal": "1900",
+      "total": "2090",
+      "dailyCreditUsed": "1"
+    },
+    {
+      "orderNumber": "ORD-B7WXDP84",
+      "orderDate": "2026-02-17 11:55:40",
+      "subtotal": "3800",
+      "total": "4180",
+      "dailyCreditUsed": "0"
+    },
+    {
+      "orderNumber": "ORD-AWBLGOQ4",
+      "orderDate": "2026-02-17 11:39:52",
+      "subtotal": "3800",
+      "total": "5060",
+      "dailyCreditUsed": "0"
+    },
+    {
+      "orderNumber": "ORD-RFZYQNMX",
+      "orderDate": "2026-02-17 10:24:05",
+      "subtotal": "1750",
+      "total": "2805",
+      "dailyCreditUsed": "0"
+    }
+  ],
+  "messages": [],
+  "stdout": "orderNumber\torderDate\tsubtotal\ttotal\tdailyCreditUsed\nORD-B7JLS0NL\t2026-02-17 12:15:10\t3800\t4180\t0\nORD-MTSJ6DWP\t2026-02-17 12:01:48\t1900\t2090\t1\nORD-B7WXDP84\t2026-02-17 11:55:40\t3800\t4180\t0\nORD-AWBLGOQ4\t2026-02-17 11:39:52\t3800\t5060\t0\nORD-RFZYQNMX\t2026-02-17 10:24:05\t1750\t2805\t0\n",
+  "stderr": "",
+  "execution_time_ms": 1550
+}

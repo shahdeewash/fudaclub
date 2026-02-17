@@ -1,0 +1,18 @@
+{
+  "query": "SELECT oi.quantity, oi.unitPrice, oi.totalPrice, oi.isFree, o.orderNumber, o.subtotal FROM orderItems oi JOIN orders o ON oi.orderId = o.id WHERE o.orderNumber = 'ORD-B7JLS0NL';",
+  "command": "mysql --batch --raw --column-names --default-character-set=utf8mb4 --host gateway02.us-east-1.prod.aws.tidbcloud.com --port 4000 --user 26Zg4bMSKinv2hB.b060407587d5 --database Y3xsU4JPingL5a2iZMTuYr --execute SELECT oi.quantity, oi.unitPrice, oi.totalPrice, oi.isFree, o.orderNumber, o.subtotal FROM orderItems oi JOIN orders o ON oi.orderId = o.id WHERE o.orderNumber = 'ORD-B7JLS0NL';",
+  "rows": [
+    {
+      "quantity": "2",
+      "unitPrice": "1900",
+      "totalPrice": "3800",
+      "isFree": "0",
+      "orderNumber": "ORD-B7JLS0NL",
+      "subtotal": "3800"
+    }
+  ],
+  "messages": [],
+  "stdout": "quantity\tunitPrice\ttotalPrice\tisFree\torderNumber\tsubtotal\n2\t1900\t3800\t0\tORD-B7JLS0NL\t3800\n",
+  "stderr": "",
+  "execution_time_ms": 1539
+}

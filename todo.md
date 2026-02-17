@@ -139,3 +139,20 @@
   - [x] Order 3x same item (1 free, 2 paid)
   - [x] Order different items (1 free, rest paid)
   - [x] Verify pricing in checkout, orders, admin, kitchen
+
+## Bug Fixes (2026-02-17 - Continued)
+
+- [x] Fix empty image src error on checkout page (causing browser to download whole page)
+- [x] Verify daily credit bug is actually fixed with complete third-person testing
+- [x] Test: Order 2x same item and verify first is free, second is full price
+- [x] Verify pricing in checkout, orders page, admin dashboard, and kitchen display
+
+## Critical Bug: Subtotal Calculation Not Using Split Items (2026-02-17)
+
+- [x] Debug order creation code to find where subtotal is calculated
+- [x] Identify why subtotal uses original cart items ($38) instead of split items ($19)
+- [x] Fix subtotal calculation to use orderItemsData (split items) instead of input.items
+- [x] Ensure order record stores correct subtotal after daily credit applied
+- [x] Test with 2x same item and verify subtotal is $19 (not $38)
+- [x] Verify Admin dashboard shows correct pricing
+- [x] Verify Orders page shows correct pricing

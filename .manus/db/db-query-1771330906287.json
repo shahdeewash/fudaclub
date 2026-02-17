@@ -1,0 +1,34 @@
+{
+  "query": "SELECT oi.*, o.orderNumber FROM orderItems oi JOIN orders o ON oi.orderId = o.id WHERE o.orderNumber = 'ORD-MTSJ6DWP';",
+  "command": "mysql --batch --raw --column-names --default-character-set=utf8mb4 --host gateway02.us-east-1.prod.aws.tidbcloud.com --port 4000 --user 26Zg4bMSKinv2hB.b060407587d5 --database Y3xsU4JPingL5a2iZMTuYr --execute SELECT oi.*, o.orderNumber FROM orderItems oi JOIN orders o ON oi.orderId = o.id WHERE o.orderNumber = 'ORD-MTSJ6DWP';",
+  "rows": [
+    {
+      "id": "30005",
+      "orderId": "30005",
+      "menuItemId": "2",
+      "itemName": "Lamb Doner Wrap",
+      "quantity": "1",
+      "unitPrice": "0",
+      "totalPrice": "0",
+      "isFree": "1",
+      "createdAt": "2026-02-17 12:01:48",
+      "orderNumber": "ORD-MTSJ6DWP"
+    },
+    {
+      "id": "30006",
+      "orderId": "30005",
+      "menuItemId": "2",
+      "itemName": "Lamb Doner Wrap",
+      "quantity": "1",
+      "unitPrice": "1900",
+      "totalPrice": "1900",
+      "isFree": "0",
+      "createdAt": "2026-02-17 12:01:49",
+      "orderNumber": "ORD-MTSJ6DWP"
+    }
+  ],
+  "messages": [],
+  "stdout": "id\torderId\tmenuItemId\titemName\tquantity\tunitPrice\ttotalPrice\tisFree\tcreatedAt\torderNumber\n30005\t30005\t2\tLamb Doner Wrap\t1\t0\t0\t1\t2026-02-17 12:01:48\tORD-MTSJ6DWP\n30006\t30005\t2\tLamb Doner Wrap\t1\t1900\t1900\t0\t2026-02-17 12:01:49\tORD-MTSJ6DWP\n",
+  "stderr": "",
+  "execution_time_ms": 1538
+}

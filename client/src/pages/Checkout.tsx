@@ -232,7 +232,7 @@ export default function Checkout() {
 
                   return (
                     <div key={item.id} className="flex gap-4 pb-4 border-b last:border-0">
-                      {item.imageUrl && (
+                      {item.imageUrl && item.imageUrl.trim() !== "" && (
                         <img
                           src={item.imageUrl}
                           alt={item.name}

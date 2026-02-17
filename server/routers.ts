@@ -227,7 +227,9 @@ export const appRouter = router({
           isFree: boolean;
         }> = [];
 
+
         for (const item of input.items) {
+
           const menuItem = menuItemMap.get(item.menuItemId);
           if (!menuItem) {
             throw new TRPCError({
@@ -238,6 +240,7 @@ export const appRouter = router({
 
           // If daily credit available and not yet applied, split first unit as free
           if (canUseCredit && !creditApplied && item.quantity > 0) {
+
             // First unit is free
             orderItemsData.push({
               menuItemId: item.menuItemId,
@@ -262,8 +265,10 @@ export const appRouter = router({
                 isFree: false,
               });
               subtotal += remainingTotal;
+
             }
           } else {
+
             // No credit or already applied - full price
             const totalPrice = menuItem.price * item.quantity;
             orderItemsData.push({
@@ -275,8 +280,11 @@ export const appRouter = router({
               isFree: false,
             });
             subtotal += totalPrice;
+
           }
         }
+
+
 
         // Check delivery eligibility
         const companyOrders = await db.getOrdersByCompanyToday(ctx.user.companyId);
