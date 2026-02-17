@@ -1,11 +1,31 @@
-import { eq } from "drizzle-orm";
+import { and, eq, gte, lte, sql } from "drizzle-orm";
 import { drizzle } from "drizzle-orm/mysql2";
-import { InsertUser, users } from "../drizzle/schema";
+import { 
+  InsertUser, 
+  users, 
+  companies, 
+  Company, 
+  InsertCompany,
+  subscriptions,
+  Subscription,
+  InsertSubscription,
+  menuItems,
+  MenuItem,
+  InsertMenuItem,
+  orders,
+  Order,
+  InsertOrder,
+  orderItems,
+  OrderItem,
+  InsertOrderItem,
+  dailyCredits,
+  DailyCredit,
+  InsertDailyCredit
+} from "../drizzle/schema";
 import { ENV } from './_core/env';
 
 let _db: ReturnType<typeof drizzle> | null = null;
 
-// Lazily create the drizzle instance so local tooling can run without a DB.
 export async function getDb() {
   if (!_db && process.env.DATABASE_URL) {
     try {
@@ -59,6 +79,10 @@ export async function upsertUser(user: InsertUser): Promise<void> {
       values.role = 'admin';
       updateSet.role = 'admin';
     }
+    if (user.companyId !== undefined) {
+      values.companyId = user.companyId;
+      updateSet.companyId = user.companyId;
+    }
 
     if (!values.lastSignedIn) {
       values.lastSignedIn = new Date();
@@ -89,4 +113,244 @@ export async function getUserByOpenId(openId: string) {
   return result.length > 0 ? result[0] : undefined;
 }
 
-// TODO: add feature queries here as your schema grows.
+export async function getUserById(id: number) {
+  const db = await getDb();
+  if (!db) return undefined;
+
+  const result = await db.select().from(users).where(eq(users.id, id)).limit(1);
+  return result.length > 0 ? result[0] : undefined;
+}
+
+// Company helpers
+export async function getCompanyByDomain(domain: string): Promise<Company | undefined> {
+  const db = await getDb();
+  if (!db) return undefined;
+
+  const result = await db.select().from(companies).where(eq(companies.domain, domain)).limit(1);
+  return result.length > 0 ? result[0] : undefined;
+}
+
+export async function createCompany(company: InsertCompany): Promise<Company> {
+  const db = await getDb();
+  if (!db) throw new Error("Database not available");
+
+  const result = await db.insert(companies).values(company);
+  const id = Number(result[0].insertId);
+  
+  const created = await db.select().from(companies).where(eq(companies.id, id)).limit(1);
+  return created[0]!;
+}
+
+export async function getAllCompanies(): Promise<Company[]> {
+  const db = await getDb();
+  if (!db) return [];
+
+  return await db.select().from(companies);
+}
+
+// Subscription helpers
+export async function getActiveSubscriptionByUserId(userId: number): Promise<Subscription | undefined> {
+  const db = await getDb();
+  if (!db) return undefined;
+
+  const result = await db
+    .select()
+    .from(subscriptions)
+    .where(and(
+      eq(subscriptions.userId, userId),
+      eq(subscriptions.status, 'active')
+    ))
+    .limit(1);
+
+  return result.length > 0 ? result[0] : undefined;
+}
+
+export async function createSubscription(subscription: InsertSubscription): Promise<Subscription> {
+  const db = await getDb();
+  if (!db) throw new Error("Database not available");
+
+  const result = await db.insert(subscriptions).values(subscription);
+  const id = Number(result[0].insertId);
+  
+  const created = await db.select().from(subscriptions).where(eq(subscriptions.id, id)).limit(1);
+  return created[0]!;
+}
+
+// Menu item helpers
+export async function getAllMenuItems(): Promise<MenuItem[]> {
+  const db = await getDb();
+  if (!db) return [];
+
+  return await db.select().from(menuItems).where(eq(menuItems.isAvailable, true));
+}
+
+export async function getTodaysSpecial(): Promise<MenuItem | undefined> {
+  const db = await getDb();
+  if (!db) return undefined;
+
+  const today = new Date();
+  today.setHours(0, 0, 0, 0);
+
+  const result = await db
+    .select()
+    .from(menuItems)
+    .where(and(
+      eq(menuItems.isTodaysSpecial, true),
+      eq(menuItems.isAvailable, true)
+    ))
+    .limit(1);
+
+  return result.length > 0 ? result[0] : undefined;
+}
+
+export async function setTodaysSpecial(menuItemId: number): Promise<void> {
+  const db = await getDb();
+  if (!db) throw new Error("Database not available");
+
+  // Clear all existing specials
+  await db.update(menuItems).set({ isTodaysSpecial: false });
+
+  // Set new special
+  const today = new Date();
+  await db.update(menuItems)
+    .set({ isTodaysSpecial: true, specialDate: today })
+    .where(eq(menuItems.id, menuItemId));
+}
+
+export async function createMenuItem(item: InsertMenuItem): Promise<MenuItem> {
+  const db = await getDb();
+  if (!db) throw new Error("Database not available");
+
+  const result = await db.insert(menuItems).values(item);
+  const id = Number(result[0].insertId);
+  
+  const created = await db.select().from(menuItems).where(eq(menuItems.id, id)).limit(1);
+  return created[0]!;
+}
+
+// Daily credit helpers
+export async function getDailyCreditForToday(userId: number): Promise<DailyCredit | undefined> {
+  const db = await getDb();
+  if (!db) return undefined;
+
+  const today = new Date();
+  today.setHours(0, 0, 0, 0);
+  
+  const tomorrow = new Date(today);
+  tomorrow.setDate(tomorrow.getDate() + 1);
+
+  const result = await db
+    .select()
+    .from(dailyCredits)
+    .where(and(
+      eq(dailyCredits.userId, userId),
+      gte(dailyCredits.creditDate, today),
+      lte(dailyCredits.creditDate, tomorrow)
+    ))
+    .limit(1);
+
+  return result.length > 0 ? result[0] : undefined;
+}
+
+export async function createDailyCredit(credit: InsertDailyCredit): Promise<DailyCredit> {
+  const db = await getDb();
+  if (!db) throw new Error("Database not available");
+
+  const result = await db.insert(dailyCredits).values(credit);
+  const id = Number(result[0].insertId);
+  
+  const created = await db.select().from(dailyCredits).where(eq(dailyCredits.id, id)).limit(1);
+  return created[0]!;
+}
+
+export async function markDailyCreditAsUsed(creditId: number, orderId: number): Promise<void> {
+  const db = await getDb();
+  if (!db) throw new Error("Database not available");
+
+  await db.update(dailyCredits)
+    .set({ isUsed: true, usedAt: new Date(), orderId })
+    .where(eq(dailyCredits.id, creditId));
+}
+
+// Order helpers
+export async function createOrder(order: InsertOrder): Promise<Order> {
+  const db = await getDb();
+  if (!db) throw new Error("Database not available");
+
+  const result = await db.insert(orders).values(order);
+  const id = Number(result[0].insertId);
+  
+  const created = await db.select().from(orders).where(eq(orders.id, id)).limit(1);
+  return created[0]!;
+}
+
+export async function createOrderItem(item: InsertOrderItem): Promise<OrderItem> {
+  const db = await getDb();
+  if (!db) throw new Error("Database not available");
+
+  const result = await db.insert(orderItems).values(item);
+  const id = Number(result[0].insertId);
+  
+  const created = await db.select().from(orderItems).where(eq(orderItems.id, id)).limit(1);
+  return created[0]!;
+}
+
+export async function getOrdersByCompanyToday(companyId: number): Promise<Order[]> {
+  const db = await getDb();
+  if (!db) return [];
+
+  const today = new Date();
+  today.setHours(0, 0, 0, 0);
+  
+  const tomorrow = new Date(today);
+  tomorrow.setDate(tomorrow.getDate() + 1);
+
+  return await db
+    .select()
+    .from(orders)
+    .where(and(
+      eq(orders.companyId, companyId),
+      gte(orders.orderDate, today),
+      lte(orders.orderDate, tomorrow)
+    ));
+}
+
+export async function getAllOrdersToday(): Promise<Order[]> {
+  const db = await getDb();
+  if (!db) return [];
+
+  const today = new Date();
+  today.setHours(0, 0, 0, 0);
+  
+  const tomorrow = new Date(today);
+  tomorrow.setDate(tomorrow.getDate() + 1);
+
+  return await db
+    .select()
+    .from(orders)
+    .where(and(
+      gte(orders.orderDate, today),
+      lte(orders.orderDate, tomorrow)
+    ));
+}
+
+export async function getOrderItemsByOrderId(orderId: number): Promise<OrderItem[]> {
+  const db = await getDb();
+  if (!db) return [];
+
+  return await db.select().from(orderItems).where(eq(orderItems.orderId, orderId));
+}
+
+export async function updateOrderStatus(orderId: number, status: Order['status']): Promise<void> {
+  const db = await getDb();
+  if (!db) throw new Error("Database not available");
+
+  await db.update(orders).set({ status }).where(eq(orders.id, orderId));
+}
+
+export async function getUsersByCompanyId(companyId: number) {
+  const db = await getDb();
+  if (!db) return [];
+
+  return await db.select().from(users).where(eq(users.companyId, companyId));
+}
