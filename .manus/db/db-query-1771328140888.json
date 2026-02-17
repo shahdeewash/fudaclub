@@ -1,0 +1,34 @@
+{
+  "query": "SHOW TABLES;",
+  "command": "mysql --batch --raw --column-names --default-character-set=utf8mb4 --host gateway02.us-east-1.prod.aws.tidbcloud.com --port 4000 --user 26Zg4bMSKinv2hB.b060407587d5 --database Y3xsU4JPingL5a2iZMTuYr --execute SHOW TABLES;",
+  "rows": [
+    {
+      "Tables_in_Y3xsU4JPingL5a2iZMTuYr": "__drizzle_migrations"
+    },
+    {
+      "Tables_in_Y3xsU4JPingL5a2iZMTuYr": "companies"
+    },
+    {
+      "Tables_in_Y3xsU4JPingL5a2iZMTuYr": "dailyCredits"
+    },
+    {
+      "Tables_in_Y3xsU4JPingL5a2iZMTuYr": "menuItems"
+    },
+    {
+      "Tables_in_Y3xsU4JPingL5a2iZMTuYr": "orderItems"
+    },
+    {
+      "Tables_in_Y3xsU4JPingL5a2iZMTuYr": "orders"
+    },
+    {
+      "Tables_in_Y3xsU4JPingL5a2iZMTuYr": "subscriptions"
+    },
+    {
+      "Tables_in_Y3xsU4JPingL5a2iZMTuYr": "users"
+    }
+  ],
+  "messages": [],
+  "stdout": "Tables_in_Y3xsU4JPingL5a2iZMTuYr\n__drizzle_migrations\ncompanies\ndailyCredits\nmenuItems\norderItems\norders\nsubscriptions\nusers\n",
+  "stderr": "",
+  "execution_time_ms": 1556
+}

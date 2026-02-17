@@ -1,0 +1,22 @@
+{
+  "query": "SELECT oi.*, o.orderNumber \nFROM orderItems oi \nJOIN orders o ON oi.orderId = o.id \nWHERE o.orderNumber = 'ORD-B7WXDP84' \nORDER BY oi.id;",
+  "command": "mysql --batch --raw --column-names --default-character-set=utf8mb4 --host gateway02.us-east-1.prod.aws.tidbcloud.com --port 4000 --user 26Zg4bMSKinv2hB.b060407587d5 --database Y3xsU4JPingL5a2iZMTuYr --execute SELECT oi.*, o.orderNumber \nFROM orderItems oi \nJOIN orders o ON oi.orderId = o.id \nWHERE o.orderNumber = 'ORD-B7WXDP84' \nORDER BY oi.id;",
+  "rows": [
+    {
+      "id": "30004",
+      "orderId": "30004",
+      "menuItemId": "2",
+      "itemName": "Lamb Doner Wrap",
+      "quantity": "2",
+      "unitPrice": "1900",
+      "totalPrice": "3800",
+      "isFree": "0",
+      "createdAt": "2026-02-17 11:55:40",
+      "orderNumber": "ORD-B7WXDP84"
+    }
+  ],
+  "messages": [],
+  "stdout": "id\torderId\tmenuItemId\titemName\tquantity\tunitPrice\ttotalPrice\tisFree\tcreatedAt\torderNumber\n30004\t30004\t2\tLamb Doner Wrap\t2\t1900\t3800\t0\t2026-02-17 11:55:40\tORD-B7WXDP84\n",
+  "stderr": "",
+  "execution_time_ms": 1641
+}

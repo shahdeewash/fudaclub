@@ -215,9 +215,19 @@ export const appRouter = router({
         const menuItemsData = await db.getAllMenuItems();
         const menuItemMap = new Map(menuItemsData.map(item => [item.id, item]));
 
-        // Calculate totals
+        // Calculate totals and split items for daily credit
         let subtotal = 0;
-        const orderItemsData = input.items.map((item, index) => {
+        let creditApplied = false;
+        const orderItemsData: Array<{
+          menuItemId: number;
+          itemName: string;
+          quantity: number;
+          unitPrice: number;
+          totalPrice: number;
+          isFree: boolean;
+        }> = [];
+
+        for (const item of input.items) {
           const menuItem = menuItemMap.get(item.menuItemId);
           if (!menuItem) {
             throw new TRPCError({
@@ -226,19 +236,47 @@ export const appRouter = router({
             });
           }
 
-          const isFree = canUseCredit && index === 0;
-          const totalPrice = isFree ? 0 : menuItem.price * item.quantity;
-          subtotal += totalPrice;
+          // If daily credit available and not yet applied, split first unit as free
+          if (canUseCredit && !creditApplied && item.quantity > 0) {
+            // First unit is free
+            orderItemsData.push({
+              menuItemId: item.menuItemId,
+              itemName: menuItem.name,
+              quantity: 1,
+              unitPrice: 0, // Free!
+              totalPrice: 0,
+              isFree: true,
+            });
+            creditApplied = true;
 
-          return {
-            menuItemId: item.menuItemId,
-            itemName: menuItem.name,
-            quantity: item.quantity,
-            unitPrice: menuItem.price,
-            totalPrice,
-            isFree,
-          };
-        });
+            // Remaining units at full price
+            if (item.quantity > 1) {
+              const remainingQty = item.quantity - 1;
+              const remainingTotal = menuItem.price * remainingQty;
+              orderItemsData.push({
+                menuItemId: item.menuItemId,
+                itemName: menuItem.name,
+                quantity: remainingQty,
+                unitPrice: menuItem.price,
+                totalPrice: remainingTotal,
+                isFree: false,
+              });
+              subtotal += remainingTotal;
+            }
+          } else {
+            // No credit or already applied - full price
+            const totalPrice = menuItem.price * item.quantity;
+            orderItemsData.push({
+              menuItemId: item.menuItemId,
+              itemName: menuItem.name,
+              quantity: item.quantity,
+              unitPrice: menuItem.price,
+              totalPrice,
+              isFree: false,
+            });
+            subtotal += totalPrice;
+          }
+        }
 
         // Check delivery eligibility
         const companyOrders = await db.getOrdersByCompanyToday(ctx.user.companyId);

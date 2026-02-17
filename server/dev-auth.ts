@@ -14,7 +14,7 @@ export const DEV_USERS: Record<string, Omit<User, "id" | "createdAt" | "updatedA
     email: "user@testcompany.com",
     loginMethod: "dev",
     role: "user",
-    companyId: null,
+    companyId: 1, // Set to testcompany for testing
   },
   admin: {
     openId: "dev-admin-001",

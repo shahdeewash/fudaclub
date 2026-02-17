@@ -112,3 +112,30 @@
 - [x] Display individual order items (dishes) in Admin Dashboard "By Company" tab
 - [x] Display individual order items (dishes) in Kitchen Display (KDS) cards
 - [x] Show dish names, quantities, and any special instructions for each order
+
+## Daily Credit Testing (2026-02-17)
+
+- [ ] Test ordering same item twice - verify first is free, second is full price
+- [ ] Verify checkout displays correct pricing for mixed free/paid items
+- [ ] Verify admin dashboard shows correct pricing breakdown
+- [ ] Verify kitchen display shows correct item pricing
+
+## Critical Bug Fix: Daily Credit Not Applied (2026-02-17)
+
+- [x] Fix backend order creation to apply daily credit correctly
+  - [x] Implement daily credit logic in orders.create mutation
+  - [x] Check if user has used daily credit today
+  - [x] Apply credit to first eligible item (mark as free with unitPrice = 0)
+  - [x] Store order items with correct individual pricing
+  - [x] Calculate correct subtotal after credit applied
+- [x] Update frontend to display free items with "Free" badges
+  - [x] Show "1x Item - FREE" for credited items in Checkout
+  - [x] Show "1x Item - $XX.XX" for paid items in Checkout
+  - [x] Update Orders page order items display with Free badges
+  - [x] Update Admin dashboard order items display with Free badges
+  - [x] Update Kitchen display order items display with Free badges
+- [x] Test scenarios:
+  - [x] Order 2x same item (1 free, 1 paid)
+  - [x] Order 3x same item (1 free, 2 paid)
+  - [x] Order different items (1 free, rest paid)
+  - [x] Verify pricing in checkout, orders, admin, kitchen
