@@ -199,11 +199,7 @@ export default function Menu() {
                   <p className="text-muted-foreground mb-3">{todaysSpecial.description}</p>
                   <div className="flex items-center justify-between">
                     <span className="text-2xl font-bold">
-                      {hasDailyCredit && !hasUsedCreditToday && cart.size === 0 ? (
-                        <span className="text-secondary">$0.00</span>
-                      ) : (
-                        `$${(todaysSpecial.price / 100).toFixed(2)}`
-                      )}
+                      ${(todaysSpecial.price / 100).toFixed(2)}
                     </span>
                     <Button onClick={() => addToCart(todaysSpecial.id)} variant="secondary">
                       Add to Cart
@@ -224,8 +220,6 @@ export default function Menu() {
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
               {menuItems?.map((item) => {
                 const inCart = cart.get(item.id) || 0;
-                const isFirstItemInCart = cart.size === 0;
-                const isFree = hasDailyCredit && !hasUsedCreditToday && isFirstItemInCart;
 
                 return (
                   <Card key={item.id}>
@@ -247,21 +241,12 @@ export default function Menu() {
                           )}
                         </div>
                         <span className="text-lg font-bold">
-                          {isFree ? (
-                            <span className="text-secondary">$0.00</span>
-                          ) : (
-                            `$${(item.price / 100).toFixed(2)}`
-                          )}
+                          ${(item.price / 100).toFixed(2)}
                         </span>
                       </div>
                       <CardDescription className="text-sm">
                         {item.description}
                       </CardDescription>
-                      {isFree && (
-                        <Badge variant="secondary" className="mt-2">
-                          Daily Credit Available
-                        </Badge>
-                      )}
                     </CardContent>
                     <CardFooter className="flex gap-2">
                       {inCart > 0 ? (

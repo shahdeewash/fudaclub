@@ -122,9 +122,22 @@ export default function Checkout() {
 
   // Calculate pricing
   const hasDailyCredit = dailyCredit?.available && !dailyCredit?.usedToday;
-  const firstItemPrice = hasDailyCredit && cartItems.length > 0 ? 0 : (cartItems[0]?.price || 0);
-  const otherItemsTotal = cartItems.slice(1).reduce((sum, item) => sum + (item.price * item.quantity), 0);
-  const subtotal = firstItemPrice + otherItemsTotal;
+  
+  // Calculate subtotal with daily credit applied to first unit only
+  let subtotal = 0;
+  if (hasDailyCredit && cartItems.length > 0) {
+    // First item: one unit is free, remaining units are charged
+    const firstItem = cartItems[0];
+    const firstItemTotal = firstItem.price * (firstItem.quantity - 1); // quantity - 1 because first unit is free
+    subtotal += firstItemTotal;
+    
+    // Remaining items: all units are charged
+    const otherItemsTotal = cartItems.slice(1).reduce((sum, item) => sum + (item.price * item.quantity), 0);
+    subtotal += otherItemsTotal;
+  } else {
+    // No daily credit: charge for all items
+    subtotal = cartItems.reduce((sum, item) => sum + (item.price * item.quantity), 0);
+  }
   
   const colleagueCount = colleagues?.length || 0;
   const deliveryThreshold = 5;

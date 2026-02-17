@@ -156,3 +156,41 @@
 - [x] Test with 2x same item and verify subtotal is $19 (not $38)
 - [x] Verify Admin dashboard shows correct pricing
 - [x] Verify Orders page shows correct pricing
+
+## Critical Bug Fix: Frontend Checkout Subtotal Calculation (2026-02-17)
+
+### Problem
+- Checkout page displayed $0.00 subtotal when ordering 2x of same item with daily credit
+- Backend correctly stored $19.00 subtotal (working correctly)
+- Frontend calculation was incorrect
+
+### Root Cause
+1. **Checkout.tsx** (Lines 125-127): Calculated subtotal incorrectly
+   - Assumed cart items were separate entries, but cart has 1 item with quantity=2
+   - Set firstItemPrice = 0, then looked for items after first (empty array)
+   - Result: subtotal = 0 + 0 = $0.00
+
+2. **Menu.tsx** (Lines 227-228): Showed all items as free when cart was empty
+   - Logic: `isFirstItemInCart = cart.size === 0` (cart is EMPTY)
+   - When cart empty, ALL menu items showed $0.00 with "Daily Credit Available"
+   - Should always show regular prices on menu page
+
+### Fix Applied
+- [x] Fix Checkout.tsx subtotal calculation (Lines 125-140)
+  - Handle case where first cart item has quantity > 1
+  - Calculate: (quantity - 1) × price for first item when daily credit available
+  - Add remaining items at full price
+- [x] Remove daily credit price display from Menu.tsx
+  - Menu items now ALWAYS show regular prices
+  - Daily credit discount only applied during checkout calculation
+  - Removed "Daily Credit Available" badges from menu items
+
+### Testing Verified
+- [x] Menu page shows regular prices ($19.00, $18.00, etc.)
+- [x] Checkout page shows correct subtotal: $19.00 (1 free + 1 paid)
+- [x] Order summary breakdown: Subtotal $19.00 + Delivery $8.00 + Tax $2.70 = Total $29.70
+- [x] Backend order creation still working correctly
+- [x] Admin Dashboard shows split items with "Free" badge
+- [x] Kitchen Display shows order items correctly
+
+### Status: ✅ COMPLETE - Bug fully fixed and verified
