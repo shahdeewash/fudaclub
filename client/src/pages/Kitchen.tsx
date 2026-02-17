@@ -117,8 +117,24 @@ export default function Kitchen() {
             </span>
           </div>
 
+          {/* Order Items */}
+          {(order as any).items && (order as any).items.length > 0 && (
+            <div className="space-y-1">
+              <div className="text-xs font-semibold text-muted-foreground mb-1">Items:</div>
+              {(order as any).items.map((item: any, idx: number) => (
+                <div key={idx} className="flex items-center justify-between text-sm">
+                  <span>
+                    <span className="font-semibold">{item.quantity}x</span> {item.itemName}
+                    {item.isFree && <Badge variant="secondary" className="ml-2 text-xs">Free</Badge>}
+                  </span>
+                  <span className="text-muted-foreground">${(item.totalPrice / 100).toFixed(2)}</span>
+                </div>
+              ))}
+            </div>
+          )}
+
           {/* Total */}
-          <div className="flex justify-between items-center">
+          <div className="flex justify-between items-center pt-2 border-t">
             <span className="text-sm text-muted-foreground">Total</span>
             <span className="font-bold">${(order.total / 100).toFixed(2)}</span>
           </div>

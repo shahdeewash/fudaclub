@@ -97,3 +97,18 @@
 - ⚠️ Checkout button in Menu page requires JavaScript click (CSS z-index issue)
 - ⚠️ Place Order button requires JavaScript click (same CSS issue)
 - Note: These work in normal user interaction, only affect automated testing
+
+## UI/UX Improvements (2026-02-17)
+
+### Navigation & Access Control
+- [x] Hide Admin and Kitchen buttons from regular customers in header navigation
+- [x] Show Admin button only for admin users
+- [x] Show Kitchen button only for kitchen staff
+- [x] Add "My Orders" button in header for all logged-in customers
+- [x] Keep /admin page accessible only for admin users
+- [x] Keep /kitchen page accessible only for kitchen staff
+
+### Order Items Visibility
+- [x] Display individual order items (dishes) in Admin Dashboard "By Company" tab
+- [x] Display individual order items (dishes) in Kitchen Display (KDS) cards
+- [x] Show dish names, quantities, and any special instructions for each order

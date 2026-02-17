@@ -173,16 +173,32 @@ export default function Admin() {
                     </div>
 
                     {/* Order List */}
-                    <div className="mt-4 space-y-2">
+                    <div className="mt-4 space-y-3">
                       <h4 className="font-semibold text-sm">Orders</h4>
                       {group.orders.map((order) => (
                         <div
                           key={order.id}
-                          className="flex items-center justify-between p-2 bg-muted rounded-md text-sm"
+                          className="p-3 bg-muted rounded-md text-sm space-y-2"
                         >
-                          <span className="font-mono">{order.orderNumber}</span>
-                          <Badge variant="outline">{order.status}</Badge>
-                          <span>${(order.total / 100).toFixed(2)}</span>
+                          <div className="flex items-center justify-between">
+                            <span className="font-mono font-semibold">{order.orderNumber}</span>
+                            <Badge variant="outline">{order.status}</Badge>
+                            <span className="font-semibold">${(order.total / 100).toFixed(2)}</span>
+                          </div>
+                          {/* Order Items */}
+                          {(order as any).items && (order as any).items.length > 0 && (
+                            <div className="pl-3 space-y-1 border-l-2 border-primary/20">
+                              {(order as any).items.map((item: any, idx: number) => (
+                                <div key={idx} className="flex items-center justify-between text-xs text-muted-foreground">
+                                  <span>
+                                    {item.quantity}x {item.itemName}
+                                    {item.isFree && <Badge variant="secondary" className="ml-2 text-xs">Free</Badge>}
+                                  </span>
+                                  <span>${(item.totalPrice / 100).toFixed(2)}</span>
+                                </div>
+                              ))}
+                            </div>
+                          )}
                         </div>
                       ))}
                     </div>

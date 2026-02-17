@@ -23,6 +23,9 @@ export default function Home() {
               <Button variant="secondary" onClick={() => setLocation("/menu")}>
                 Browse Menu
               </Button>
+              <Button variant="outline" onClick={() => setLocation("/orders")}>
+                My Orders
+              </Button>
               {user?.role === "admin" && (
                 <Button variant="outline" onClick={() => setLocation("/admin")}>
                   Admin

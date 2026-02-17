@@ -307,7 +307,17 @@ export const appRouter = router({
         throw new TRPCError({ code: 'FORBIDDEN' });
       }
 
-      return await db.getAllOrdersToday();
+      const orders = await db.getAllOrdersToday();
+      
+      // Fetch order items for each order
+      const ordersWithItems = await Promise.all(
+        orders.map(async (order) => {
+          const items = await db.getOrderItemsByOrderId(order.id);
+          return { ...order, items };
+        })
+      );
+
+      return ordersWithItems;
     }),
 
     getOrderItems: protectedProcedure
@@ -389,7 +399,15 @@ export const appRouter = router({
       const companyMap = new Map(companies.map(c => [c.id, c]));
       const ordersByCompany = new Map<number, typeof orders>();
 
-      for (const order of orders) {
+      // Fetch order items for all orders
+      const ordersWithItems = await Promise.all(
+        orders.map(async (order) => {
+          const items = await db.getOrderItemsByOrderId(order.id);
+          return { ...order, items };
+        })
+      );
+
+      for (const order of ordersWithItems) {
         if (!ordersByCompany.has(order.companyId)) {
           ordersByCompany.set(order.companyId, []);
         }
