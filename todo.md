@@ -194,3 +194,31 @@
 - [x] Kitchen Display shows order items correctly
 
 ### Status: ✅ COMPLETE - Bug fully fixed and verified
+
+## User-Reported Issues (2026-02-17)
+
+### Missing Logout Functionality ✅ FIXED
+- [x] Add logout button/option to navigation header
+- [x] Implement logout functionality (already exists in backend, just need UI)
+- [x] Test logout flow (should redirect to landing page)
+- [x] Added logout button to Menu, Checkout, Orders, and Home pages
+- [x] Logout mutation implemented with success toast and redirect
+
+### Cart Persistence Issues ✅ FIXED
+- [x] Investigate why cart is not available on all pages
+- [x] Implement persistent cart component/state that works across all pages
+- [x] Ensure cart shows current items count on all pages
+- [x] Ensure cart items persist when navigating between pages
+- [x] Test cart functionality across: Menu → Checkout → Orders → Menu
+- [x] Created useCart() hook to manage cart state from localStorage
+- [x] Created CartIndicator component showing cart item count
+- [x] Added CartIndicator to all page headers (Menu, Checkout, Orders, Home)
+- [x] Cart updates automatically when items added/removed
+- [x] Cart indicator only shows when there are items in cart
+
+### Third-Person Flow Testing ✅ COMPLETE
+- [x] Test complete user journey from login to logout
+- [x] Verify cart persistence across all page navigations
+- [x] Verify logout functionality works correctly
+- [x] Document any other UX issues discovered
+- [x] All tests passed - logout and cart persistence working perfectly

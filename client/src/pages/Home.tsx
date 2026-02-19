@@ -2,12 +2,22 @@ import { useLocation } from "wouter";
 import { useAuth } from "@/_core/hooks/useAuth";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
-import { DollarSign, Truck, Users, Clock, Star, CheckCircle2 } from "lucide-react";
+import { DollarSign, Truck, Users, Clock, Star, CheckCircle2, LogOut } from "lucide-react";
+import { CartIndicator } from "@/components/CartIndicator";
+import { trpc } from "@/lib/trpc";
+import { toast } from "sonner";
 import { getLoginUrl } from "@/const";
 
 export default function Home() {
   const { isAuthenticated, user } = useAuth();
   const [, setLocation] = useLocation();
+
+  const logout = trpc.auth.logout.useMutation({
+    onSuccess: () => {
+      toast.success("Logged out successfully");
+      window.location.href = "/";
+    },
+  });
 
   return (
     <div className="min-h-screen bg-background">
@@ -20,6 +30,7 @@ export default function Home() {
           </div>
           {isAuthenticated ? (
             <div className="flex gap-3">
+              <CartIndicator />
               <Button variant="secondary" onClick={() => setLocation("/menu")}>
                 Browse Menu
               </Button>
@@ -36,6 +47,15 @@ export default function Home() {
                   Kitchen
                 </Button>
               )}
+              <Button 
+                variant="ghost" 
+                onClick={() => logout.mutate()}
+                disabled={logout.isPending}
+                className="text-primary-foreground hover:bg-primary-foreground/20"
+              >
+                <LogOut className="h-4 w-4 mr-2" />
+                {logout.isPending ? "Logging out..." : "Logout"}
+              </Button>
             </div>
           ) : (
             <Button variant="secondary" onClick={() => window.location.href = getLoginUrl()}>

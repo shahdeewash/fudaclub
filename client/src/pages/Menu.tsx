@@ -7,7 +7,8 @@ import { Badge } from "@/components/ui/badge";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { Progress } from "@/components/ui/progress";
 import { trpc } from "@/lib/trpc";
-import { ShoppingCart, Users, Truck, Clock, Star } from "lucide-react";
+import { ShoppingCart, Users, Star, Truck, Clock, LogOut } from "lucide-react";
+import { CartIndicator } from "@/components/CartIndicator";
 import { toast } from "sonner";
 
 export default function Menu() {
@@ -37,6 +38,13 @@ export default function Menu() {
     },
     onError: (error) => {
       toast.error(error.message);
+    },
+  });
+
+  const logout = trpc.auth.logout.useMutation({
+    onSuccess: () => {
+      toast.success("Logged out successfully");
+      window.location.href = "/";
     },
   });
 
@@ -110,6 +118,7 @@ export default function Menu() {
     }).filter(Boolean);
 
     localStorage.setItem("fuda_cart", JSON.stringify(cartItems));
+    window.dispatchEvent(new Event("cartUpdated"));
     setLocation("/checkout");
   };
 
@@ -132,9 +141,22 @@ export default function Menu() {
             <h1 className="text-xl font-bold">FÜDA Corporate Lunch</h1>
             <p className="text-xs opacity-90">Order before 10:30 AM</p>
           </div>
-          <Button variant="secondary" size="sm" onClick={() => setLocation("/orders")}>
-            My Orders
-          </Button>
+          <div className="flex gap-2">
+            <CartIndicator />
+            <Button variant="secondary" size="sm" onClick={() => setLocation("/orders")}>
+              My Orders
+            </Button>
+            <Button 
+              variant="ghost" 
+              size="sm" 
+              onClick={() => logout.mutate()}
+              disabled={logout.isPending}
+              className="text-primary-foreground hover:bg-primary-foreground/20"
+            >
+              <LogOut className="h-4 w-4 mr-2" />
+              {logout.isPending ? "Logging out..." : "Logout"}
+            </Button>
+          </div>
         </div>
       </header>
 

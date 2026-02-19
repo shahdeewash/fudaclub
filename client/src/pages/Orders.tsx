@@ -4,7 +4,8 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { trpc } from "@/lib/trpc";
-import { ArrowLeft, Package, Truck } from "lucide-react";
+import { ArrowLeft, Package, Truck, LogOut } from "lucide-react";
+import { CartIndicator } from "@/components/CartIndicator";
 
 export default function Orders() {
   const { isAuthenticated } = useAuth();
@@ -12,6 +13,12 @@ export default function Orders() {
 
   const { data: orders, isLoading } = trpc.order.getMyOrders.useQuery(undefined, {
     enabled: isAuthenticated,
+  });
+
+  const logout = trpc.auth.logout.useMutation({
+    onSuccess: () => {
+      window.location.href = "/";
+    },
   });
 
   if (!isAuthenticated) {
@@ -54,17 +61,32 @@ export default function Orders() {
     <div className="min-h-screen bg-background">
       {/* Header */}
       <header className="bg-primary text-primary-foreground py-4 shadow-md">
-        <div className="container flex items-center gap-4">
-          <Button
-            variant="ghost"
-            size="sm"
-            onClick={() => setLocation("/menu")}
-            className="text-primary-foreground hover:bg-primary-foreground/20"
-          >
-            <ArrowLeft className="h-4 w-4 mr-2" />
-            Back to Menu
-          </Button>
-          <h1 className="text-xl font-bold">My Orders</h1>
+        <div className="container flex items-center justify-between">
+          <div className="flex items-center gap-4">
+            <Button
+              variant="ghost"
+              size="sm"
+              onClick={() => setLocation("/menu")}
+              className="text-primary-foreground hover:bg-primary-foreground/20"
+            >
+              <ArrowLeft className="h-4 w-4 mr-2" />
+              Back to Menu
+            </Button>
+            <h1 className="text-xl font-bold">My Orders</h1>
+          </div>
+          <div className="flex gap-2">
+            <CartIndicator />
+            <Button 
+              variant="ghost" 
+              size="sm" 
+              onClick={() => logout.mutate()}
+              disabled={logout.isPending}
+              className="text-primary-foreground hover:bg-primary-foreground/20"
+            >
+              <LogOut className="h-4 w-4 mr-2" />
+              {logout.isPending ? "Logging out..." : "Logout"}
+            </Button>
+          </div>
         </div>
       </header>
 

@@ -8,7 +8,8 @@ import { Badge } from "@/components/ui/badge";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Separator } from "@/components/ui/separator";
 import { Textarea } from "@/components/ui/textarea";
-import { CheckCircle2, Truck, MapPin, Clock, ArrowLeft, Loader2 } from "lucide-react";
+import { CheckCircle2, Truck, MapPin, Clock, ArrowLeft, Loader2, LogOut } from "lucide-react";
+import { CartIndicator } from "@/components/CartIndicator";
 import { toast } from "sonner";
 
 interface CartItem {
@@ -48,6 +49,7 @@ export default function Checkout() {
       
       // Clear cart from localStorage
       localStorage.removeItem("fuda_cart");
+      window.dispatchEvent(new Event("cartUpdated"));
       
       // Redirect to orders page after 3 seconds
       setTimeout(() => {
@@ -56,6 +58,13 @@ export default function Checkout() {
     },
     onError: (error: any) => {
       toast.error(error.message || "Failed to place order");
+    },
+  });
+
+  const logout = trpc.auth.logout.useMutation({
+    onSuccess: () => {
+      toast.success("Logged out successfully");
+      window.location.href = "/";
     },
   });
 
@@ -222,10 +231,23 @@ export default function Checkout() {
             <h1 className="text-xl font-bold">Checkout</h1>
             <p className="text-xs opacity-90">Review your order</p>
           </div>
-          <Button variant="secondary" size="sm" onClick={() => setLocation("/menu")}>
-            <ArrowLeft className="mr-2 h-4 w-4" />
-            Back to Menu
-          </Button>
+          <div className="flex gap-2">
+            <CartIndicator />
+            <Button variant="secondary" size="sm" onClick={() => setLocation("/menu")}>
+              <ArrowLeft className="mr-2 h-4 w-4" />
+              Back to Menu
+            </Button>
+            <Button 
+              variant="ghost" 
+              size="sm" 
+              onClick={() => logout.mutate()}
+              disabled={logout.isPending}
+              className="text-primary-foreground hover:bg-primary-foreground/20"
+            >
+              <LogOut className="h-4 w-4 mr-2" />
+              {logout.isPending ? "Logging out..." : "Logout"}
+            </Button>
+          </div>
         </div>
       </header>
 
