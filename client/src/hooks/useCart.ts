@@ -45,6 +45,45 @@ export function useCart() {
 
   const totalItems = cartItems.reduce((sum, item) => sum + item.quantity, 0);
 
+  const saveCart = (items: CartItem[]) => {
+    localStorage.setItem("fuda_cart", JSON.stringify(items));
+    setCartItems(items);
+    window.dispatchEvent(new Event("cartUpdated"));
+  };
+
+  const addItem = (itemId: number) => {
+    const updatedItems = cartItems.map(item =>
+      item.id === itemId
+        ? { ...item, quantity: item.quantity + 1 }
+        : item
+    );
+    saveCart(updatedItems);
+  };
+
+  const removeItem = (itemId: number) => {
+    const item = cartItems.find(i => i.id === itemId);
+    if (!item) return;
+
+    if (item.quantity <= 1) {
+      // Remove item completely if quantity is 1
+      const updatedItems = cartItems.filter(i => i.id !== itemId);
+      saveCart(updatedItems);
+    } else {
+      // Decrease quantity
+      const updatedItems = cartItems.map(i =>
+        i.id === itemId
+          ? { ...i, quantity: i.quantity - 1 }
+          : i
+      );
+      saveCart(updatedItems);
+    }
+  };
+
+  const clearItem = (itemId: number) => {
+    const updatedItems = cartItems.filter(i => i.id !== itemId);
+    saveCart(updatedItems);
+  };
+
   const clearCart = () => {
     localStorage.removeItem("fuda_cart");
     setCartItems([]);
@@ -52,8 +91,11 @@ export function useCart() {
   };
 
   return {
-    cartItems,
+    items: cartItems,
     totalItems,
+    addItem,
+    removeItem,
+    clearItem,
     clearCart,
   };
 }
