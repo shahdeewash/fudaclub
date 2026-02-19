@@ -84,8 +84,26 @@ export default function Menu() {
     );
   }
 
+  const saveCartToLocalStorage = (cartMap: Map<number, number>) => {
+    const cartItems = Array.from(cartMap.entries()).map(([id, quantity]) => {
+      const item = menuItems?.find(m => m.id === id) || todaysSpecial;
+      return item ? {
+        id: item.id,
+        name: item.name,
+        price: item.price,
+        quantity,
+        imageUrl: item.imageUrl,
+      } : null;
+    }).filter(Boolean);
+    
+    localStorage.setItem("fuda_cart", JSON.stringify(cartItems));
+    window.dispatchEvent(new Event("cartUpdated"));
+  };
+
   const addToCart = (itemId: number) => {
-    setCart(new Map(cart.set(itemId, (cart.get(itemId) || 0) + 1)));
+    const newCart = new Map(cart.set(itemId, (cart.get(itemId) || 0) + 1));
+    setCart(newCart);
+    saveCartToLocalStorage(newCart);
   };
 
   const removeFromCart = (itemId: number) => {
@@ -97,6 +115,7 @@ export default function Menu() {
       newCart.set(itemId, current - 1);
     }
     setCart(newCart);
+    saveCartToLocalStorage(newCart);
   };
 
   const handleCheckout = () => {

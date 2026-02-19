@@ -231,3 +231,29 @@
 - [x] Keep /admin and /kitchen routes accessible via direct URL
 - [x] Verify role-based access control still works for both routes
 - [x] Test direct URL access: /admin (admin only), /kitchen (kitchen staff only)
+
+## Cart Icon Functionality (2026-02-18) ✅ WORKING
+
+### Cart Icon Click - VERIFIED WORKING
+- [x] Cart icon onClick handler is functional
+- [x] Tested cart icon navigation across all pages
+- [x] No changes needed - feature was already working correctly
+
+## Checkout Display Bug (2026-02-18) ✅ FIXED
+
+### Multiple Quantity with Daily Credit Display Issue - RESOLVED
+- [x] When ordering 3x of same item with daily credit available:
+  - [x] Shows 1x item at $0.00 (free with daily credit)
+  - [x] Shows 2x item at regular price (2x $19.00 = $38.00)
+  - [x] Fixed checkout page item display logic using flatMap to split entries
+- [x] Performed third-person test with 3x Lamb Doner Wrap
+- [x] Verified correct subtotal: $38.00 (1 free + 2 paid)
+
+## Cart Persistence Bug (2026-02-18) ✅ FIXED
+
+### Cart Not Saving to localStorage
+- [x] Root cause identified: cart only saved when clicking Checkout button
+- [x] Fixed by adding saveCartToLocalStorage() function
+- [x] Cart now saves immediately when items added/removed
+- [x] Verified cart persists across page navigations
+- [x] CartIndicator updates in real-time

@@ -261,10 +261,89 @@ export default function Checkout() {
                 <CardDescription>{cartItems.length} {cartItems.length === 1 ? "item" : "items"}</CardDescription>
               </CardHeader>
               <CardContent className="space-y-4">
-                {cartItems.map((item, index) => {
-                  const isFree = hasDailyCredit && index === 0;
-                  const itemTotal = isFree ? 0 : item.price * item.quantity;
-
+                {cartItems.flatMap((item, index) => {
+                  const isFirstItem = index === 0;
+                  const hasMultipleUnits = item.quantity > 1;
+                  
+                  // If first item with daily credit and multiple units, split into two entries
+                  if (hasDailyCredit && isFirstItem && hasMultipleUnits) {
+                    return [
+                      // Free unit (1x)
+                      <div key={`${item.id}-free`} className="flex gap-4 pb-4 border-b">
+                        {item.imageUrl && item.imageUrl.trim() !== "" && (
+                          <img
+                            src={item.imageUrl}
+                            alt={item.name}
+                            className="w-20 h-20 object-cover rounded-lg"
+                          />
+                        )}
+                        <div className="flex-1">
+                          <div className="flex justify-between items-start mb-1">
+                            <h3 className="font-semibold">{item.name}</h3>
+                            <span className="font-bold text-secondary">$0.00</span>
+                          </div>
+                          <div className="flex items-center gap-2 text-sm text-muted-foreground">
+                            <span>Quantity: 1</span>
+                          </div>
+                          <Badge variant="secondary" className="mt-2">
+                            Daily Credit Applied
+                          </Badge>
+                        </div>
+                      </div>,
+                      // Paid units (remaining quantity)
+                      <div key={`${item.id}-paid`} className="flex gap-4 pb-4 border-b last:border-0">
+                        {item.imageUrl && item.imageUrl.trim() !== "" && (
+                          <img
+                            src={item.imageUrl}
+                            alt={item.name}
+                            className="w-20 h-20 object-cover rounded-lg"
+                          />
+                        )}
+                        <div className="flex-1">
+                          <div className="flex justify-between items-start mb-1">
+                            <h3 className="font-semibold">{item.name}</h3>
+                            <span className="font-bold">
+                              ${(item.price * (item.quantity - 1) / 100).toFixed(2)}
+                            </span>
+                          </div>
+                          <div className="flex items-center gap-2 text-sm text-muted-foreground">
+                            <span>Quantity: {item.quantity - 1}</span>
+                            <span>• ${(item.price / 100).toFixed(2)} each</span>
+                          </div>
+                        </div>
+                      </div>
+                    ];
+                  }
+                  
+                  // First item with daily credit but only 1 unit - show as free
+                  if (hasDailyCredit && isFirstItem && !hasMultipleUnits) {
+                    return (
+                      <div key={item.id} className="flex gap-4 pb-4 border-b last:border-0">
+                        {item.imageUrl && item.imageUrl.trim() !== "" && (
+                          <img
+                            src={item.imageUrl}
+                            alt={item.name}
+                            className="w-20 h-20 object-cover rounded-lg"
+                          />
+                        )}
+                        <div className="flex-1">
+                          <div className="flex justify-between items-start mb-1">
+                            <h3 className="font-semibold">{item.name}</h3>
+                            <span className="font-bold text-secondary">$0.00</span>
+                          </div>
+                          <div className="flex items-center gap-2 text-sm text-muted-foreground">
+                            <span>Quantity: {item.quantity}</span>
+                          </div>
+                          <Badge variant="secondary" className="mt-2">
+                            Daily Credit Applied
+                          </Badge>
+                        </div>
+                      </div>
+                    );
+                  }
+                  
+                  // All other items - show regular price
+                  const itemTotal = item.price * item.quantity;
                   return (
                     <div key={item.id} className="flex gap-4 pb-4 border-b last:border-0">
                       {item.imageUrl && item.imageUrl.trim() !== "" && (
@@ -278,24 +357,13 @@ export default function Checkout() {
                         <div className="flex justify-between items-start mb-1">
                           <h3 className="font-semibold">{item.name}</h3>
                           <span className="font-bold">
-                            {isFree ? (
-                              <span className="text-secondary">$0.00</span>
-                            ) : (
-                              `$${(itemTotal / 100).toFixed(2)}`
-                            )}
+                            ${(itemTotal / 100).toFixed(2)}
                           </span>
                         </div>
                         <div className="flex items-center gap-2 text-sm text-muted-foreground">
                           <span>Quantity: {item.quantity}</span>
-                          {!isFree && (
-                            <span>• ${(item.price / 100).toFixed(2)} each</span>
-                          )}
+                          <span>• ${(item.price / 100).toFixed(2)} each</span>
                         </div>
-                        {isFree && (
-                          <Badge variant="secondary" className="mt-2">
-                            Daily Credit Applied
-                          </Badge>
-                        )}
                       </div>
                     </div>
                   );
