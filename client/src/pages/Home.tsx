@@ -37,16 +37,6 @@ export default function Home() {
               <Button variant="outline" onClick={() => setLocation("/orders")}>
                 My Orders
               </Button>
-              {user?.role === "admin" && (
-                <Button variant="outline" onClick={() => setLocation("/admin")}>
-                  Admin
-                </Button>
-              )}
-              {(user?.role === "admin" || user?.role === "kitchen") && (
-                <Button variant="outline" onClick={() => setLocation("/kitchen")}>
-                  Kitchen
-                </Button>
-              )}
               <Button 
                 variant="ghost" 
                 onClick={() => logout.mutate()}

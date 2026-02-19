@@ -222,3 +222,12 @@
 - [x] Verify logout functionality works correctly
 - [x] Document any other UX issues discovered
 - [x] All tests passed - logout and cart persistence working perfectly
+
+## Navigation Improvement (2026-02-18)
+
+### Separate Admin and Kitchen Access ✅ COMPLETE
+- [x] Remove Admin button from Home page customer navigation
+- [x] Remove Kitchen button from Home page customer navigation
+- [x] Keep /admin and /kitchen routes accessible via direct URL
+- [x] Verify role-based access control still works for both routes
+- [x] Test direct URL access: /admin (admin only), /kitchen (kitchen staff only)
