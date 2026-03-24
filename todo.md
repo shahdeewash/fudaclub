@@ -317,3 +317,20 @@
 - [x] Tested payment flow: Checkout → Payment page → Order confirmation
 - [x] Verified $0 bypass logic (daily credit covers full order)
 - [x] All TypeScript errors resolved
+
+## Real Menu Data from DoorDash (2026-03-24)
+
+- [ ] Clear existing mock menu items from database
+- [ ] Insert real FÜDA menu items from DoorDash with correct prices
+- [ ] Upload real food photos to CDN and update image URLs
+- [ ] Verify menu displays correctly in the app
+
+## Real Menu Data from DoorDash (2026-03-24) ✅ COMPLETE
+
+- [x] Found FÜDA on DoorDash (fuda-global-street-bites-darwin-city)
+- [x] Extracted all menu items, prices, descriptions from DoorDash
+- [x] Collected real food photo URLs from DoorDash CDN
+- [x] Created seed-menu.mjs script with 38 real menu items
+- [x] Seeded database with real FÜDA menu items and photos
+- [x] Verified menu displays correctly in the app with real photos
+- [x] Categories: Kebab Mains, Kebab Wraps, Momo, 6 Momo Entree, Special Momo, Entrees, Bubble Tea, Fruit Teas & Refreshers, Bubble Coffee, Coffee
