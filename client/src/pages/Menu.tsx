@@ -15,6 +15,7 @@ export default function Menu() {
   const { user, isAuthenticated } = useAuth();
   const [, setLocation] = useLocation();
   const [cart, setCart] = useState<Map<number, number>>(new Map());
+  const [selectedCategory, setSelectedCategory] = useState<string>("All");
 
   const { data: menuItems, isLoading: menuLoading } = trpc.menu.getAll.useQuery();
   const { data: todaysSpecial } = trpc.menu.getTodaysSpecial.useQuery();
@@ -254,12 +255,32 @@ export default function Menu() {
 
         {/* Menu Grid */}
         <div className="mb-8">
-          <h2 className="text-2xl font-bold mb-4">Menu</h2>
+          <div className="flex items-center justify-between mb-4 flex-wrap gap-3">
+            <h2 className="text-2xl font-bold">Menu</h2>
+            {/* Category Filters */}
+            {!menuLoading && menuItems && menuItems.length > 0 && (
+              <div className="flex flex-wrap gap-2">
+                {["All", ...Array.from(new Set(menuItems.map(i => i.category).filter(Boolean)))].map((cat) => (
+                  <button
+                    key={cat}
+                    onClick={() => setSelectedCategory(cat as string)}
+                    className={`px-3 py-1.5 rounded-full text-sm font-medium transition-colors border ${
+                      selectedCategory === cat
+                        ? "bg-primary text-primary-foreground border-primary"
+                        : "bg-background text-muted-foreground border-border hover:border-primary/50 hover:text-foreground"
+                    }`}
+                  >
+                    {cat}
+                  </button>
+                ))}
+              </div>
+            )}
+          </div>
           {menuLoading ? (
             <div className="text-center py-12">Loading menu...</div>
           ) : (
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-              {menuItems?.map((item) => {
+              {menuItems?.filter(item => selectedCategory === "All" || item.category === selectedCategory).map((item) => {
                 const inCart = cart.get(item.id) || 0;
 
                 return (

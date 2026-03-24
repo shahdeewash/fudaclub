@@ -4,12 +4,10 @@ import { useAuth } from "@/_core/hooks/useAuth";
 import { trpc } from "@/lib/trpc";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
-import { Badge } from "@/components/ui/badge";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Separator } from "@/components/ui/separator";
-import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
-import { CheckCircle2, CreditCard, Lock, ArrowLeft, Loader2, ShieldCheck } from "lucide-react";
+import { Badge } from "@/components/ui/badge";
+import { CheckCircle2, CreditCard, Lock, ArrowLeft, Loader2, ShieldCheck, ExternalLink } from "lucide-react";
 import { CartIndicator } from "@/components/CartIndicator";
 import { toast } from "sonner";
 
@@ -21,13 +19,6 @@ interface CartItem {
   imageUrl?: string;
 }
 
-interface PaymentFormData {
-  cardNumber: string;
-  cardName: string;
-  expiry: string;
-  cvv: string;
-}
-
 export default function Payment() {
   const { user, isAuthenticated } = useAuth();
   const [, setLocation] = useLocation();
@@ -35,15 +26,7 @@ export default function Payment() {
   const [specialInstructions, setSpecialInstructions] = useState("");
   const [orderPlaced, setOrderPlaced] = useState(false);
   const [orderNumber, setOrderNumber] = useState("");
-  const [isProcessing, setIsProcessing] = useState(false);
-  const [paidAmount, setPaidAmount] = useState(0);
-
-  const [paymentForm, setPaymentForm] = useState<PaymentFormData>({
-    cardNumber: "",
-    cardName: "",
-    expiry: "",
-    cvv: "",
-  });
+  const [isRedirecting, setIsRedirecting] = useState(false);
 
   const { data: subscription } = trpc.subscription.getMine.useQuery(undefined, {
     enabled: isAuthenticated,
@@ -56,6 +39,8 @@ export default function Payment() {
   });
 
   const utils = trpc.useUtils();
+
+  // For $0 orders (free via daily credit)
   const createOrder = trpc.order.create.useMutation({
     onSuccess: (data) => {
       setOrderPlaced(true);
@@ -64,18 +49,32 @@ export default function Payment() {
       utils.order.getColleaguesWhoOrdered.invalidate();
       utils.order.getDailyCredit.invalidate();
 
-      // Clear cart from localStorage
       localStorage.removeItem("fuda_cart");
       window.dispatchEvent(new Event("cartUpdated"));
 
-      // Redirect to orders page after 3 seconds
       setTimeout(() => {
         setLocation("/orders");
       }, 3000);
     },
     onError: (error: any) => {
-      setIsProcessing(false);
       toast.error(error.message || "Failed to place order");
+    },
+  });
+
+  // For paid orders - create Stripe Checkout session
+  const createCheckoutSession = trpc.payment.createCheckoutSession.useMutation({
+    onSuccess: (data) => {
+      if (data.url) {
+        // Redirect to Stripe Checkout
+        window.location.href = data.url;
+      } else {
+        toast.error("Failed to create checkout session");
+        setIsRedirecting(false);
+      }
+    },
+    onError: (error: any) => {
+      toast.error(error.message || "Failed to initiate payment");
+      setIsRedirecting(false);
     },
   });
 
@@ -155,59 +154,81 @@ export default function Payment() {
 
   const isZeroTotal = total === 0;
 
-  const handlePlaceOrder = (totalAmount: number) => {
+  const handleFreeOrder = () => {
     const items = cartItems.map(item => ({
       menuItemId: item.id,
       quantity: item.quantity,
     }));
-
-    setPaidAmount(totalAmount);
     createOrder.mutate({
       items,
       specialInstructions: specialInstructions || undefined,
     });
   };
 
-  const handlePaymentSubmit = async () => {
-    // Validate payment form
-    if (!paymentForm.cardNumber.replace(/\s/g, "").match(/^\d{16}$/)) {
-      toast.error("Please enter a valid 16-digit card number");
-      return;
-    }
-    if (!paymentForm.cardName.trim()) {
-      toast.error("Please enter the cardholder name");
-      return;
-    }
-    if (!paymentForm.expiry.match(/^\d{2}\/\d{2}$/)) {
-      toast.error("Please enter expiry in MM/YY format");
-      return;
-    }
-    if (!paymentForm.cvv.match(/^\d{3,4}$/)) {
-      toast.error("Please enter a valid CVV");
-      return;
+  const handleStripeCheckout = () => {
+    setIsRedirecting(true);
+
+    // Build line items for Stripe - apply daily credit logic
+    const stripeLineItems: Array<{ name: string; price: number; quantity: number; imageUrl?: string }> = [];
+
+    if (hasDailyCredit && cartItems.length > 0) {
+      const firstItem = cartItems[0];
+      // First unit is free - only charge remaining quantity
+      if (firstItem.quantity > 1) {
+        stripeLineItems.push({
+          name: firstItem.name,
+          price: firstItem.price,
+          quantity: firstItem.quantity - 1,
+          imageUrl: firstItem.imageUrl,
+        });
+      }
+      // Add remaining items at full price
+      cartItems.slice(1).forEach(item => {
+        stripeLineItems.push({
+          name: item.name,
+          price: item.price,
+          quantity: item.quantity,
+          imageUrl: item.imageUrl,
+        });
+      });
+    } else {
+      cartItems.forEach(item => {
+        stripeLineItems.push({
+          name: item.name,
+          price: item.price,
+          quantity: item.quantity,
+          imageUrl: item.imageUrl,
+        });
+      });
     }
 
-    setIsProcessing(true);
-    toast.info("Processing payment...");
-
-    // Simulate payment processing (2 seconds)
-    await new Promise(resolve => setTimeout(resolve, 2000));
-
-    // Place order after successful payment
-    handlePlaceOrder(total);
-  };
-
-  const formatCardNumber = (value: string) => {
-    const digits = value.replace(/\D/g, "").slice(0, 16);
-    return digits.replace(/(\d{4})/g, "$1 ").trim();
-  };
-
-  const formatExpiry = (value: string) => {
-    const digits = value.replace(/\D/g, "").slice(0, 4);
-    if (digits.length >= 2) {
-      return digits.slice(0, 2) + "/" + digits.slice(2);
+    // Add delivery fee as line item if applicable
+    if (deliveryFee > 0) {
+      stripeLineItems.push({
+        name: "Delivery Fee",
+        price: deliveryFee,
+        quantity: 1,
+      });
     }
-    return digits;
+
+    // Build order data to pass through Stripe metadata
+    const orderData = {
+      items: cartItems.map(item => ({
+        menuItemId: item.id,
+        quantity: item.quantity,
+        price: item.price,
+      })),
+      deliveryFee,
+      tax,
+      dailyCreditApplied: hasDailyCredit || false,
+    };
+
+    createCheckoutSession.mutate({
+      cartItems: stripeLineItems,
+      totalAmount: total,
+      origin: window.location.origin,
+      orderData,
+    });
   };
 
   if (orderPlaced) {
@@ -222,14 +243,12 @@ export default function Payment() {
             <CardDescription className="text-lg">Order #{orderNumber}</CardDescription>
           </CardHeader>
           <CardContent className="space-y-6">
-            {!isZeroTotal && (
-              <Alert className="border-green-500/50 bg-green-50">
-                <CheckCircle2 className="h-4 w-4 text-green-600" />
-                <AlertDescription className="text-green-800">
-                  Payment of ${(paidAmount / 100).toFixed(2)} processed successfully
-                </AlertDescription>
-              </Alert>
-            )}
+            <Alert className="border-secondary/50 bg-secondary/10">
+              <CheckCircle2 className="h-4 w-4 text-secondary" />
+              <AlertDescription>
+                Your order is fully covered by your daily credit — no payment needed!
+              </AlertDescription>
+            </Alert>
             <div className="text-center text-sm text-muted-foreground">
               Redirecting to orders page...
             </div>
@@ -254,7 +273,7 @@ export default function Payment() {
               {isZeroTotal ? "Confirm Order" : "Payment"}
             </h1>
             <p className="text-xs opacity-90">
-              {isZeroTotal ? "Your order is fully covered by daily credit" : "Secure payment"}
+              {isZeroTotal ? "Your order is fully covered by daily credit" : "Secure payment via Stripe"}
             </p>
           </div>
           <div className="flex gap-2">
@@ -269,7 +288,7 @@ export default function Payment() {
 
       <main className="container py-8 max-w-4xl">
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-          {/* Payment Form or Zero Total */}
+          {/* Payment Section */}
           <div className="lg:col-span-2 space-y-4">
             {isZeroTotal ? (
               /* Zero Total - No payment needed */
@@ -296,7 +315,7 @@ export default function Payment() {
                 </CardContent>
                 <CardFooter>
                   <Button
-                    onClick={() => handlePlaceOrder(0)}
+                    onClick={handleFreeOrder}
                     className="w-full"
                     size="lg"
                     disabled={createOrder.isPending}
@@ -316,95 +335,54 @@ export default function Payment() {
                 </CardFooter>
               </Card>
             ) : (
-              /* Payment Form */
+              /* Stripe Checkout */
               <Card>
                 <CardHeader>
                   <CardTitle className="flex items-center gap-2">
                     <CreditCard className="h-5 w-5" />
-                    Payment Details
+                    Secure Payment
                   </CardTitle>
                   <CardDescription className="flex items-center gap-1">
                     <Lock className="h-3 w-3" />
-                    Secured with 256-bit encryption
+                    You'll be redirected to Stripe's secure checkout
                   </CardDescription>
                 </CardHeader>
                 <CardContent className="space-y-4">
-                  <div className="space-y-2">
-                    <Label htmlFor="card-number">Card Number</Label>
-                    <Input
-                      id="card-number"
-                      placeholder="1234 5678 9012 3456"
-                      value={paymentForm.cardNumber}
-                      onChange={(e) => setPaymentForm(prev => ({
-                        ...prev,
-                        cardNumber: formatCardNumber(e.target.value)
-                      }))}
-                      maxLength={19}
-                    />
-                  </div>
-                  <div className="space-y-2">
-                    <Label htmlFor="card-name">Cardholder Name</Label>
-                    <Input
-                      id="card-name"
-                      placeholder="John Smith"
-                      value={paymentForm.cardName}
-                      onChange={(e) => setPaymentForm(prev => ({
-                        ...prev,
-                        cardName: e.target.value
-                      }))}
-                    />
-                  </div>
-                  <div className="grid grid-cols-2 gap-4">
-                    <div className="space-y-2">
-                      <Label htmlFor="expiry">Expiry Date</Label>
-                      <Input
-                        id="expiry"
-                        placeholder="MM/YY"
-                        value={paymentForm.expiry}
-                        onChange={(e) => setPaymentForm(prev => ({
-                          ...prev,
-                          expiry: formatExpiry(e.target.value)
-                        }))}
-                        maxLength={5}
-                      />
-                    </div>
-                    <div className="space-y-2">
-                      <Label htmlFor="cvv">CVV</Label>
-                      <Input
-                        id="cvv"
-                        placeholder="123"
-                        type="password"
-                        value={paymentForm.cvv}
-                        onChange={(e) => setPaymentForm(prev => ({
-                          ...prev,
-                          cvv: e.target.value.replace(/\D/g, "").slice(0, 4)
-                        }))}
-                        maxLength={4}
-                      />
-                    </div>
-                  </div>
-
-                  <div className="flex items-center gap-2 text-xs text-muted-foreground pt-2">
+                  <Alert>
                     <ShieldCheck className="h-4 w-4 text-green-600" />
-                    <span>Your payment information is encrypted and secure</span>
+                    <AlertDescription>
+                      <p className="font-medium text-sm">Powered by Stripe</p>
+                      <p className="text-xs text-muted-foreground mt-1">
+                        Your payment is processed securely by Stripe. We never store your card details.
+                        Accepted: Visa, Mastercard, AMEX, Apple Pay, Google Pay.
+                      </p>
+                    </AlertDescription>
+                  </Alert>
+
+                  <div className="flex justify-center flex-wrap gap-2 py-2">
+                    <Badge variant="outline" className="text-xs px-3 py-1">VISA</Badge>
+                    <Badge variant="outline" className="text-xs px-3 py-1">Mastercard</Badge>
+                    <Badge variant="outline" className="text-xs px-3 py-1">AMEX</Badge>
+                    <Badge variant="outline" className="text-xs px-3 py-1">Apple Pay</Badge>
+                    <Badge variant="outline" className="text-xs px-3 py-1">Google Pay</Badge>
                   </div>
                 </CardContent>
                 <CardFooter>
                   <Button
-                    onClick={handlePaymentSubmit}
+                    onClick={handleStripeCheckout}
                     className="w-full"
                     size="lg"
-                    disabled={isProcessing || createOrder.isPending}
+                    disabled={isRedirecting || createCheckoutSession.isPending}
                   >
-                    {isProcessing || createOrder.isPending ? (
+                    {isRedirecting || createCheckoutSession.isPending ? (
                       <>
                         <Loader2 className="mr-2 h-5 w-5 animate-spin" />
-                        {isProcessing ? "Processing Payment..." : "Placing Order..."}
+                        Redirecting to Stripe...
                       </>
                     ) : (
                       <>
-                        <Lock className="mr-2 h-5 w-5" />
-                        Pay ${(total / 100).toFixed(2)} & Place Order
+                        <ExternalLink className="mr-2 h-5 w-5" />
+                        Pay ${(total / 100).toFixed(2)} via Stripe
                       </>
                     )}
                   </Button>
@@ -470,22 +448,6 @@ export default function Payment() {
                 )}
               </CardContent>
             </Card>
-
-            {/* Accepted Cards */}
-            {!isZeroTotal && (
-              <Card>
-                <CardContent className="pt-4">
-                  <div className="text-xs text-muted-foreground text-center">
-                    <p className="font-medium mb-2">Accepted Payment Methods</p>
-                    <div className="flex justify-center gap-3">
-                      <Badge variant="outline" className="text-xs">VISA</Badge>
-                      <Badge variant="outline" className="text-xs">Mastercard</Badge>
-                      <Badge variant="outline" className="text-xs">AMEX</Badge>
-                    </div>
-                  </div>
-                </CardContent>
-              </Card>
-            )}
           </div>
         </div>
       </main>

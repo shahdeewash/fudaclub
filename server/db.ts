@@ -235,6 +235,24 @@ export async function updateMenuItemImage(menuItemId: number, imageUrl: string):
   await db.update(menuItems).set({ imageUrl }).where(eq(menuItems.id, menuItemId));
 }
 
+export async function updateMenuItem(
+  menuItemId: number,
+  updates: { name?: string; description?: string; price?: number; category?: string; imageUrl?: string; isAvailable?: boolean }
+): Promise<void> {
+  const db = await getDb();
+  if (!db) throw new Error("Database not available");
+
+  await db.update(menuItems).set(updates).where(eq(menuItems.id, menuItemId));
+}
+
+export async function deleteMenuItem(menuItemId: number): Promise<void> {
+  const db = await getDb();
+  if (!db) throw new Error("Database not available");
+
+  // Soft delete - mark as unavailable instead of hard delete to preserve order history
+  await db.update(menuItems).set({ isAvailable: false }).where(eq(menuItems.id, menuItemId));
+}
+
 // Daily credit helpers
 export async function getDailyCreditForToday(userId: number): Promise<DailyCredit | undefined> {
   const db = await getDb();

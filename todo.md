@@ -352,3 +352,46 @@
 - [x] Add always-visible "Change Photo" button below each menu item image in Admin
 - [x] Image edit panel with URL input, live preview, file upload, Save and Cancel buttons
 - [x] Tested: URL update works, panel closes after save, image updates immediately
+
+## Three New Features (2026-03-24)
+
+### 1. Menu Item Edit/Delete in Admin
+- [ ] Add edit form (inline or modal) for name, price, description, category
+- [ ] Add backend `menu.update` procedure
+- [ ] Add backend `menu.delete` procedure
+- [ ] Add `updateMenuItem` and `deleteMenuItem` helpers to db.ts
+- [ ] Wire edit/delete buttons in Admin Menu Management tab
+- [ ] Test edit and delete flows
+
+### 2. Category Filters on Menu Page
+- [ ] Add filter tabs: All / Kebab Mains / Kebab Wraps / Momo / Entrees / Drinks
+- [ ] Filter menu items by selected category
+- [ ] Show item count per category
+- [ ] Persist selected filter during session
+
+### 3. Stripe Payment Integration
+- [ ] Run webdev_add_feature stripe to scaffold Stripe
+- [ ] Add Stripe publishable key and secret key to secrets
+- [ ] Create payment intent on server when order total > $0
+- [ ] Replace simulated payment form with Stripe Elements card form
+- [ ] Handle payment success/failure and place order accordingly
+- [ ] Test full payment flow end-to-end
+
+## Stripe Payment Integration (2026-03-24) ✅ COMPLETE
+
+### Features Implemented
+- [x] Menu item edit/delete functionality (Admin UI + backend procedures)
+  - [x] `menu.update` tRPC procedure for editing menu items
+  - [x] `menu.delete` tRPC procedure for deleting menu items
+  - [x] Edit dialog in Admin.tsx with pre-filled form fields
+  - [x] Delete confirmation dialog in Admin.tsx
+- [x] Category filters on Menu page (already implemented)
+- [x] Stripe Checkout integration for paid orders
+  - [x] `payment.createCheckoutSession` tRPC procedure
+  - [x] `payment.verifyAndCreateOrder` tRPC procedure (post-payment order creation)
+  - [x] Updated Payment.tsx to redirect to Stripe Checkout for paid orders
+  - [x] Free order path (zero total via daily credit) uses direct order creation
+  - [x] Created PaymentSuccess.tsx page to handle Stripe return
+  - [x] Added `/payment-success` route in App.tsx
+  - [x] Cart cleared after successful payment
+  - [x] Written and passing tests in server/payment.test.ts

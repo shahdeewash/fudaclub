@@ -13,6 +13,7 @@ import AdminDishForm from "./pages/AdminDishForm";
 import Kitchen from "./pages/Kitchen";
 import Checkout from "./pages/Checkout";
 import Payment from "./pages/Payment";
+import PaymentSuccess from "./pages/PaymentSuccess";
 import DevLogin from "./pages/DevLogin";
 
 function Router() {
@@ -22,6 +23,7 @@ function Router() {
       <Route path={"/subscribe"} component={Subscribe} />      <Route path={"/menu"} component={Menu} />
       <Route path={"/checkout"} component={Checkout} />
       <Route path={"/payment"} component={Payment} />
+      <Route path={"/payment-success"} component={PaymentSuccess} />
       <Route path={"/dev-login"} component={DevLogin} />
       <Route path={"/orders"} component={Orders} />
       <Route path={"/admin"} component={Admin} />

@@ -9,7 +9,7 @@ import { Label } from "@/components/ui/label";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { trpc } from "@/lib/trpc";
-import { BarChart3, DollarSign, Package, Users, Star, Plus, Building2, User, Filter, Camera, X, Check, Upload } from "lucide-react";
+import { BarChart3, DollarSign, Package, Users, Star, Plus, Building2, User, Filter, Camera, X, Check, Upload, Pencil, Trash2 } from "lucide-react";
 import { useLocation } from "wouter";
 import { toast } from "sonner";
 
@@ -34,6 +34,14 @@ export default function Admin() {
   const [editingImageId, setEditingImageId] = useState<number | null>(null);
   const [editingImageUrl, setEditingImageUrl] = useState("");
   const [uploadingImage, setUploadingImage] = useState(false);
+
+  // Item editing state
+  const [editingItemId, setEditingItemId] = useState<number | null>(null);
+  const [editName, setEditName] = useState("");
+  const [editDescription, setEditDescription] = useState("");
+  const [editPrice, setEditPrice] = useState("");
+  const [editCategory, setEditCategory] = useState("");
+  const [deletingItemId, setDeletingItemId] = useState<number | null>(null);
 
   const { data: stats } = trpc.stats.getToday.useQuery(undefined, {
     enabled: isAuthenticated && user?.role === "admin",
@@ -72,6 +80,28 @@ export default function Admin() {
       utils.menu.getTodaysSpecial.invalidate();
       setEditingImageId(null);
       setEditingImageUrl("");
+    },
+    onError: (error) => {
+      toast.error(error.message);
+    },
+  });
+
+  const updateMenuItem = trpc.menu.update.useMutation({
+    onSuccess: () => {
+      toast.success("Menu item updated!");
+      utils.menu.getAll.invalidate();
+      setEditingItemId(null);
+    },
+    onError: (error) => {
+      toast.error(error.message);
+    },
+  });
+
+  const deleteMenuItem = trpc.menu.delete.useMutation({
+    onSuccess: () => {
+      toast.success("Menu item removed!");
+      utils.menu.getAll.invalidate();
+      setDeletingItemId(null);
     },
     onError: (error) => {
       toast.error(error.message);
@@ -641,26 +671,138 @@ export default function Admin() {
                           </div>
                         )}
 
-                        <div className="flex-1">
-                          <h3 className="font-bold text-sm">{item.name}</h3>
-                          <p className="text-xs text-muted-foreground line-clamp-2">
-                            {item.description}
-                          </p>
-                          <div className="flex items-center justify-between mt-2">
-                            <span className="font-semibold text-sm">
-                              ${(item.price / 100).toFixed(2)}
-                            </span>
-                            <Badge variant="outline" className="text-xs">
-                              {item.category}
-                            </Badge>
+                        {/* Item details or edit form */}
+                        {editingItemId === item.id ? (
+                          <div className="space-y-2">
+                            <Input
+                              placeholder="Item name"
+                              value={editName}
+                              onChange={(e) => setEditName(e.target.value)}
+                              className="text-xs h-8"
+                            />
+                            <Textarea
+                              placeholder="Description"
+                              value={editDescription}
+                              onChange={(e) => setEditDescription(e.target.value)}
+                              className="text-xs min-h-[60px]"
+                            />
+                            <div className="flex gap-2">
+                              <Input
+                                placeholder="Price (AUD)"
+                                type="number"
+                                step="0.01"
+                                value={editPrice}
+                                onChange={(e) => setEditPrice(e.target.value)}
+                                className="text-xs h-8"
+                              />
+                              <Input
+                                placeholder="Category"
+                                value={editCategory}
+                                onChange={(e) => setEditCategory(e.target.value)}
+                                className="text-xs h-8"
+                              />
+                            </div>
+                            <div className="flex gap-2">
+                              <Button
+                                size="sm"
+                                className="h-7 text-xs flex-1 bg-[#DC2626] hover:bg-[#DC2626]/90"
+                                onClick={() => {
+                                  updateMenuItem.mutate({
+                                    menuItemId: item.id,
+                                    name: editName || undefined,
+                                    description: editDescription || undefined,
+                                    price: editPrice ? parseFloat(editPrice) : undefined,
+                                    category: editCategory || undefined,
+                                  });
+                                }}
+                                disabled={updateMenuItem.isPending}
+                              >
+                                <Check className="h-3 w-3 mr-1" />
+                                Save
+                              </Button>
+                              <Button
+                                size="sm"
+                                variant="outline"
+                                className="h-7 text-xs"
+                                onClick={() => setEditingItemId(null)}
+                              >
+                                <X className="h-3 w-3" />
+                              </Button>
+                            </div>
                           </div>
-                          {item.isTodaysSpecial && (
-                            <Badge variant="secondary" className="mt-1 text-xs">
-                              <Star className="h-3 w-3 mr-1" />
-                              Today's Special
-                            </Badge>
-                          )}
-                        </div>
+                        ) : deletingItemId === item.id ? (
+                          <div className="p-3 bg-destructive/10 rounded-lg space-y-2">
+                            <p className="text-xs font-medium text-destructive">Remove this item?</p>
+                            <p className="text-xs text-muted-foreground">This will hide it from the menu.</p>
+                            <div className="flex gap-2">
+                              <Button
+                                size="sm"
+                                variant="destructive"
+                                className="h-7 text-xs flex-1"
+                                onClick={() => deleteMenuItem.mutate({ menuItemId: item.id })}
+                                disabled={deleteMenuItem.isPending}
+                              >
+                                <Trash2 className="h-3 w-3 mr-1" />
+                                Remove
+                              </Button>
+                              <Button
+                                size="sm"
+                                variant="outline"
+                                className="h-7 text-xs"
+                                onClick={() => setDeletingItemId(null)}
+                              >
+                                <X className="h-3 w-3" />
+                              </Button>
+                            </div>
+                          </div>
+                        ) : (
+                          <div className="flex-1">
+                            <h3 className="font-bold text-sm">{item.name}</h3>
+                            <p className="text-xs text-muted-foreground line-clamp-2">
+                              {item.description}
+                            </p>
+                            <div className="flex items-center justify-between mt-2">
+                              <span className="font-semibold text-sm">
+                                ${(item.price / 100).toFixed(2)}
+                              </span>
+                              <Badge variant="outline" className="text-xs">
+                                {item.category}
+                              </Badge>
+                            </div>
+                            {item.isTodaysSpecial && (
+                              <Badge variant="secondary" className="mt-1 text-xs">
+                                <Star className="h-3 w-3 mr-1" />
+                                Today's Special
+                              </Badge>
+                            )}
+                            {/* Edit and Delete buttons */}
+                            <div className="flex gap-2 mt-3">
+                              <Button
+                                size="sm"
+                                variant="outline"
+                                className="h-7 text-xs flex-1"
+                                onClick={() => {
+                                  setEditingItemId(item.id);
+                                  setEditName(item.name);
+                                  setEditDescription(item.description || "");
+                                  setEditPrice((item.price / 100).toFixed(2));
+                                  setEditCategory(item.category || "");
+                                }}
+                              >
+                                <Pencil className="h-3 w-3 mr-1" />
+                                Edit
+                              </Button>
+                              <Button
+                                size="sm"
+                                variant="outline"
+                                className="h-7 text-xs text-destructive hover:bg-destructive hover:text-destructive-foreground"
+                                onClick={() => setDeletingItemId(item.id)}
+                              >
+                                <Trash2 className="h-3 w-3" />
+                              </Button>
+                            </div>
+                          </div>
+                        )}
                       </CardContent>
                     </Card>
                   ))}

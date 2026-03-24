@@ -193,6 +193,39 @@ export const appRouter = router({
 
         return newItem;
       }),
+
+    update: protectedProcedure
+      .input(z.object({
+        menuItemId: z.number(),
+        name: z.string().optional(),
+        description: z.string().optional(),
+        category: z.string().optional(),
+        price: z.number().optional(),
+        imageUrl: z.string().optional(),
+        isAvailable: z.boolean().optional(),
+      }))
+      .mutation(async ({ ctx, input }) => {
+        if (ctx.user.role !== 'admin') {
+          throw new TRPCError({ code: 'FORBIDDEN' });
+        }
+        const { menuItemId, price, ...rest } = input;
+        const updates: Record<string, unknown> = { ...rest };
+        if (price !== undefined) {
+          updates.price = Math.round(price * 100);
+        }
+        await db.updateMenuItem(menuItemId, updates as Parameters<typeof db.updateMenuItem>[1]);
+        return { success: true };
+      }),
+
+    delete: protectedProcedure
+      .input(z.object({ menuItemId: z.number() }))
+      .mutation(async ({ ctx, input }) => {
+        if (ctx.user.role !== 'admin') {
+          throw new TRPCError({ code: 'FORBIDDEN' });
+        }
+        await db.deleteMenuItem(input.menuItemId);
+        return { success: true };
+      }),
   }),
 
   order: router({
@@ -558,6 +591,242 @@ export const appRouter = router({
         );
 
         return ordersWithDetails;
+      }),
+  }),
+
+  // Stripe Payment
+  payment: router({
+    createCheckoutSession: protectedProcedure
+      .input(z.object({
+        cartItems: z.array(z.object({
+          name: z.string(),
+          price: z.number(), // in cents
+          quantity: z.number(),
+          imageUrl: z.string().optional(),
+        })),
+        totalAmount: z.number(), // in cents
+        origin: z.string(),
+        orderData: z.object({
+          items: z.array(z.object({
+            menuItemId: z.number(),
+            quantity: z.number(),
+            price: z.number(),
+          })),
+          deliveryFee: z.number(),
+          tax: z.number(),
+          dailyCreditApplied: z.boolean(),
+        }),
+      }))
+      .mutation(async ({ ctx, input }) => {
+        const Stripe = (await import("stripe")).default;
+        const stripe = new Stripe(process.env.STRIPE_SECRET_KEY || "");
+
+        // Build line items from cart
+        const lineItems = input.cartItems.map(item => ({
+          price_data: {
+            currency: "aud",
+            product_data: {
+              name: item.name,
+              ...(item.imageUrl ? { images: [item.imageUrl] } : {}),
+            },
+            unit_amount: item.price, // already in cents
+          },
+          quantity: item.quantity,
+        }));
+
+        // Add delivery fee as separate line item if applicable
+        if (input.orderData.deliveryFee > 0) {
+          lineItems.push({
+            price_data: {
+              currency: "aud",
+              product_data: { name: "Delivery Fee" },
+              unit_amount: input.orderData.deliveryFee,
+            },
+            quantity: 1,
+          });
+        }
+
+        const session = await stripe.checkout.sessions.create({
+          line_items: lineItems,
+          mode: "payment",
+          customer_email: ctx.user.email ?? undefined,
+          client_reference_id: ctx.user.id.toString(),
+          metadata: {
+            user_id: ctx.user.id.toString(),
+            customer_email: ctx.user.email ?? "",
+            customer_name: ctx.user.name ?? "",
+            order_data: JSON.stringify(input.orderData),
+          },
+          success_url: `${input.origin}/payment-success?session_id={CHECKOUT_SESSION_ID}`,
+          cancel_url: `${input.origin}/checkout`,
+          allow_promotion_codes: true,
+        });
+
+        return { url: session.url, sessionId: session.id };
+      }),
+
+    verifyAndCreateOrder: protectedProcedure
+      .input(z.object({ sessionId: z.string() }))
+      .mutation(async ({ ctx, input }) => {
+        const Stripe = (await import("stripe")).default;
+        const stripe = new Stripe(process.env.STRIPE_SECRET_KEY || "");
+
+        // Retrieve the checkout session from Stripe
+        const session = await stripe.checkout.sessions.retrieve(input.sessionId);
+
+        if (session.payment_status !== "paid") {
+          throw new TRPCError({
+            code: "BAD_REQUEST",
+            message: "Payment not completed",
+          });
+        }
+
+        // Verify the session belongs to this user
+        if (session.client_reference_id !== ctx.user.id.toString()) {
+          throw new TRPCError({
+            code: "FORBIDDEN",
+            message: "Session does not belong to this user",
+          });
+        }
+
+        // Parse order data from metadata
+        const orderDataStr = session.metadata?.order_data;
+        if (!orderDataStr) {
+          throw new TRPCError({
+            code: "BAD_REQUEST",
+            message: "Order data not found in session",
+          });
+        }
+
+        const orderData = JSON.parse(orderDataStr) as {
+          items: Array<{ menuItemId: number; quantity: number; price: number }>;
+          deliveryFee: number;
+          tax: number;
+          dailyCreditApplied: boolean;
+          specialInstructions?: string;
+        };
+
+        const { items, specialInstructions } = orderData;
+        
+        if (!ctx.user.companyId) {
+          throw new TRPCError({
+            code: "BAD_REQUEST",
+            message: "User must be associated with a company",
+          });
+        }
+
+        // Get menu items
+        const menuItemsData = await db.getAllMenuItems();
+        const menuItemMap = new Map(menuItemsData.map(item => [item.id, item]));
+
+        // Check daily credit
+        let dailyCreditRecord = await db.getDailyCreditForToday(ctx.user.id);
+        if (!dailyCreditRecord) {
+          const today = new Date();
+          today.setHours(0, 0, 0, 0);
+          dailyCreditRecord = await db.createDailyCredit({
+            userId: ctx.user.id,
+            creditDate: today,
+            isUsed: false,
+          });
+        }
+        const canUseCredit = !dailyCreditRecord.isUsed;
+
+        // Build order items
+        const orderItemsData: Array<{
+          menuItemId: number;
+          itemName: string;
+          quantity: number;
+          unitPrice: number;
+          totalPrice: number;
+          isFree: boolean;
+        }> = [];
+
+        let subtotal = 0;
+        let creditApplied = false;
+
+        for (const item of items) {
+          const menuItem = menuItemMap.get(item.menuItemId);
+          if (!menuItem) {
+            throw new TRPCError({
+              code: "NOT_FOUND",
+              message: `Menu item ${item.menuItemId} not found`,
+            });
+          }
+
+          if (canUseCredit && !creditApplied && item.quantity > 0) {
+            creditApplied = true;
+            orderItemsData.push({
+              menuItemId: item.menuItemId,
+              itemName: menuItem.name,
+              quantity: 1,
+              unitPrice: 0,
+              totalPrice: 0,
+              isFree: true,
+            });
+            if (item.quantity > 1) {
+              const remainingQty = item.quantity - 1;
+              const remainingTotal = menuItem.price * remainingQty;
+              orderItemsData.push({
+                menuItemId: item.menuItemId,
+                itemName: menuItem.name,
+                quantity: remainingQty,
+                unitPrice: menuItem.price,
+                totalPrice: remainingTotal,
+                isFree: false,
+              });
+              subtotal += remainingTotal;
+            }
+          } else {
+            const totalPrice = menuItem.price * item.quantity;
+            orderItemsData.push({
+              menuItemId: item.menuItemId,
+              itemName: menuItem.name,
+              quantity: item.quantity,
+              unitPrice: menuItem.price,
+              totalPrice,
+              isFree: false,
+            });
+            subtotal += totalPrice;
+          }
+        }
+
+        const companyOrders = await db.getOrdersByCompanyToday(ctx.user.companyId);
+        const isFreeDelivery = (companyOrders.length + 1) >= 5;
+        const deliveryFee = isFreeDelivery ? 0 : 800;
+        const tax = Math.round((subtotal + deliveryFee) * 0.1);
+        const total = subtotal + deliveryFee + tax;
+
+        const order = await db.createOrder({
+          userId: ctx.user.id,
+          companyId: ctx.user.companyId,
+          orderNumber: `ORD-${nanoid(8).toUpperCase()}`,
+          orderDate: new Date(),
+          status: "confirmed",
+          fulfillmentType: isFreeDelivery ? "delivery" : "pickup",
+          isFreeDelivery,
+          dailyCreditUsed: canUseCredit,
+          subtotal,
+          deliveryFee,
+          tax,
+          total,
+          specialInstructions: specialInstructions || undefined,
+        });
+
+        // Create order items
+        for (const item of orderItemsData) {
+          await db.createOrderItem({
+            orderId: order.id,
+            ...item,
+          });
+        }
+
+        // Mark daily credit as used if applicable
+        if (canUseCredit) {
+          await db.markDailyCreditAsUsed(dailyCreditRecord.id, order.id);
+        }
+
+        return { order, orderNumber: order.orderNumber };
       }),
   }),
 });
