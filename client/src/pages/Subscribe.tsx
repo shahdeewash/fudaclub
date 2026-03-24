@@ -6,7 +6,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Alert, AlertDescription } from "@/components/ui/alert";
-import { CheckCircle2, Building2, Users, Loader2, AlertCircle } from "lucide-react";
+import { CheckCircle2, Building2, Users, Loader2, AlertCircle, Settings, ExternalLink, CreditCard, Calendar } from "lucide-react";
 import { toast } from "sonner";
 
 export default function Subscribe() {
@@ -17,6 +17,20 @@ export default function Subscribe() {
   const [detectedCompany, setDetectedCompany] = useState<{ id: number; name: string; domain: string; colleagueCount: number } | null>(null);
   const [isDetecting, setIsDetecting] = useState(false);
   const utils = trpc.useUtils();
+
+  const { data: subscription, isLoading: isLoadingSubscription } = trpc.subscription.getStatus.useQuery(
+    undefined,
+    { enabled: isAuthenticated }
+  );
+
+  const getPortalUrl = trpc.subscription.getPortalUrl.useMutation({
+    onSuccess: (data) => {
+      window.open(data.portalUrl, "_blank");
+    },
+    onError: (error: any) => {
+      toast.error(error.message || "Failed to open subscription portal");
+    },
+  });
 
   const createCheckout = trpc.subscription.createCheckout.useMutation({
     onSuccess: (data) => {
@@ -70,6 +84,10 @@ export default function Subscribe() {
     createCheckout.mutate({ companyId: detectedCompany.id, origin: window.location.origin });
   };
 
+  const handleManageSubscription = () => {
+    getPortalUrl.mutate({ returnUrl: window.location.href });
+  };
+
   if (!isAuthenticated) {
     return (
       <div className="min-h-screen bg-background flex items-center justify-center p-4">
@@ -106,7 +124,90 @@ export default function Subscribe() {
       </header>
 
       <div className="container max-w-2xl py-12">
-        {step === "email" && (
+        {/* Active subscription panel */}
+        {isLoadingSubscription ? (
+          <div className="flex justify-center py-8">
+            <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
+          </div>
+        ) : subscription?.status === "active" ? (
+          <Card className="border-secondary mb-8">
+            <CardHeader>
+              <div className="flex items-center gap-3">
+                <div className="h-10 w-10 rounded-full bg-secondary/20 flex items-center justify-center">
+                  <CheckCircle2 className="h-6 w-6 text-secondary" />
+                </div>
+                <div>
+                  <CardTitle className="text-xl">Active Subscription</CardTitle>
+                  <CardDescription>Your FÜDA Corporate Lunch Deal is active</CardDescription>
+                </div>
+              </div>
+            </CardHeader>
+            <CardContent className="space-y-4">
+              <div className="grid grid-cols-2 gap-4">
+                <div className="bg-muted rounded-lg p-4">
+                  <div className="flex items-center gap-2 mb-1">
+                    <Calendar className="h-4 w-4 text-muted-foreground" />
+                    <span className="text-xs text-muted-foreground font-medium uppercase tracking-wide">Period Start</span>
+                  </div>
+                  <p className="font-semibold">
+                    {subscription.periodStart
+                      ? new Date(subscription.periodStart).toLocaleDateString("en-AU", { day: "2-digit", month: "short", year: "numeric" })
+                      : "—"}
+                  </p>
+                </div>
+                <div className="bg-muted rounded-lg p-4">
+                  <div className="flex items-center gap-2 mb-1">
+                    <Calendar className="h-4 w-4 text-muted-foreground" />
+                    <span className="text-xs text-muted-foreground font-medium uppercase tracking-wide">Next Billing</span>
+                  </div>
+                  <p className="font-semibold">
+                    {subscription.periodEnd
+                      ? new Date(subscription.periodEnd).toLocaleDateString("en-AU", { day: "2-digit", month: "short", year: "numeric" })
+                      : "—"}
+                  </p>
+                </div>
+              </div>
+
+              {subscription.cancelAtPeriodEnd && (
+                <Alert variant="default" className="border-yellow-400 bg-yellow-50">
+                  <AlertCircle className="h-4 w-4 text-yellow-600" />
+                  <AlertDescription className="text-yellow-800">
+                    Your subscription is set to cancel at the end of the current period. You can reactivate it via the portal.
+                  </AlertDescription>
+                </Alert>
+              )}
+
+              {subscription.hasStripeCustomer ? (
+                <Button
+                  onClick={handleManageSubscription}
+                  disabled={getPortalUrl.isPending}
+                  className="w-full"
+                  size="lg"
+                >
+                  {getPortalUrl.isPending ? (
+                    <><Loader2 className="mr-2 h-4 w-4 animate-spin" />Opening Portal...</>
+                  ) : (
+                    <><Settings className="mr-2 h-4 w-4" />Manage Subscription<ExternalLink className="ml-2 h-3 w-3 opacity-60" /></>
+                  )}
+                </Button>
+              ) : (
+                <Alert>
+                  <CreditCard className="h-4 w-4" />
+                  <AlertDescription>
+                    Your subscription was activated manually. To manage billing, please contact support.
+                  </AlertDescription>
+                </Alert>
+              )}
+
+              <p className="text-xs text-center text-muted-foreground">
+                The Stripe portal lets you update payment details, view invoices, and cancel your subscription.
+              </p>
+            </CardContent>
+          </Card>
+        ) : null}
+
+        {/* Show subscription form only if no active subscription */}
+        {!subscription && step === "email" && (
           <Card>
             <CardHeader>
               <CardTitle className="text-2xl">Subscribe to Corporate Lunch Deal</CardTitle>
@@ -181,7 +282,7 @@ export default function Subscribe() {
           </Card>
         )}
 
-        {step === "confirm" && detectedCompany && (
+        {!subscription && step === "confirm" && detectedCompany && (
           <Card>
             <CardHeader>
               <CardTitle className="text-2xl">Confirm Your Subscription</CardTitle>
@@ -256,7 +357,7 @@ export default function Subscribe() {
           </Card>
         )}
 
-        {step === "success" && (
+        {!subscription && step === "success" && (
           <Card className="border-secondary">
             <CardHeader className="text-center">
               <div className="mx-auto mb-4 h-16 w-16 rounded-full bg-secondary/20 flex items-center justify-center">

@@ -81,6 +81,22 @@ export const appRouter = router({
 
   subscription: router({
     /**
+     * Returns the current user's active subscription (or null).
+     */
+    getStatus: protectedProcedure.query(async ({ ctx }) => {
+      const sub = await db.getActiveSubscriptionByUserId(ctx.user.id);
+      if (!sub) return null;
+      return {
+        id: sub.id,
+        status: sub.status,
+        periodStart: sub.currentPeriodStart,
+        periodEnd: sub.currentPeriodEnd,
+        cancelAtPeriodEnd: (sub as any).cancelAtPeriodEnd ?? false,
+        hasStripeCustomer: !!(sub as any).stripeCustomerId && !(sub as any).stripeCustomerId.startsWith('sim_'),
+      };
+    }),
+
+    /**
      * Creates a Stripe Checkout session for a recurring fortnightly subscription.
      * Returns the Stripe-hosted checkout URL; the frontend opens it in a new tab.
      */
@@ -216,6 +232,34 @@ export const appRouter = router({
 
       return { success: true };
     }),
+
+    /**
+     * Create a Stripe Billing Portal session and return the URL.
+     * Requires the user to have a Stripe customer ID stored on their subscription.
+     */
+    getPortalUrl: protectedProcedure
+      .input(z.object({ returnUrl: z.string().url() }))
+      .mutation(async ({ ctx, input }) => {
+        const sub = await db.getActiveSubscriptionByUserId(ctx.user.id);
+        if (!sub) throw new TRPCError({ code: 'NOT_FOUND', message: 'No active subscription found.' });
+
+        const customerId = (sub as any).stripeCustomerId;
+        if (!customerId || customerId.startsWith('sim_')) {
+          throw new TRPCError({
+            code: 'BAD_REQUEST',
+            message: 'No Stripe customer linked to this subscription. Please contact support.',
+          });
+        }
+
+        const Stripe = (await import("stripe")).default;
+        const stripe = new Stripe(process.env.STRIPE_SECRET_KEY || "");
+        const session = await stripe.billingPortal.sessions.create({
+          customer: customerId,
+          return_url: input.returnUrl,
+        });
+
+        return { portalUrl: session.url };
+      }),
   }),
 
   menu: router({

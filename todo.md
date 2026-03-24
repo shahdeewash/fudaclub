@@ -450,3 +450,16 @@
 - [x] Kitchen stats bar shows arrived count with orange ring when > 0
 - [x] Add `arrived` to `updateStatus` enum so kitchen can move to `preparing`
 - [x] Written and passing tests in server/arrival.test.ts
+
+## Stripe Customer Portal (2026-03-24) ✅ COMPLETE
+
+- [x] Add `subscription.getStatus` query to return current subscription details
+- [x] Add `subscription.getPortalUrl` mutation to create Stripe Billing Portal session
+- [x] Show active subscription panel on Subscribe page when user has active subscription
+- [x] Display period start and next billing date in the panel
+- [x] Show "Manage Subscription" button that opens Stripe portal in new tab
+- [x] Show cancellation warning banner when `cancelAtPeriodEnd` is true
+- [x] Show fallback message for manually-activated subscriptions without Stripe customer
+- [x] Hide subscription signup form when user already has active subscription
+- [x] Loading spinner while fetching subscription status
+- [x] All 8 existing tests still pass
