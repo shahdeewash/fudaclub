@@ -3,40 +3,76 @@
  * All amounts are in AUD cents.
  */
 
-export const SUBSCRIPTION_PLAN = {
-  name: "FÜDA Corporate Lunch Deal",
-  description: "Daily free meal credit + team delivery benefits. Billed fortnightly.",
-  /** $25.00 AUD per fortnight */
-  amount: 2500,
-  currency: "aud",
-  /**
-   * Stripe does not have a built-in "fortnight" interval.
-   * We use interval: "week" with interval_count: 2 (every 2 weeks).
-   */
-  interval: "week" as const,
-  interval_count: 2,
-} as const;
+export type PlanType = "fortnightly" | "monthly";
+
+export const SUBSCRIPTION_PLANS: Record<PlanType, {
+  name: string;
+  description: string;
+  amount: number;
+  currency: string;
+  interval: "week" | "month";
+  interval_count: number;
+  label: string;
+  billingLabel: string;
+  features: string[];
+}> = {
+  fortnightly: {
+    name: "FÜDA Corporate Lunch Deal – Fortnightly",
+    description: "Daily free meal credit + team delivery benefits. Billed every 2 weeks.",
+    /** $270.00 AUD per fortnight */
+    amount: 27000,
+    currency: "aud",
+    interval: "week",
+    interval_count: 2,
+    label: "Fortnightly",
+    billingLabel: "Billed every 2 weeks",
+    features: [
+      "Daily free meal credit (up to $18 value)",
+      "Free delivery when 5+ colleagues order",
+      "Access to Today's Special",
+      "Priority pickup lane",
+    ],
+  },
+  monthly: {
+    name: "FÜDA Corporate Lunch Deal – Monthly",
+    description: "Daily free meal credit + team delivery benefits. Billed monthly.",
+    /** $500.00 AUD per month */
+    amount: 50000,
+    currency: "aud",
+    interval: "month",
+    interval_count: 1,
+    label: "Monthly",
+    billingLabel: "Billed monthly",
+    features: [
+      "Daily free meal credit (up to $18 value)",
+      "Free delivery when 5+ colleagues order",
+      "Access to Today's Special",
+      "Priority pickup lane",
+      "Save ~$40 vs fortnightly billing",
+    ],
+  },
+};
 
 /**
- * Lazily creates (or retrieves) the Stripe product and price for the subscription plan.
- * Caches the price ID in memory so we only call the Stripe API once per server boot.
+ * Cache price IDs per plan type so we only call the Stripe API once per server boot.
  */
-let cachedPriceId: string | null = null;
+const cachedPriceIds: Partial<Record<PlanType, string>> = {};
 
-export async function getOrCreateSubscriptionPriceId(): Promise<string> {
-  if (cachedPriceId) return cachedPriceId;
+export async function getOrCreatePriceId(planType: PlanType): Promise<string> {
+  if (cachedPriceIds[planType]) return cachedPriceIds[planType]!;
 
+  const plan = SUBSCRIPTION_PLANS[planType];
   const Stripe = (await import("stripe")).default;
   const stripe = new Stripe(process.env.STRIPE_SECRET_KEY || "");
 
   // Search for existing product by name
-  const products = await stripe.products.search({ query: `name:"${SUBSCRIPTION_PLAN.name}"` });
+  const products = await stripe.products.search({ query: `name:"${plan.name}"` });
   let product = products.data[0];
 
   if (!product) {
     product = await stripe.products.create({
-      name: SUBSCRIPTION_PLAN.name,
-      description: SUBSCRIPTION_PLAN.description,
+      name: plan.name,
+      description: plan.description,
     });
   }
 
@@ -49,27 +85,35 @@ export async function getOrCreateSubscriptionPriceId(): Promise<string> {
 
   const existingPrice = prices.data.find(
     (p) =>
-      p.unit_amount === SUBSCRIPTION_PLAN.amount &&
-      p.currency === SUBSCRIPTION_PLAN.currency &&
-      p.recurring?.interval === SUBSCRIPTION_PLAN.interval &&
-      p.recurring?.interval_count === SUBSCRIPTION_PLAN.interval_count
+      p.unit_amount === plan.amount &&
+      p.currency === plan.currency &&
+      p.recurring?.interval === plan.interval &&
+      p.recurring?.interval_count === plan.interval_count
   );
 
   if (existingPrice) {
-    cachedPriceId = existingPrice.id;
-    return cachedPriceId;
+    cachedPriceIds[planType] = existingPrice.id;
+    return existingPrice.id;
   }
 
   const price = await stripe.prices.create({
     product: product.id,
-    unit_amount: SUBSCRIPTION_PLAN.amount,
-    currency: SUBSCRIPTION_PLAN.currency,
+    unit_amount: plan.amount,
+    currency: plan.currency,
     recurring: {
-      interval: SUBSCRIPTION_PLAN.interval,
-      interval_count: SUBSCRIPTION_PLAN.interval_count,
+      interval: plan.interval,
+      interval_count: plan.interval_count,
     },
   });
 
-  cachedPriceId = price.id;
-  return cachedPriceId;
+  cachedPriceIds[planType] = price.id;
+  return price.id;
+}
+
+/**
+ * Legacy helper kept for backward compatibility.
+ * @deprecated Use getOrCreatePriceId("fortnightly") instead.
+ */
+export async function getOrCreateSubscriptionPriceId(): Promise<string> {
+  return getOrCreatePriceId("fortnightly");
 }

@@ -29,6 +29,13 @@
       "when": 1774347981772,
       "tag": "0003_same_blindfold",
       "breakpoints": true
+    },
+    {
+      "idx": 4,
+      "version": "5",
+      "when": 1774349617721,
+      "tag": "0004_easy_blade",
+      "breakpoints": true
     }
   ]
 }

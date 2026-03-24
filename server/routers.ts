@@ -8,7 +8,7 @@ import { publicProcedure, protectedProcedure, router } from "./_core/trpc";
 import * as db from "./db";
 import { nanoid } from "nanoid";
 import { notifyOwner } from "./_core/notification";
-import { getOrCreateSubscriptionPriceId } from "./products";
+import { getOrCreateSubscriptionPriceId, getOrCreatePriceId, SUBSCRIPTION_PLANS } from "./products";
 
 // Helper to extract domain from email
 function extractDomain(email: string): string {
@@ -93,17 +93,20 @@ export const appRouter = router({
         periodEnd: sub.currentPeriodEnd,
         cancelAtPeriodEnd: (sub as any).cancelAtPeriodEnd ?? false,
         hasStripeCustomer: !!(sub as any).stripeCustomerId && !(sub as any).stripeCustomerId.startsWith('sim_'),
+        planType: (sub as any).planType ?? "fortnightly",
+        planAmount: sub.planAmount,
       };
     }),
 
     /**
-     * Creates a Stripe Checkout session for a recurring fortnightly subscription.
+     * Creates a Stripe Checkout session for a subscription (fortnightly or monthly).
      * Returns the Stripe-hosted checkout URL; the frontend opens it in a new tab.
      */
     createCheckout: protectedProcedure
       .input(z.object({
         companyId: z.number(),
         origin: z.string(),
+        planType: z.enum(["fortnightly", "monthly"]).default("fortnightly"),
       }))
       .mutation(async ({ ctx, input }) => {
         // Check if user already has active subscription
@@ -115,7 +118,8 @@ export const appRouter = router({
           });
         }
 
-        const priceId = await getOrCreateSubscriptionPriceId();
+        const priceId = await getOrCreatePriceId(input.planType);
+        const plan = SUBSCRIPTION_PLANS[input.planType];
         const Stripe = (await import("stripe")).default;
         const stripe = new Stripe(process.env.STRIPE_SECRET_KEY || "");
 
@@ -130,6 +134,8 @@ export const appRouter = router({
             company_id: input.companyId.toString(),
             customer_email: ctx.user.email,
             customer_name: ctx.user.name ?? "",
+            plan_type: input.planType,
+            plan_amount: plan.amount.toString(),
           },
           success_url: `${input.origin}/subscription-success?session_id={CHECKOUT_SESSION_ID}`,
           cancel_url: `${input.origin}/subscribe`,
@@ -179,12 +185,16 @@ export const appRouter = router({
           ? new Date(stripeSubscription.current_period_end * 1000)
           : new Date(now.getTime() + 14 * 24 * 60 * 60 * 1000);
 
+        const planType = (session.metadata?.plan_type === "monthly" ? "monthly" : "fortnightly") as "fortnightly" | "monthly";
+        const planAmount = session.metadata?.plan_amount ? parseInt(session.metadata.plan_amount) : SUBSCRIPTION_PLANS[planType].amount;
+
         const sub = await db.createSubscription({
           userId: ctx.user.id,
           stripeSubscriptionId: stripeSubscription?.id ?? input.sessionId,
           stripeCustomerId: typeof session.customer === "string" ? session.customer : session.customer?.id ?? "",
           status: "active",
-          planAmount: 2500,
+          planAmount,
+          planType,
           currentPeriodStart: periodStart,
           currentPeriodEnd: periodEnd,
           cancelAtPeriodEnd: false,
@@ -835,6 +845,37 @@ export const appRouter = router({
 
         return { success: true, orderNumber: existing[0].orderNumber };
       }),
+
+    /**
+     * Sends owner notifications for subscriptions expiring within 3 days.
+     * Should be triggered daily (e.g., via a scheduled job or admin action).
+     * Admin-only.
+     */
+    sendExpiryReminders: protectedProcedure.mutation(async ({ ctx }) => {
+      if (ctx.user.role !== 'admin') {
+        throw new TRPCError({ code: 'FORBIDDEN' });
+      }
+
+      const expiring = await db.getSubscriptionsExpiringWithin(3);
+      if (expiring.length === 0) {
+        return { sent: 0, message: 'No subscriptions expiring in the next 3 days.' };
+      }
+
+      let sent = 0;
+      for (const sub of expiring) {
+        const planLabel = (sub as any).planType === 'monthly' ? 'Monthly ($500)' : 'Fortnightly ($270)';
+        const expiryDate = new Date(sub.currentPeriodEnd).toLocaleDateString('en-AU', {
+          day: '2-digit', month: 'short', year: 'numeric',
+        });
+        await notifyOwner({
+          title: `Subscription Expiring Soon: ${sub.userName ?? sub.userEmail ?? 'Unknown'}`,
+          content: `Plan: ${planLabel}\nCustomer: ${sub.userName ?? 'N/A'} (${sub.userEmail ?? 'N/A'})\nExpires: ${expiryDate}\nStripe ID: ${sub.stripeSubscriptionId ?? 'N/A'}`,
+        }).catch(() => {});
+        sent++;
+      }
+
+      return { sent, message: `Sent ${sent} expiry reminder${sent !== 1 ? 's' : ''}.` };
+    }),
   }),
 
   // Stripe Payment

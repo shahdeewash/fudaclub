@@ -9,7 +9,7 @@ import { Label } from "@/components/ui/label";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { trpc } from "@/lib/trpc";
-import { BarChart3, DollarSign, Package, Users, Star, Plus, Building2, User, Filter, Camera, X, Check, Upload, Pencil, Trash2, Download } from "lucide-react";
+import { BarChart3, DollarSign, Package, Users, Star, Plus, Building2, User, Filter, Camera, X, Check, Upload, Pencil, Trash2, Download, Bell } from "lucide-react";
 import { useLocation } from "wouter";
 import { toast } from "sonner";
 
@@ -145,6 +145,15 @@ export default function Admin() {
     },
     onError: (error) => {
       toast.error(error.message);
+    },
+  });
+
+  const sendExpiryReminders = trpc.stats.sendExpiryReminders.useMutation({
+    onSuccess: (data) => {
+      toast.success(data.message);
+    },
+    onError: (error: any) => {
+      toast.error(error.message || "Failed to send reminders");
     },
   });
 
@@ -320,6 +329,31 @@ export default function Admin() {
                 </CardContent>
               </Card>
             </div>
+
+            {/* Subscription Expiry Reminders */}
+            <Card>
+              <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+                <div>
+                  <CardTitle className="text-sm font-medium">Subscription Expiry Reminders</CardTitle>
+                  <CardDescription className="text-xs mt-1">Notify yourself about subscriptions expiring within 3 days</CardDescription>
+                </div>
+                <Bell className="h-4 w-4 text-muted-foreground" />
+              </CardHeader>
+              <CardContent>
+                <Button
+                  size="sm"
+                  variant="outline"
+                  onClick={() => sendExpiryReminders.mutate()}
+                  disabled={sendExpiryReminders.isPending}
+                >
+                  {sendExpiryReminders.isPending ? (
+                    <><span className="mr-2 h-3 w-3 animate-spin rounded-full border-2 border-current border-t-transparent inline-block" />Checking...</>
+                  ) : (
+                    <><Bell className="mr-2 h-3 w-3" />Send Reminders Now</>
+                  )}
+                </Button>
+              </CardContent>
+            </Card>
           </TabsContent>
 
           {/* All Orders Tab */}

@@ -6,14 +6,57 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Alert, AlertDescription } from "@/components/ui/alert";
-import { CheckCircle2, Building2, Users, Loader2, AlertCircle, Settings, ExternalLink, CreditCard, Calendar } from "lucide-react";
+import { Badge } from "@/components/ui/badge";
+import {
+  CheckCircle2, Building2, Users, Loader2, AlertCircle,
+  Settings, ExternalLink, CreditCard, Calendar, Zap
+} from "lucide-react";
 import { toast } from "sonner";
+
+type PlanType = "fortnightly" | "monthly";
+
+const PLANS: Record<PlanType, {
+  label: string;
+  price: string;
+  billingLabel: string;
+  priceNote: string;
+  badge?: string;
+  features: string[];
+}> = {
+  fortnightly: {
+    label: "Fortnightly",
+    price: "$270",
+    billingLabel: "Billed every 2 weeks",
+    priceNote: "~$19.29/day",
+    features: [
+      "Daily free meal credit (up to $18 value)",
+      "Free delivery when 5+ colleagues order",
+      "Access to Today's Special",
+      "Priority pickup lane",
+    ],
+  },
+  monthly: {
+    label: "Monthly",
+    price: "$500",
+    billingLabel: "Billed monthly",
+    priceNote: "~$16.67/day • Save ~$40",
+    badge: "Best Value",
+    features: [
+      "Daily free meal credit (up to $18 value)",
+      "Free delivery when 5+ colleagues order",
+      "Access to Today's Special",
+      "Priority pickup lane",
+      "Save ~$40 vs fortnightly billing",
+    ],
+  },
+};
 
 export default function Subscribe() {
   const { user, isAuthenticated } = useAuth();
   const [, setLocation] = useLocation();
   const [email, setEmail] = useState(user?.email || "");
-  const [step, setStep] = useState<"email" | "confirm" | "success">("email");
+  const [step, setStep] = useState<"plan" | "email" | "confirm" | "success">("plan");
+  const [selectedPlan, setSelectedPlan] = useState<PlanType>("monthly");
   const [detectedCompany, setDetectedCompany] = useState<{ id: number; name: string; domain: string; colleagueCount: number } | null>(null);
   const [isDetecting, setIsDetecting] = useState(false);
   const utils = trpc.useUtils();
@@ -35,7 +78,7 @@ export default function Subscribe() {
   const createCheckout = trpc.subscription.createCheckout.useMutation({
     onSuccess: (data) => {
       if (data.checkoutUrl) {
-        toast.info("Redirecting to payment...");
+        toast.info("Redirecting to Stripe Checkout...");
         window.open(data.checkoutUrl, "_blank");
       } else {
         toast.error("Failed to get checkout URL");
@@ -46,13 +89,17 @@ export default function Subscribe() {
     },
   });
 
+  const handlePlanSelect = (plan: PlanType) => {
+    setSelectedPlan(plan);
+    setStep("email");
+  };
+
   const handleEmailSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!email || !email.includes("@")) {
       toast.error("Please enter a valid email address");
       return;
     }
-
     setIsDetecting(true);
     try {
       const data = await utils.client.company.detectFromEmail.query({ email });
@@ -71,17 +118,15 @@ export default function Subscribe() {
   };
 
   const handleConfirmSubscription = () => {
-    console.log("handleConfirmSubscription called", { detectedCompany, user });
-    if (!detectedCompany) {
-      toast.error("No company detected");
+    if (!detectedCompany || !user) {
+      toast.error("Missing company or user information");
       return;
     }
-    if (!user) {
-      toast.error("User not authenticated");
-      return;
-    }
-    toast.info("Redirecting to Stripe Checkout...");
-    createCheckout.mutate({ companyId: detectedCompany.id, origin: window.location.origin });
+    createCheckout.mutate({
+      companyId: detectedCompany.id,
+      origin: window.location.origin,
+      planType: selectedPlan,
+    });
   };
 
   const handleManageSubscription = () => {
@@ -106,6 +151,8 @@ export default function Subscribe() {
     );
   }
 
+  const plan = PLANS[selectedPlan];
+
   return (
     <div className="min-h-screen bg-background">
       {/* Header */}
@@ -124,7 +171,8 @@ export default function Subscribe() {
       </header>
 
       <div className="container max-w-2xl py-12">
-        {/* Active subscription panel */}
+
+        {/* ── Active subscription panel ── */}
         {isLoadingSubscription ? (
           <div className="flex justify-center py-8">
             <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
@@ -138,7 +186,9 @@ export default function Subscribe() {
                 </div>
                 <div>
                   <CardTitle className="text-xl">Active Subscription</CardTitle>
-                  <CardDescription>Your FÜDA Corporate Lunch Deal is active</CardDescription>
+                  <CardDescription>
+                    {subscription.planType === "monthly" ? "Monthly Plan — $500/month" : "Fortnightly Plan — $270/fortnight"}
+                  </CardDescription>
                 </div>
               </div>
             </CardHeader>
@@ -206,21 +256,72 @@ export default function Subscribe() {
           </Card>
         ) : null}
 
-        {/* Show subscription form only if no active subscription */}
+        {/* ── Plan selection step ── */}
+        {!subscription && step === "plan" && (
+          <div className="space-y-6">
+            <div className="text-center">
+              <h2 className="text-3xl font-bold mb-2">Choose Your Plan</h2>
+              <p className="text-muted-foreground">Subscribe to the FÜDA Corporate Lunch Deal and enjoy daily free meals with your team.</p>
+            </div>
+
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+              {(Object.entries(PLANS) as [PlanType, typeof PLANS[PlanType]][]).map(([key, p]) => (
+                <Card
+                  key={key}
+                  className={`relative cursor-pointer transition-all hover:shadow-md ${key === "monthly" ? "border-secondary ring-1 ring-secondary" : "border-border"}`}
+                  onClick={() => handlePlanSelect(key)}
+                >
+                  {p.badge && (
+                    <div className="absolute -top-3 left-1/2 -translate-x-1/2">
+                      <Badge className="bg-secondary text-secondary-foreground px-3 py-1">
+                        <Zap className="h-3 w-3 mr-1" />{p.badge}
+                      </Badge>
+                    </div>
+                  )}
+                  <CardHeader className="pb-2 pt-6">
+                    <CardTitle className="text-lg">{p.label}</CardTitle>
+                    <div className="flex items-baseline gap-1">
+                      <span className="text-4xl font-bold">{p.price}</span>
+                      <span className="text-muted-foreground text-sm">AUD</span>
+                    </div>
+                    <p className="text-sm text-muted-foreground">{p.billingLabel}</p>
+                    <p className="text-xs font-medium text-secondary">{p.priceNote}</p>
+                  </CardHeader>
+                  <CardContent className="space-y-2">
+                    {p.features.map((f, i) => (
+                      <div key={i} className="flex items-start gap-2">
+                        <CheckCircle2 className="h-4 w-4 text-secondary mt-0.5 shrink-0" />
+                        <span className="text-sm">{f}</span>
+                      </div>
+                    ))}
+                    <Button className="w-full mt-4" variant={key === "monthly" ? "default" : "outline"}>
+                      Select {p.label}
+                    </Button>
+                  </CardContent>
+                </Card>
+              ))}
+            </div>
+          </div>
+        )}
+
+        {/* ── Email step ── */}
         {!subscription && step === "email" && (
           <Card>
             <CardHeader>
-              <CardTitle className="text-2xl">Subscribe to Corporate Lunch Deal</CardTitle>
-              <CardDescription>
-                Enter your work email to get started. We'll automatically detect your company.
-              </CardDescription>
+              <div className="flex items-center justify-between">
+                <div>
+                  <CardTitle className="text-2xl">Enter Your Work Email</CardTitle>
+                  <CardDescription>We'll automatically detect your company.</CardDescription>
+                </div>
+                <Badge variant="outline" className="text-sm shrink-0">
+                  {plan.label} · {plan.price}
+                </Badge>
+              </div>
             </CardHeader>
             <CardContent className="space-y-6">
               <form onSubmit={handleEmailSubmit} className="space-y-4">
                 <div className="space-y-2">
-                  <label htmlFor="email" className="text-sm font-medium">
-                    Work Email Address
-                  </label>
+                  <label htmlFor="email" className="text-sm font-medium">Work Email Address</label>
                   <Input
                     id="email"
                     type="email"
@@ -230,63 +331,34 @@ export default function Subscribe() {
                     required
                     disabled={isDetecting}
                   />
-                  <p className="text-sm text-muted-foreground">
-                    Use your company email to join your colleagues
-                  </p>
+                  <p className="text-sm text-muted-foreground">Use your company email to join your colleagues</p>
                 </div>
-
-                <Button
-                  type="submit"
-                  className="w-full"
-                  size="lg"
-                  disabled={isDetecting}
-                >
+                <Button type="submit" className="w-full" size="lg" disabled={isDetecting}>
                   {isDetecting ? (
-                    <>
-                      <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                      Detecting Company...
-                    </>
-                  ) : (
-                    "Continue"
-                  )}
+                    <><Loader2 className="mr-2 h-4 w-4 animate-spin" />Detecting Company...</>
+                  ) : "Continue"}
                 </Button>
               </form>
-
-              <div className="pt-6 border-t">
-                <h3 className="font-semibold mb-3">What You'll Get:</h3>
-                <div className="space-y-3">
-                  <div className="flex items-start gap-3">
-                    <CheckCircle2 className="h-5 w-5 text-secondary mt-0.5" />
-                    <div>
-                      <p className="font-medium">$25/fortnight subscription</p>
-                      <p className="text-sm text-muted-foreground">One free meal daily (valued at $18)</p>
-                    </div>
-                  </div>
-                  <div className="flex items-start gap-3">
-                    <CheckCircle2 className="h-5 w-5 text-secondary mt-0.5" />
-                    <div>
-                      <p className="font-medium">Free delivery when 5+ colleagues order</p>
-                      <p className="text-sm text-muted-foreground">Save $8 on delivery fees</p>
-                    </div>
-                  </div>
-                  <div className="flex items-start gap-3">
-                    <CheckCircle2 className="h-5 w-5 text-secondary mt-0.5" />
-                    <div>
-                      <p className="font-medium">Access to Today's Special</p>
-                      <p className="text-sm text-muted-foreground">Exclusive daily featured items</p>
-                    </div>
-                  </div>
-                </div>
-              </div>
+              <Button variant="ghost" className="w-full" onClick={() => setStep("plan")}>
+                ← Change Plan
+              </Button>
             </CardContent>
           </Card>
         )}
 
+        {/* ── Confirm step ── */}
         {!subscription && step === "confirm" && detectedCompany && (
           <Card>
             <CardHeader>
-              <CardTitle className="text-2xl">Confirm Your Subscription</CardTitle>
-              <CardDescription>Review your company details and complete subscription</CardDescription>
+              <div className="flex items-center justify-between">
+                <div>
+                  <CardTitle className="text-2xl">Confirm Subscription</CardTitle>
+                  <CardDescription>Review your details and complete payment</CardDescription>
+                </div>
+                <Badge variant="outline" className="text-sm shrink-0">
+                  {plan.label} · {plan.price}
+                </Badge>
+              </div>
             </CardHeader>
             <CardContent className="space-y-6">
               <Alert>
@@ -311,52 +383,39 @@ export default function Subscribe() {
                 </Alert>
               )}
 
-              <div className="bg-muted p-6 rounded-lg space-y-4">
+              <div className="bg-muted p-6 rounded-lg space-y-3">
                 <div className="flex justify-between items-center">
-                  <span className="text-lg font-semibold">Subscription Fee</span>
-                  <span className="text-2xl font-bold">$25</span>
+                  <div>
+                    <p className="text-lg font-semibold">{plan.label} Plan</p>
+                    <p className="text-sm text-muted-foreground">{plan.billingLabel}</p>
+                  </div>
+                  <span className="text-3xl font-bold">{plan.price}</span>
                 </div>
-                <p className="text-sm text-muted-foreground">
-                  Billed every 2 weeks • Cancel anytime
-                </p>
+                <p className="text-xs text-muted-foreground">{plan.priceNote} • Cancel anytime</p>
               </div>
 
               <Alert variant="default" className="border-secondary/50 bg-secondary/10">
                 <AlertCircle className="h-4 w-4 text-secondary" />
                 <AlertDescription className="text-sm">
-                  You'll be redirected to Stripe's secure checkout to complete your payment. Use card <strong>4242 4242 4242 4242</strong> for testing.
+                  You'll be redirected to Stripe's secure checkout. Use card <strong>4242 4242 4242 4242</strong> for testing.
                 </AlertDescription>
               </Alert>
 
               <div className="flex gap-3">
-                <Button
-                  variant="outline"
-                  onClick={() => setStep("email")}
-                  className="flex-1"
-                  disabled={createCheckout.isPending}
-                >
+                <Button variant="outline" onClick={() => setStep("email")} className="flex-1" disabled={createCheckout.isPending}>
                   Back
                 </Button>
-                <Button
-                  onClick={handleConfirmSubscription}
-                  className="flex-1"
-                  size="lg"
-                  disabled={createCheckout.isPending}
-                >
+                <Button onClick={handleConfirmSubscription} className="flex-1" size="lg" disabled={createCheckout.isPending}>
                   {createCheckout.isPending ? (
-                    <>
-                      <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                      Redirecting...
-                    </>
-                  ) : (
-                    "Pay with Stripe"
-                  )}
+                    <><Loader2 className="mr-2 h-4 w-4 animate-spin" />Redirecting...</>
+                  ) : "Pay with Stripe"}
                 </Button>
               </div>
             </CardContent>
           </Card>
         )}
 
+        {/* ── Success step (fallback — normally handled by SubscriptionSuccess page) ── */}
         {!subscription && step === "success" && (
           <Card className="border-secondary">
             <CardHeader className="text-center">
@@ -367,30 +426,9 @@ export default function Subscribe() {
               <CardDescription>Welcome to FÜDA Corporate Lunch Deal</CardDescription>
             </CardHeader>
             <CardContent className="space-y-6">
-              <div className="text-center space-y-2">
-                <p className="text-muted-foreground">
-                  Your subscription is now active. You can start ordering lunch with your daily credit.
-                </p>
-              </div>
-
-              <div className="bg-muted p-6 rounded-lg space-y-3">
-                <h3 className="font-semibold">Next Steps:</h3>
-                <ul className="space-y-2 text-sm">
-                  <li className="flex items-start gap-2">
-                    <CheckCircle2 className="h-4 w-4 text-secondary mt-0.5" />
-                    <span>Browse the menu and select your lunch</span>
-                  </li>
-                  <li className="flex items-start gap-2">
-                    <CheckCircle2 className="h-4 w-4 text-secondary mt-0.5" />
-                    <span>Your first item is free every day ($0.00)</span>
-                  </li>
-                  <li className="flex items-start gap-2">
-                    <CheckCircle2 className="h-4 w-4 text-secondary mt-0.5" />
-                    <span>Order before 10:30 AM for same-day delivery</span>
-                  </li>
-                </ul>
-              </div>
-
+              <p className="text-center text-muted-foreground">
+                Your subscription is now active. You can start ordering lunch with your daily credit.
+              </p>
               <Button onClick={() => setLocation("/menu")} className="w-full" size="lg">
                 Start Ordering
               </Button>

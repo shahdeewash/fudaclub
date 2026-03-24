@@ -463,3 +463,23 @@
 - [x] Hide subscription signup form when user already has active subscription
 - [x] Loading spinner while fetching subscription status
 - [x] All 8 existing tests still pass
+
+## Two Membership Tiers + Expiry Reminder (2026-03-24) ✅ COMPLETE
+
+### Membership Tiers
+- [x] Update products.ts with Fortnightly ($270 AUD / 2 weeks) and Monthly ($500 AUD / month) Stripe price definitions
+- [x] Add `planType` column to subscriptions table (enum: fortnightly | monthly, default: fortnightly)
+- [x] Apply schema migration via webdev_execute_sql
+- [x] Update `subscription.createCheckout` to accept `planType` input (defaults to fortnightly)
+- [x] Update `subscription.activateFromSession` to read plan_type from Stripe metadata
+- [x] Update `subscription.getStatus` to return `planType` and `planAmount`
+- [x] Rewrite Subscribe page with tier selection step (two plan cards with pricing and benefits)
+- [x] Monthly plan shows "Best Value" badge and save ~$40 note
+- [x] Active subscription panel shows plan name and price
+
+### Subscription Expiry Reminder
+- [x] Add `db.getSubscriptionsExpiringWithin(days)` helper with user name/email join
+- [x] Add `stats.sendExpiryReminders` admin-only procedure (queries subscriptions expiring in 3 days)
+- [x] Send `notifyOwner` notification for each expiring subscription with customer name, email, plan, and Stripe ID
+- [x] Add "Send Reminders Now" button to Admin Overview tab
+- [x] Written and passing tests in server/subscription.test.ts (5 tests pass)

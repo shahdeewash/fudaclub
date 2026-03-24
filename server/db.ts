@@ -436,3 +436,45 @@ export async function getOrderByStripeSessionId(sessionId: string): Promise<Orde
   const result = await db.select().from(orders).where(eq(orders.stripeSessionId, sessionId)).limit(1);
   return result[0] ?? null;
 }
+
+/**
+ * Returns all active subscriptions whose currentPeriodEnd falls within the next `withinDays` days.
+ * Used for sending expiry reminder notifications.
+ */
+export async function getSubscriptionsExpiringWithin(withinDays: number): Promise<(Subscription & { userName: string | null; userEmail: string | null })[]> {
+  const db = await getDb();
+  if (!db) return [];
+
+  const now = new Date();
+  const cutoff = new Date(now.getTime() + withinDays * 24 * 60 * 60 * 1000);
+
+  const { users } = await import("../drizzle/schema");
+  const { and, eq, gte, lte } = await import("drizzle-orm");
+
+  const rows = await db
+    .select({
+      id: subscriptions.id,
+      userId: subscriptions.userId,
+      stripeSubscriptionId: subscriptions.stripeSubscriptionId,
+      stripeCustomerId: subscriptions.stripeCustomerId,
+      status: subscriptions.status,
+      planAmount: subscriptions.planAmount,
+      currentPeriodStart: subscriptions.currentPeriodStart,
+      currentPeriodEnd: subscriptions.currentPeriodEnd,
+      cancelAtPeriodEnd: subscriptions.cancelAtPeriodEnd,
+      planType: subscriptions.planType,
+      createdAt: subscriptions.createdAt,
+      updatedAt: subscriptions.updatedAt,
+      userName: users.name,
+      userEmail: users.email,
+    })
+    .from(subscriptions)
+    .innerJoin(users, eq(subscriptions.userId, users.id))
+    .where(and(
+      eq(subscriptions.status, "active"),
+      gte(subscriptions.currentPeriodEnd, now),
+      lte(subscriptions.currentPeriodEnd, cutoff)
+    ));
+
+  return rows as any;
+}

@@ -1,0 +1,1 @@
+ALTER TABLE `subscriptions` ADD `planType` enum('fortnightly','monthly') DEFAULT 'fortnightly' NOT NULL;
