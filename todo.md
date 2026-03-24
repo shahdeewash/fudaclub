@@ -483,3 +483,12 @@
 - [x] Send `notifyOwner` notification for each expiring subscription with customer name, email, plan, and Stripe ID
 - [x] Add "Send Reminders Now" button to Admin Overview tab
 - [x] Written and passing tests in server/subscription.test.ts (5 tests pass)
+
+## Nav + Hero + Cron (2026-03-24) ✅ COMPLETE
+
+- [x] Update home page hero copy to reflect new pricing (From $270/fortnight or $500/month)
+- [x] Replace single pricing card with two-column plan grid (Fortnightly $270 / Monthly $500 with Best Value badge)
+- [x] Add "My Plan" / "Subscriptions" (admin) button to top nav with CreditCard icon
+- [x] Wire daily cron job in server/_core/index.ts — fires at 8:00 AM Darwin time (22:30 UTC)
+- [x] Cron job queries subscriptions expiring within 3 days and sends notifyOwner for each
+- [x] Logs cron schedule on server startup with minutes until next run

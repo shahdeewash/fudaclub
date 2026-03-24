@@ -2,7 +2,7 @@ import { useLocation } from "wouter";
 import { useAuth } from "@/_core/hooks/useAuth";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
-import { DollarSign, Truck, Users, Clock, Star, CheckCircle2, LogOut } from "lucide-react";
+import { DollarSign, Truck, Users, Clock, Star, CheckCircle2, LogOut, CreditCard } from "lucide-react";
 import { CartIndicator } from "@/components/CartIndicator";
 import { trpc } from "@/lib/trpc";
 import { toast } from "sonner";
@@ -37,6 +37,10 @@ export default function Home() {
               <Button variant="outline" onClick={() => setLocation("/orders")}>
                 My Orders
               </Button>
+              <Button variant="outline" onClick={() => setLocation("/subscribe")} className="gap-2">
+                <CreditCard className="h-4 w-4" />
+                {user?.role === 'admin' ? 'Subscriptions' : 'My Plan'}
+              </Button>
               <Button 
                 variant="ghost" 
                 onClick={() => logout.mutate()}
@@ -60,7 +64,7 @@ export default function Home() {
         <div className="container max-w-4xl text-center">
           <h2 className="text-5xl font-bold mb-6">Corporate Lunch Deal</h2>
           <p className="text-xl text-muted-foreground mb-8">
-            Subscribe for $25/fortnight and enjoy daily lunch credits with your team
+            From $270/fortnight or $500/month — enjoy daily lunch credits with your team
           </p>
           <div className="flex gap-4 justify-center">
             {isAuthenticated ? (
@@ -135,46 +139,79 @@ export default function Home() {
       {/* Pricing */}
       <section className="py-16 bg-muted/30">
         <div className="container max-w-4xl">
-          <h3 className="text-3xl font-bold text-center mb-12">Simple Pricing</h3>
-          <Card className="max-w-md mx-auto border-secondary">
-            <CardHeader className="text-center">
-              <Star className="h-12 w-12 text-secondary mx-auto mb-4 fill-secondary" />
-              <CardTitle className="text-3xl">$25 / fortnight</CardTitle>
-              <CardDescription className="text-lg">Corporate Lunch Subscription</CardDescription>
-            </CardHeader>
-            <CardContent className="space-y-4">
-              <div className="space-y-3">
+          <h3 className="text-3xl font-bold text-center mb-4">Simple Pricing</h3>
+          <p className="text-center text-muted-foreground mb-12">Choose the plan that suits your team's rhythm</p>
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-6 max-w-2xl mx-auto">
+            {/* Fortnightly */}
+            <Card className="border-secondary/50">
+              <CardHeader className="text-center">
+                <CardTitle className="text-2xl">$270</CardTitle>
+                <CardDescription className="text-base font-medium">per fortnight</CardDescription>
+                <p className="text-xs text-muted-foreground">~$19.29 / day</p>
+              </CardHeader>
+              <CardContent className="space-y-3">
                 <div className="flex items-start gap-3">
-                  <CheckCircle2 className="h-5 w-5 text-secondary mt-0.5" />
-                  <span>1 free meal daily (worth $18)</span>
+                  <CheckCircle2 className="h-4 w-4 text-secondary mt-0.5 shrink-0" />
+                  <span className="text-sm">1 free meal daily (worth $18)</span>
                 </div>
                 <div className="flex items-start gap-3">
-                  <CheckCircle2 className="h-5 w-5 text-secondary mt-0.5" />
-                  <span>Free delivery when 5+ colleagues order</span>
+                  <CheckCircle2 className="h-4 w-4 text-secondary mt-0.5 shrink-0" />
+                  <span className="text-sm">Free delivery when 5+ colleagues order</span>
                 </div>
                 <div className="flex items-start gap-3">
-                  <CheckCircle2 className="h-5 w-5 text-secondary mt-0.5" />
-                  <span>Access to Today's Special</span>
+                  <CheckCircle2 className="h-4 w-4 text-secondary mt-0.5 shrink-0" />
+                  <span className="text-sm">Access to Today's Special</span>
                 </div>
                 <div className="flex items-start gap-3">
-                  <CheckCircle2 className="h-5 w-5 text-secondary mt-0.5" />
-                  <span>See colleague orders in real-time</span>
+                  <CheckCircle2 className="h-4 w-4 text-secondary mt-0.5 shrink-0" />
+                  <span className="text-sm">Cancel anytime</span>
                 </div>
-                <div className="flex items-start gap-3">
-                  <CheckCircle2 className="h-5 w-5 text-secondary mt-0.5" />
-                  <span>Cancel anytime</span>
-                </div>
-              </div>
+                <Button
+                  className="w-full mt-2"
+                  variant="outline"
+                  onClick={() => isAuthenticated ? setLocation("/subscribe") : window.location.href = getLoginUrl()}
+                >
+                  {isAuthenticated ? "Choose Fortnightly" : "Login to Subscribe"}
+                </Button>
+              </CardContent>
+            </Card>
 
-              <Button
-                className="w-full"
-                size="lg"
-                onClick={() => isAuthenticated ? setLocation("/subscribe") : window.location.href = getLoginUrl()}
-              >
-                {isAuthenticated ? "Subscribe Now" : "Login to Subscribe"}
-              </Button>
-            </CardContent>
-          </Card>
+            {/* Monthly */}
+            <Card className="border-secondary relative">
+              <div className="absolute -top-3 left-1/2 -translate-x-1/2">
+                <span className="bg-secondary text-secondary-foreground text-xs font-semibold px-3 py-1 rounded-full">Best Value</span>
+              </div>
+              <CardHeader className="text-center">
+                <CardTitle className="text-2xl">$500</CardTitle>
+                <CardDescription className="text-base font-medium">per month</CardDescription>
+                <p className="text-xs text-muted-foreground">~$16.67 / day · save ~$40/month</p>
+              </CardHeader>
+              <CardContent className="space-y-3">
+                <div className="flex items-start gap-3">
+                  <CheckCircle2 className="h-4 w-4 text-secondary mt-0.5 shrink-0" />
+                  <span className="text-sm">1 free meal daily (worth $18)</span>
+                </div>
+                <div className="flex items-start gap-3">
+                  <CheckCircle2 className="h-4 w-4 text-secondary mt-0.5 shrink-0" />
+                  <span className="text-sm">Free delivery when 5+ colleagues order</span>
+                </div>
+                <div className="flex items-start gap-3">
+                  <CheckCircle2 className="h-4 w-4 text-secondary mt-0.5 shrink-0" />
+                  <span className="text-sm">Access to Today's Special</span>
+                </div>
+                <div className="flex items-start gap-3">
+                  <CheckCircle2 className="h-4 w-4 text-secondary mt-0.5 shrink-0" />
+                  <span className="text-sm">Cancel anytime</span>
+                </div>
+                <Button
+                  className="w-full mt-2"
+                  onClick={() => isAuthenticated ? setLocation("/subscribe") : window.location.href = getLoginUrl()}
+                >
+                  {isAuthenticated ? "Choose Monthly" : "Login to Subscribe"}
+                </Button>
+              </CardContent>
+            </Card>
+          </div>
         </div>
       </section>
 

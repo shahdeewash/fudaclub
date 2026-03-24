@@ -254,6 +254,59 @@ async function startServer() {
   server.listen(port, () => {
     console.log(`Server running on http://localhost:${port}/`);
   });
+
+  // Daily cron job: send subscription expiry reminders at 8:00 AM Darwin time (UTC+9:30 = 22:30 UTC previous day)
+  // Runs every 24 hours starting from the next 22:30 UTC
+  scheduleDailyExpiryReminders();
+}
+
+function scheduleDailyExpiryReminders() {
+  const INTERVAL_MS = 24 * 60 * 60 * 1000; // 24 hours
+
+  async function runReminders() {
+    try {
+      console.log("[Cron] Running daily subscription expiry reminder check...");
+      const expiring = await db.getSubscriptionsExpiringWithin(3);
+      if (expiring.length === 0) {
+        console.log("[Cron] No subscriptions expiring in the next 3 days.");
+        return;
+      }
+      let sent = 0;
+      for (const sub of expiring) {
+        const planLabel = (sub as any).planType === "monthly" ? "Monthly ($500)" : "Fortnightly ($270)";
+        const expiryDate = new Date(sub.currentPeriodEnd).toLocaleDateString("en-AU", {
+          day: "2-digit", month: "short", year: "numeric", timeZone: "Australia/Darwin",
+        });
+        await notifyOwner({
+          title: `Subscription Expiring Soon: ${(sub as any).userName ?? (sub as any).userEmail ?? "Unknown"}`,
+          content: `Plan: ${planLabel}\nCustomer: ${(sub as any).userName ?? "N/A"} (${(sub as any).userEmail ?? "N/A"})\nExpires: ${expiryDate}\nStripe ID: ${sub.stripeSubscriptionId ?? "N/A"}`,
+        }).catch(() => {});
+        sent++;
+      }
+      console.log(`[Cron] Sent ${sent} subscription expiry reminder(s).`);
+    } catch (err: any) {
+      console.error("[Cron] Expiry reminder job failed:", err.message);
+    }
+  }
+
+  // Calculate ms until next 22:30 UTC (= 8:00 AM Darwin)
+  function msUntilNext2230UTC(): number {
+    const now = new Date();
+    const next = new Date(now);
+    next.setUTCHours(22, 30, 0, 0);
+    if (next <= now) {
+      next.setUTCDate(next.getUTCDate() + 1);
+    }
+    return next.getTime() - now.getTime();
+  }
+
+  // Schedule first run at next 22:30 UTC, then every 24h
+  const initialDelay = msUntilNext2230UTC();
+  console.log(`[Cron] Subscription expiry reminder scheduled in ${Math.round(initialDelay / 60000)} minutes (next 8:00 AM Darwin time).`);
+  setTimeout(() => {
+    runReminders();
+    setInterval(runReminders, INTERVAL_MS);
+  }, initialDelay);
 }
 
 startServer().catch(console.error);
