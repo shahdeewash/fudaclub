@@ -153,6 +153,7 @@ export const appRouter = router({
         category: z.string().optional(),
         price: z.number(),
         imageUrl: z.string().optional(),
+        setAsSpecial: z.boolean().optional(),
       }))
       .mutation(async ({ ctx, input }) => {
         if (ctx.user.role !== 'admin') {
@@ -162,12 +163,22 @@ export const appRouter = router({
         // Convert price from dollars to cents
         const priceInCents = Math.round(input.price * 100);
 
-        return await db.createMenuItem({
-          ...input,
+        const newItem = await db.createMenuItem({
+          name: input.name,
+          description: input.description,
+          category: input.category,
           price: priceInCents,
+          imageUrl: input.imageUrl,
           isAvailable: true,
           isTodaysSpecial: false,
         });
+
+        // Optionally set as today's special
+        if (input.setAsSpecial) {
+          await db.setTodaysSpecial(newItem.id);
+        }
+
+        return newItem;
       }),
   }),
 
@@ -386,6 +397,29 @@ export const appRouter = router({
         return { success: true };
       }),
 
+    getAllOrders: protectedProcedure
+      .input(z.object({
+        dateFilter: z.enum(['today', 'yesterday', 'week', 'all']).optional(),
+      }).optional())
+      .query(async ({ ctx, input }) => {
+        if (ctx.user.role !== 'admin' && ctx.user.role !== 'kitchen') {
+          throw new TRPCError({ code: 'FORBIDDEN' });
+        }
+
+        const allOrders = await db.getAllOrdersFiltered(input?.dateFilter || 'all');
+
+        // Fetch order items and user info for each order
+        const ordersWithDetails = await Promise.all(
+          allOrders.map(async (order) => {
+            const items = await db.getOrderItemsByOrderId(order.id);
+            const user = await db.getUserById(order.userId);
+            return { ...order, items, userName: user?.name || user?.email || 'Unknown' };
+          })
+        );
+
+        return ordersWithDetails;
+      }),
+
     getColleaguesWhoOrdered: protectedProcedure.query(async ({ ctx }) => {
       if (!ctx.user.companyId) return [];
 
@@ -434,47 +468,84 @@ export const appRouter = router({
       };
     }),
 
-    getOrdersByCompany: protectedProcedure.query(async ({ ctx }) => {
-      if (ctx.user.role !== 'admin') {
-        throw new TRPCError({ code: 'FORBIDDEN' });
-      }
-
-      const orders = await db.getAllOrdersToday();
-      const companies = await db.getAllCompanies();
-      
-      const companyMap = new Map(companies.map(c => [c.id, c]));
-      const ordersByCompany = new Map<number, typeof orders>();
-
-      // Fetch order items for all orders
-      const ordersWithItems = await Promise.all(
-        orders.map(async (order) => {
-          const items = await db.getOrderItemsByOrderId(order.id);
-          return { ...order, items };
-        })
-      );
-
-      for (const order of ordersWithItems) {
-        if (!ordersByCompany.has(order.companyId)) {
-          ordersByCompany.set(order.companyId, []);
+    getOrdersByCompany: protectedProcedure
+      .input(z.object({
+        dateFilter: z.enum(['today', 'yesterday', 'week', 'all']).optional(),
+      }).optional())
+      .query(async ({ ctx, input }) => {
+        if (ctx.user.role !== 'admin') {
+          throw new TRPCError({ code: 'FORBIDDEN' });
         }
-        ordersByCompany.get(order.companyId)!.push(order);
-      }
 
-      const result = [];
-      const entries = Array.from(ordersByCompany.entries());
-      for (const [companyId, companyOrders] of entries) {
-        const company = companyMap.get(companyId);
-        if (company) {
-          result.push({
-            company,
-            orders: companyOrders,
-            orderCount: companyOrders.length,
-            totalValue: companyOrders.reduce((sum: number, o) => sum + o.total, 0),
-          });
+        const allOrders = await db.getAllOrdersFiltered(input?.dateFilter || 'today');
+        const companies = await db.getAllCompanies();
+        
+        const companyMap = new Map(companies.map(c => [c.id, c]));
+        const ordersByCompany = new Map<number, typeof allOrders>();
+
+        // Fetch order items and user info for all orders
+        const ordersWithItems = await Promise.all(
+          allOrders.map(async (order) => {
+            const items = await db.getOrderItemsByOrderId(order.id);
+            const user = await db.getUserById(order.userId);
+            return { ...order, items, userName: user?.name || user?.email || 'Unknown' };
+          })
+        );
+
+        for (const order of ordersWithItems) {
+          if (!ordersByCompany.has(order.companyId)) {
+            ordersByCompany.set(order.companyId, []);
+          }
+          ordersByCompany.get(order.companyId)!.push(order);
         }
-      }
-      return result;
-    }),
+
+        const result = [];
+        const entries = Array.from(ordersByCompany.entries());
+        for (const [companyId, companyOrders] of entries) {
+          const company = companyMap.get(companyId);
+          if (company) {
+            result.push({
+              company,
+              orders: companyOrders,
+              orderCount: companyOrders.length,
+              totalValue: companyOrders.reduce((sum: number, o) => sum + o.total, 0),
+            });
+          }
+        }
+        return result;
+      }),
+
+    // Get all orders flat list for admin
+    getAllOrdersFlat: protectedProcedure
+      .input(z.object({
+        dateFilter: z.enum(['today', 'yesterday', 'week', 'all']).optional(),
+        groupBy: z.enum(['all', 'company', 'individual']).optional(),
+      }).optional())
+      .query(async ({ ctx, input }) => {
+        if (ctx.user.role !== 'admin') {
+          throw new TRPCError({ code: 'FORBIDDEN' });
+        }
+
+        const allOrders = await db.getAllOrdersFiltered(input?.dateFilter || 'all');
+        const companies = await db.getAllCompanies();
+        const companyMap = new Map(companies.map(c => [c.id, c]));
+
+        const ordersWithDetails = await Promise.all(
+          allOrders.map(async (order) => {
+            const items = await db.getOrderItemsByOrderId(order.id);
+            const user = await db.getUserById(order.userId);
+            const company = companyMap.get(order.companyId);
+            return {
+              ...order,
+              items,
+              userName: user?.name || user?.email || 'Unknown',
+              companyName: company?.name || 'Unknown Company',
+            };
+          })
+        );
+
+        return ordersWithDetails;
+      }),
   }),
 });
 

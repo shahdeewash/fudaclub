@@ -354,3 +354,51 @@ export async function getUsersByCompanyId(companyId: number) {
 
   return await db.select().from(users).where(eq(users.companyId, companyId));
 }
+
+// Get all orders (not just today's) for admin/KDS
+export async function getAllOrders(): Promise<Order[]> {
+  const db = await getDb();
+  if (!db) return [];
+
+  const { desc } = await import('drizzle-orm');
+  return await db.select().from(orders).orderBy(desc(orders.orderDate));
+}
+
+// Get all orders with optional date filter
+export async function getAllOrdersFiltered(dateFilter?: 'today' | 'yesterday' | 'week' | 'all'): Promise<Order[]> {
+  const db = await getDb();
+  if (!db) return [];
+
+  const { desc } = await import('drizzle-orm');
+
+  if (!dateFilter || dateFilter === 'all') {
+    return await db.select().from(orders).orderBy(desc(orders.orderDate));
+  }
+
+  const now = new Date();
+  let startDate: Date;
+
+  if (dateFilter === 'today') {
+    startDate = new Date(now);
+    startDate.setHours(0, 0, 0, 0);
+  } else if (dateFilter === 'yesterday') {
+    startDate = new Date(now);
+    startDate.setDate(startDate.getDate() - 1);
+    startDate.setHours(0, 0, 0, 0);
+    const endDate = new Date(startDate);
+    endDate.setDate(endDate.getDate() + 1);
+    return await db.select().from(orders)
+      .where(and(gte(orders.orderDate, startDate), lte(orders.orderDate, endDate)))
+      .orderBy(desc(orders.orderDate));
+  } else if (dateFilter === 'week') {
+    startDate = new Date(now);
+    startDate.setDate(startDate.getDate() - 7);
+    startDate.setHours(0, 0, 0, 0);
+  } else {
+    return await db.select().from(orders).orderBy(desc(orders.orderDate));
+  }
+
+  return await db.select().from(orders)
+    .where(gte(orders.orderDate, startDate))
+    .orderBy(desc(orders.orderDate));
+}

@@ -8,7 +8,7 @@ import { Badge } from "@/components/ui/badge";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Separator } from "@/components/ui/separator";
 import { Textarea } from "@/components/ui/textarea";
-import { CheckCircle2, Truck, MapPin, Clock, ArrowLeft, Loader2, LogOut } from "lucide-react";
+import { CheckCircle2, Truck, MapPin, Clock, ArrowLeft, Loader2, LogOut, CreditCard } from "lucide-react";
 import { CartIndicator } from "@/components/CartIndicator";
 import { toast } from "sonner";
 
@@ -25,8 +25,7 @@ export default function Checkout() {
   const [, setLocation] = useLocation();
   const [cartItems, setCartItems] = useState<CartItem[]>([]);
   const [specialInstructions, setSpecialInstructions] = useState("");
-  const [orderPlaced, setOrderPlaced] = useState(false);
-  const [orderNumber, setOrderNumber] = useState("");
+
 
   const { data: subscription } = trpc.subscription.getMine.useQuery(undefined, {
     enabled: isAuthenticated,
@@ -36,29 +35,6 @@ export default function Checkout() {
   });
   const { data: colleagues } = trpc.order.getColleaguesWhoOrdered.useQuery(undefined, {
     enabled: isAuthenticated,
-  });
-
-  const utils = trpc.useUtils();
-  const createOrder = trpc.order.create.useMutation({
-    onSuccess: (data) => {
-      setOrderPlaced(true);
-      setOrderNumber(data.order.orderNumber);
-      toast.success("Order placed successfully!");
-      utils.order.getColleaguesWhoOrdered.invalidate();
-      utils.order.getDailyCredit.invalidate();
-      
-      // Clear cart from localStorage
-      localStorage.removeItem("fuda_cart");
-      window.dispatchEvent(new Event("cartUpdated"));
-      
-      // Redirect to orders page after 3 seconds
-      setTimeout(() => {
-        setLocation("/orders");
-      }, 3000);
-    },
-    onError: (error: any) => {
-      toast.error(error.message || "Failed to place order");
-    },
   });
 
   const logout = trpc.auth.logout.useMutation({
@@ -99,7 +75,7 @@ export default function Checkout() {
     );
   }
 
-  if (cartItems.length === 0 && !orderPlaced) {
+  if (cartItems.length === 0) {
     return (
       <div className="min-h-screen bg-background flex items-center justify-center">
         <Card className="max-w-md">
@@ -117,16 +93,14 @@ export default function Checkout() {
     );
   }
 
-  const handlePlaceOrder = () => {
-    const items = cartItems.map(item => ({
-      menuItemId: item.id,
-      quantity: item.quantity,
-    }));
-
-    createOrder.mutate({
-      items,
-      specialInstructions: specialInstructions || undefined,
-    });
+  const handleProceedToPayment = () => {
+    // Save special instructions to localStorage for payment page
+    if (specialInstructions) {
+      localStorage.setItem("fuda_special_instructions", specialInstructions);
+    } else {
+      localStorage.removeItem("fuda_special_instructions");
+    }
+    setLocation("/payment");
   };
 
   // Calculate pricing
@@ -161,66 +135,7 @@ export default function Checkout() {
   const isBeforeCutoff = currentTime < cutoffTime;
   const fulfillmentType = isBeforeCutoff && isFreeDelivery ? "delivery" : "pickup";
 
-  if (orderPlaced) {
-    return (
-      <div className="min-h-screen bg-background flex items-center justify-center p-4">
-        <Card className="max-w-2xl w-full border-secondary">
-          <CardHeader className="text-center">
-            <div className="mx-auto mb-4 h-20 w-20 rounded-full bg-secondary/20 flex items-center justify-center">
-              <CheckCircle2 className="h-12 w-12 text-secondary" />
-            </div>
-            <CardTitle className="text-3xl">Order Confirmed!</CardTitle>
-            <CardDescription className="text-lg">Order #{orderNumber}</CardDescription>
-          </CardHeader>
-          <CardContent className="space-y-6">
-            <Alert className="border-secondary/50 bg-secondary/10">
-              <AlertDescription className="text-center">
-                <p className="font-semibold text-lg mb-2">
-                  {fulfillmentType === "delivery" ? "🚚 Free Delivery" : "📍 Store Pickup"}
-                </p>
-                <p className="text-sm text-muted-foreground">
-                  {fulfillmentType === "delivery" 
-                    ? "Your order will be delivered to your office"
-                    : "Please collect your order from the store"}
-                </p>
-              </AlertDescription>
-            </Alert>
 
-            <div className="bg-muted p-6 rounded-lg space-y-3">
-              <h3 className="font-semibold mb-3">What's Next:</h3>
-              <div className="space-y-2 text-sm">
-                <div className="flex items-start gap-2">
-                  <CheckCircle2 className="h-4 w-4 text-secondary mt-0.5 flex-shrink-0" />
-                  <span>Your order has been sent to the kitchen</span>
-                </div>
-                <div className="flex items-start gap-2">
-                  <CheckCircle2 className="h-4 w-4 text-secondary mt-0.5 flex-shrink-0" />
-                  <span>Preparation will begin shortly</span>
-                </div>
-                <div className="flex items-start gap-2">
-                  <CheckCircle2 className="h-4 w-4 text-secondary mt-0.5 flex-shrink-0" />
-                  <span>
-                    {fulfillmentType === "delivery" 
-                      ? "Delivery expected around 12:30 PM"
-                      : "Ready for pickup around 12:00 PM"}
-                  </span>
-                </div>
-              </div>
-            </div>
-
-            <div className="text-center text-sm text-muted-foreground">
-              Redirecting to orders page...
-            </div>
-          </CardContent>
-          <CardFooter>
-            <Button onClick={() => setLocation("/orders")} className="w-full" size="lg">
-              View My Orders
-            </Button>
-          </CardFooter>
-        </Card>
-      </div>
-    );
-  }
 
   return (
     <div className="min-h-screen bg-background">
@@ -474,19 +389,12 @@ export default function Checkout() {
             </Card>
 
             <Button
-              onClick={handlePlaceOrder}
+              onClick={handleProceedToPayment}
               className="w-full"
               size="lg"
-              disabled={createOrder.isPending}
             >
-              {createOrder.isPending ? (
-                <>
-                  <Loader2 className="mr-2 h-5 w-5 animate-spin" />
-                  Placing Order...
-                </>
-              ) : (
-                `Place Order • $${(total / 100).toFixed(2)}`
-              )}
+              <CreditCard className="mr-2 h-5 w-5" />
+              {total === 0 ? "Confirm Order (Free)" : `Proceed to Payment • $${(total / 100).toFixed(2)}`}
             </Button>
           </div>
         </div>

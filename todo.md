@@ -279,3 +279,41 @@
 - Real-time sync via cartUpdated events
 - Click outside to close dropdown
 - Tested and verified on Menu, Orders, Home, and Checkout pages
+
+## New Feature Requirements (2026-03-24) ✅ ALL COMPLETE
+
+### 1. KDS System - Show All Orders ✅ DONE
+- [x] Update Kitchen.tsx to show all orders (not just today's)
+- [x] Add date filter: Today, Yesterday, Last 7 days, All
+- [x] Show past orders with completed status
+- [x] Add list view option in addition to kanban view
+
+### 2. Admin - Today's Special Creation ✅ DONE
+- [x] Add form to create new special items in Admin Today's Special tab
+- [x] Fields: name, description, price, image URL, category
+- [x] Set newly created item as today's special automatically
+- [x] Also allow setting existing menu items as today's special
+
+### 3. Admin - All Orders View (Replace By Company) ✅ DONE
+- [x] Replace "By Company" tab with "All Orders" tab
+- [x] Show all orders with date filter
+- [x] Add group by: All, By Company, Individual
+- [x] Show order details including customer name, company, items, total
+
+### 4. Payment Integration ✅ DONE
+- [x] Create Payment.tsx page for payment processing
+- [x] Add payment form with card number, name, expiry, CVV
+- [x] Show order summary on payment page
+- [x] If total = $0 (daily credit covers all) → skip payment form, show confirm button
+- [x] If total > $0 → show payment form with total amount
+- [x] After payment → place order and show confirmation
+- [x] Add /payment route to App.tsx
+- [x] Update Checkout.tsx to redirect to /payment instead of placing order directly
+
+### Third-Person Testing ✅ COMPLETE
+- [x] Tested Today's Special creation in Admin
+- [x] Verified All Orders tab with date/group filters
+- [x] Tested KDS with all orders view and date filtering
+- [x] Tested payment flow: Checkout → Payment page → Order confirmation
+- [x] Verified $0 bypass logic (daily credit covers full order)
+- [x] All TypeScript errors resolved
