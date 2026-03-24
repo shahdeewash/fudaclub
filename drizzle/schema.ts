@@ -95,6 +95,7 @@ export const orders = mysqlTable("orders", {
   tax: int("tax").default(0).notNull(), // in cents
   total: int("total").notNull(), // in cents
   specialInstructions: text("specialInstructions"),
+  stripeSessionId: varchar("stripeSessionId", { length: 255 }),
   pushedToKdsAt: timestamp("pushedToKdsAt"),
   createdAt: timestamp("createdAt").defaultNow().notNull(),
   updatedAt: timestamp("updatedAt").defaultNow().onUpdateNow().notNull(),

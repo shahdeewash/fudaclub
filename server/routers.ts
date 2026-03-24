@@ -7,6 +7,7 @@ import { devRouter } from "./dev-routers";
 import { publicProcedure, protectedProcedure, router } from "./_core/trpc";
 import * as db from "./db";
 import { nanoid } from "nanoid";
+import { notifyOwner } from "./_core/notification";
 
 // Helper to extract domain from email
 function extractDomain(email: string): string {
@@ -132,7 +133,7 @@ export const appRouter = router({
     }),
 
     getTodaysSpecial: publicProcedure.query(async () => {
-      return await db.getTodaysSpecial();
+      return (await db.getTodaysSpecial()) ?? null;
     }),
 
     setTodaysSpecial: protectedProcedure
@@ -384,6 +385,15 @@ export const appRouter = router({
         if (canUseCredit) {
           await db.markDailyCreditAsUsed(dailyCredit.id, order.id);
         }
+
+        // Notify owner of new order
+        const freeItemsSummary = orderItemsData
+          .map(i => `${i.quantity}x ${i.itemName}${i.isFree ? " (free credit)" : ""}`)
+          .join(", ");
+        await notifyOwner({
+          title: `New Order: ${order.orderNumber}`,
+          content: `Customer: ${ctx.user.name ?? ctx.user.email}\nItems: ${freeItemsSummary}\nTotal: $${(total / 100).toFixed(2)} AUD\nPayment: Daily Credit (free)`,
+        }).catch(() => {});
 
         return {
           order,
@@ -811,6 +821,7 @@ export const appRouter = router({
           tax,
           total,
           specialInstructions: specialInstructions || undefined,
+          stripeSessionId: input.sessionId,
         });
 
         // Create order items
@@ -826,7 +837,57 @@ export const appRouter = router({
           await db.markDailyCreditAsUsed(dailyCreditRecord.id, order.id);
         }
 
+        // Notify owner of new paid order
+        const itemsSummary = orderItemsData
+          .map(i => `${i.quantity}x ${i.itemName}${i.isFree ? " (free credit)" : ""}`)
+          .join(", ");
+        await notifyOwner({
+          title: `New Paid Order: ${order.orderNumber}`,
+          content: `Customer: ${ctx.user.name ?? ctx.user.email}\nItems: ${itemsSummary}\nTotal: $${(total / 100).toFixed(2)} AUD\nPayment: Stripe (${input.sessionId})`,
+        }).catch(() => {});
+
         return { order, orderNumber: order.orderNumber };
+      }),
+
+    getPaymentDetails: protectedProcedure
+      .input(z.object({ orderId: z.number() }))
+      .query(async ({ ctx, input }) => {
+        const dbInstance = await db.getDb();
+        if (!dbInstance) throw new TRPCError({ code: "INTERNAL_SERVER_ERROR", message: "DB unavailable" });
+
+        const { orders: ordersTable } = await import("../drizzle/schema");
+        const { eq } = await import("drizzle-orm");
+
+        const [order] = await dbInstance.select().from(ordersTable)
+          .where(eq(ordersTable.id, input.orderId)).limit(1);
+
+        if (!order) throw new TRPCError({ code: "NOT_FOUND", message: "Order not found" });
+        if (order.userId !== ctx.user.id && ctx.user.role !== "admin") {
+          throw new TRPCError({ code: "FORBIDDEN" });
+        }
+
+        if (!order.stripeSessionId) {
+          return { paymentMethod: "daily_credit", receiptUrl: null, amountPaid: 0, currency: "aud", status: "free" };
+        }
+
+        try {
+          const Stripe = (await import("stripe")).default;
+          const stripe = new Stripe(process.env.STRIPE_SECRET_KEY || "");
+          const session = await stripe.checkout.sessions.retrieve(order.stripeSessionId, {
+            expand: ["payment_intent"],
+          });
+          const pi = session.payment_intent as any;
+          const charge = pi?.latest_charge as any;
+          return {
+            paymentMethod: "stripe",
+            receiptUrl: typeof charge === "object" ? charge?.receipt_url ?? null : null,
+            amountPaid: session.amount_total ?? order.total,
+            currency: session.currency ?? "aud",
+            status: session.payment_status ?? "unknown",
+          };
+        } catch {
+          return { paymentMethod: "stripe", receiptUrl: null, amountPaid: order.total, currency: "aud", status: "paid" };
+        }
       }),
   }),
 });

@@ -4,8 +4,61 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { trpc } from "@/lib/trpc";
-import { ArrowLeft, Package, Truck, LogOut } from "lucide-react";
+import { ArrowLeft, Package, Truck, LogOut, CreditCard, ExternalLink, CheckCircle2 } from "lucide-react";
 import { CartIndicator } from "@/components/CartIndicator";
+import { useState } from "react";
+
+// Sub-component to lazily fetch and show payment details for a single order
+function PaymentDetailsBadge({ orderId, stripeSessionId }: { orderId: number; stripeSessionId?: string | null }) {
+  const [expanded, setExpanded] = useState(false);
+  const { data, isLoading } = trpc.payment.getPaymentDetails.useQuery(
+    { orderId },
+    { enabled: expanded }
+  );
+
+  if (!stripeSessionId) {
+    return (
+      <div className="flex items-center gap-1 text-xs text-secondary font-medium">
+        <CheckCircle2 className="h-3.5 w-3.5" />
+        Free (Daily Credit)
+      </div>
+    );
+  }
+
+  return (
+    <div className="text-xs">
+      {!expanded ? (
+        <button
+          onClick={() => setExpanded(true)}
+          className="flex items-center gap-1 text-muted-foreground hover:text-foreground transition-colors"
+        >
+          <CreditCard className="h-3.5 w-3.5" />
+          Paid via Stripe — view receipt
+        </button>
+      ) : isLoading ? (
+        <span className="text-muted-foreground">Loading payment info...</span>
+      ) : data ? (
+        <div className="flex items-center gap-2 flex-wrap">
+          <span className="flex items-center gap-1 text-green-700 font-medium">
+            <CreditCard className="h-3.5 w-3.5" />
+            ${(data.amountPaid / 100).toFixed(2)} {data.currency.toUpperCase()} · {data.status}
+          </span>
+          {data.receiptUrl && (
+            <a
+              href={data.receiptUrl}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="flex items-center gap-1 text-primary underline hover:no-underline"
+            >
+              <ExternalLink className="h-3 w-3" />
+              View Receipt
+            </a>
+          )}
+        </div>
+      ) : null}
+    </div>
+  );
+}
 
 export default function Orders() {
   const { isAuthenticated } = useAuth();
@@ -165,6 +218,11 @@ export default function Orders() {
                         <span>Total</span>
                         <span>${(order.total / 100).toFixed(2)}</span>
                       </div>
+                    </div>
+
+                    {/* Payment Details */}
+                    <div className="border-t pt-3">
+                      <PaymentDetailsBadge orderId={order.id} stripeSessionId={(order as any).stripeSessionId} />
                     </div>
 
                     {/* Special Instructions */}

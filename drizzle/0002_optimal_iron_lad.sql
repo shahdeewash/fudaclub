@@ -1,0 +1,1 @@
+ALTER TABLE `orders` ADD `stripeSessionId` varchar(255);

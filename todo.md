@@ -395,3 +395,24 @@
   - [x] Added `/payment-success` route in App.tsx
   - [x] Cart cleared after successful payment
   - [x] Written and passing tests in server/payment.test.ts
+
+## Follow-up Features (2026-03-24)
+
+### Order History with Stripe Payment Details
+- [x] Add `payment.getPaymentDetails` tRPC procedure (fetches Stripe session/charge info)
+- [x] Update Orders page to show payment amount, status, and receipt link per order
+- [x] Show "Paid via Stripe" badge vs "Free (Daily Credit)" badge on each order
+- [x] Lazy-load payment details on click to avoid unnecessary Stripe API calls
+
+### Webhook-Based Order Confirmation Fallback
+- [x] Wire `/api/stripe/webhook` handler to create orders on `checkout.session.completed`
+- [x] Guard against duplicate order creation (check if order already exists for session_id)
+- [x] Add `stripeSessionId` column to orders table for idempotency check
+- [x] Apply migration via webdev_execute_sql
+
+### Email Notifications After Payment
+- [x] Send owner notification via `notifyOwner` when a paid order is confirmed (verifyAndCreateOrder)
+- [x] Send owner notification when a free (daily credit) order is placed (order.create)
+- [x] Send owner notification in webhook fallback path
+- [x] Include order number, customer name, items, and total in notification
+- [x] Fix getTodaysSpecial returning undefined (now returns null)

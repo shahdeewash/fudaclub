@@ -427,3 +427,12 @@ export async function getAllOrdersFiltered(dateFilter?: 'today' | 'yesterday' | 
     .where(gte(orders.orderDate, startDate))
     .orderBy(desc(orders.orderDate));
 }
+
+// Find an order by Stripe session ID (for idempotency in webhook handler)
+export async function getOrderByStripeSessionId(sessionId: string): Promise<Order | null> {
+  const db = await getDb();
+  if (!db) return null;
+
+  const result = await db.select().from(orders).where(eq(orders.stripeSessionId, sessionId)).limit(1);
+  return result[0] ?? null;
+}
