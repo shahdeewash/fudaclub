@@ -9,7 +9,7 @@ import { Label } from "@/components/ui/label";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { trpc } from "@/lib/trpc";
-import { BarChart3, DollarSign, Package, Users, Star, Plus, Building2, User, Filter } from "lucide-react";
+import { BarChart3, DollarSign, Package, Users, Star, Plus, Building2, User, Filter, Camera, X, Check, Upload } from "lucide-react";
 import { useLocation } from "wouter";
 import { toast } from "sonner";
 
@@ -29,6 +29,11 @@ export default function Admin() {
   const [newSpecialPrice, setNewSpecialPrice] = useState("");
   const [newSpecialCategory, setNewSpecialCategory] = useState("special");
   const [newSpecialImageUrl, setNewSpecialImageUrl] = useState("");
+
+  // Image editing state
+  const [editingImageId, setEditingImageId] = useState<number | null>(null);
+  const [editingImageUrl, setEditingImageUrl] = useState("");
+  const [uploadingImage, setUploadingImage] = useState(false);
 
   const { data: stats } = trpc.stats.getToday.useQuery(undefined, {
     enabled: isAuthenticated && user?.role === "admin",
@@ -54,6 +59,19 @@ export default function Admin() {
       toast.success("Today's special updated!");
       utils.menu.getTodaysSpecial.invalidate();
       setSelectedSpecial("");
+    },
+    onError: (error) => {
+      toast.error(error.message);
+    },
+  });
+
+  const updateImage = trpc.menu.updateImage.useMutation({
+    onSuccess: () => {
+      toast.success("Image updated successfully!");
+      utils.menu.getAll.invalidate();
+      utils.menu.getTodaysSpecial.invalidate();
+      setEditingImageId(null);
+      setEditingImageUrl("");
     },
     onError: (error) => {
       toast.error(error.message);
@@ -96,6 +114,35 @@ export default function Admin() {
       return;
     }
     setSpecial.mutate({ menuItemId: parseInt(selectedSpecial) });
+  };
+
+  const handleSaveImage = (menuItemId: number) => {
+    if (!editingImageUrl.trim()) {
+      toast.error("Please enter an image URL");
+      return;
+    }
+    updateImage.mutate({ menuItemId, imageUrl: editingImageUrl.trim() });
+  };
+
+  const handleFileUpload = async (menuItemId: number, file: File) => {
+    setUploadingImage(true);
+    try {
+      const formData = new FormData();
+      formData.append("file", file);
+      const response = await fetch("/api/upload-image", {
+        method: "POST",
+        body: formData,
+      });
+      if (!response.ok) throw new Error("Upload failed");
+      const { url } = await response.json();
+      // Set the permanent S3 URL and save it
+      setEditingImageUrl(url);
+      updateImage.mutate({ menuItemId, imageUrl: url });
+    } catch (error) {
+      toast.error("Failed to upload image. Please try pasting a URL instead.");
+    } finally {
+      setUploadingImage(false);
+    }
   };
 
   const handleCreateSpecial = () => {
@@ -505,34 +552,114 @@ export default function Admin() {
                   {menuItems?.map((item) => (
                     <Card key={item.id}>
                       <CardContent className="p-4">
-                        <div className="flex gap-3">
-                          {item.imageUrl && (
+                        {/* Image with edit overlay */}
+                        <div className="relative mb-2">
+                          {item.imageUrl ? (
                             <img
                               src={item.imageUrl}
                               alt={item.name}
-                              className="w-20 h-20 object-cover rounded-lg"
+                              className="w-full h-40 object-cover rounded-lg"
                             />
-                          )}
-                          <div className="flex-1">
-                            <h3 className="font-bold text-sm">{item.name}</h3>
-                            <p className="text-xs text-muted-foreground line-clamp-2">
-                              {item.description}
-                            </p>
-                            <div className="flex items-center justify-between mt-2">
-                              <span className="font-semibold text-sm">
-                                ${(item.price / 100).toFixed(2)}
-                              </span>
-                              <Badge variant="outline" className="text-xs">
-                                {item.category}
-                              </Badge>
+                          ) : (
+                            <div className="w-full h-40 bg-muted rounded-lg flex items-center justify-center">
+                              <Camera className="h-8 w-8 text-muted-foreground" />
                             </div>
-                            {item.isTodaysSpecial && (
-                              <Badge variant="secondary" className="mt-1 text-xs">
-                                <Star className="h-3 w-3 mr-1" />
-                                Today's Special
-                              </Badge>
+                          )}
+                        </div>
+                        {/* Always-visible Change Photo button */}
+                        {editingImageId !== item.id && (
+                          <button
+                            onClick={() => {
+                              setEditingImageId(item.id);
+                              setEditingImageUrl(item.imageUrl || "");
+                            }}
+                            className="w-full mb-3 flex items-center justify-center gap-1.5 text-xs text-muted-foreground hover:text-foreground border border-dashed border-muted-foreground/40 hover:border-foreground/60 rounded-md py-1.5 transition-colors"
+                          >
+                            <Camera className="h-3.5 w-3.5" />
+                            Change Photo
+                          </button>
+                        )}
+
+                        {/* Image edit panel */}
+                        {editingImageId === item.id && (
+                          <div className="mb-3 p-3 bg-muted rounded-lg space-y-2">
+                            <p className="text-xs font-medium text-muted-foreground">Update Photo</p>
+                            {/* URL input */}
+                            <div className="flex gap-2">
+                              <Input
+                                placeholder="Paste image URL..."
+                                value={editingImageUrl}
+                                onChange={(e) => setEditingImageUrl(e.target.value)}
+                                className="text-xs h-8"
+                              />
+                            </div>
+                            {/* Preview */}
+                            {editingImageUrl && (
+                              <img
+                                src={editingImageUrl}
+                                alt="Preview"
+                                className="w-full h-24 object-cover rounded"
+                                onError={(e) => { (e.target as HTMLImageElement).style.display = 'none'; }}
+                              />
                             )}
+                            {/* File upload */}
+                            <label className="flex items-center gap-2 text-xs text-muted-foreground cursor-pointer hover:text-foreground transition-colors">
+                              <Upload className="h-3 w-3" />
+                              Upload from device
+                              <input
+                                type="file"
+                                accept="image/*"
+                                className="hidden"
+                                onChange={(e) => {
+                                  const file = e.target.files?.[0];
+                                  if (file) {
+                                    handleFileUpload(item.id, file);
+                                  }
+                                }}
+                              />
+                            </label>
+                            {/* Action buttons */}
+                            <div className="flex gap-2">
+                              <Button
+                                size="sm"
+                                className="h-7 text-xs flex-1 bg-[#DC2626] hover:bg-[#DC2626]/90"
+                                onClick={() => handleSaveImage(item.id)}
+                                disabled={updateImage.isPending || !editingImageUrl.trim()}
+                              >
+                                <Check className="h-3 w-3 mr-1" />
+                                Save
+                              </Button>
+                              <Button
+                                size="sm"
+                                variant="outline"
+                                className="h-7 text-xs"
+                                onClick={() => { setEditingImageId(null); setEditingImageUrl(""); }}
+                              >
+                                <X className="h-3 w-3" />
+                              </Button>
+                            </div>
                           </div>
+                        )}
+
+                        <div className="flex-1">
+                          <h3 className="font-bold text-sm">{item.name}</h3>
+                          <p className="text-xs text-muted-foreground line-clamp-2">
+                            {item.description}
+                          </p>
+                          <div className="flex items-center justify-between mt-2">
+                            <span className="font-semibold text-sm">
+                              ${(item.price / 100).toFixed(2)}
+                            </span>
+                            <Badge variant="outline" className="text-xs">
+                              {item.category}
+                            </Badge>
+                          </div>
+                          {item.isTodaysSpecial && (
+                            <Badge variant="secondary" className="mt-1 text-xs">
+                              <Star className="h-3 w-3 mr-1" />
+                              Today's Special
+                            </Badge>
+                          )}
                         </div>
                       </CardContent>
                     </Card>

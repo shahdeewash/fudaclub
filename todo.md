@@ -334,3 +334,21 @@
 - [x] Seeded database with real FÜDA menu items and photos
 - [x] Verified menu displays correctly in the app with real photos
 - [x] Categories: Kebab Mains, Kebab Wraps, Momo, 6 Momo Entree, Special Momo, Entrees, Bubble Tea, Fruit Teas & Refreshers, Bubble Coffee, Coffee
+
+## Menu Item Image Change Feature (2026-03-24)
+
+- [ ] Add backend procedure to update menu item image URL (menu.updateImage)
+- [ ] Add image change UI in Admin Menu Management tab
+- [ ] Support URL input for changing image
+- [ ] Support direct file upload (upload to S3, save URL)
+- [ ] Show image preview before saving
+- [ ] Test image change functionality for existing menu items
+
+## Menu Item Image Change Feature (2026-03-24) ✅ COMPLETE
+
+- [x] Add backend `menu.updateImage` procedure to update item image URL
+- [x] Add `updateMenuItemImage` helper to db.ts
+- [x] Add `/api/upload-image` endpoint for direct file uploads to S3 via multer
+- [x] Add always-visible "Change Photo" button below each menu item image in Admin
+- [x] Image edit panel with URL input, live preview, file upload, Save and Cancel buttons
+- [x] Tested: URL update works, panel closes after save, image updates immediately

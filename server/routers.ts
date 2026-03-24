@@ -146,6 +146,19 @@ export const appRouter = router({
         return { success: true };
       }),
 
+    updateImage: protectedProcedure
+      .input(z.object({
+        menuItemId: z.number(),
+        imageUrl: z.string(),
+      }))
+      .mutation(async ({ ctx, input }) => {
+        if (ctx.user.role !== 'admin') {
+          throw new TRPCError({ code: 'FORBIDDEN' });
+        }
+        await db.updateMenuItemImage(input.menuItemId, input.imageUrl);
+        return { success: true };
+      }),
+
     create: protectedProcedure
       .input(z.object({
         name: z.string(),

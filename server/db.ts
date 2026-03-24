@@ -228,6 +228,13 @@ export async function createMenuItem(item: InsertMenuItem): Promise<MenuItem> {
   return created[0]!;
 }
 
+export async function updateMenuItemImage(menuItemId: number, imageUrl: string): Promise<void> {
+  const db = await getDb();
+  if (!db) throw new Error("Database not available");
+
+  await db.update(menuItems).set({ imageUrl }).where(eq(menuItems.id, menuItemId));
+}
+
 // Daily credit helpers
 export async function getDailyCreditForToday(userId: number): Promise<DailyCredit | undefined> {
   const db = await getDb();
