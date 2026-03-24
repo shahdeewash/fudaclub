@@ -8,7 +8,7 @@ import { trpc } from "@/lib/trpc";
 import { Package, Truck, Clock, History } from "lucide-react";
 import { toast } from "sonner";
 
-type OrderStatus = "pending" | "confirmed" | "preparing" | "ready" | "delivered" | "canceled";
+type OrderStatus = "pending" | "confirmed" | "arrived" | "preparing" | "ready" | "delivered" | "canceled";
 type DateFilter = "today" | "yesterday" | "week" | "all";
 type ViewMode = "kanban" | "list";
 
@@ -61,6 +61,7 @@ export default function Kitchen() {
 
   const ordersByStatus = {
     pending: activeOrders.filter((o) => o.status === "pending" || o.status === "confirmed"),
+    arrived: activeOrders.filter((o) => o.status === "arrived"),
     preparing: activeOrders.filter((o) => o.status === "preparing"),
     ready: activeOrders.filter((o) => o.status === "ready"),
   };
@@ -68,6 +69,7 @@ export default function Kitchen() {
   const statusColors: Record<string, string> = {
     pending: "bg-yellow-100 text-yellow-800 border-yellow-200",
     confirmed: "bg-yellow-100 text-yellow-800 border-yellow-200",
+    arrived: "bg-orange-100 text-orange-800 border-orange-200",
     preparing: "bg-purple-100 text-purple-800 border-purple-200",
     ready: "bg-green-100 text-green-800 border-green-200",
     delivered: "bg-blue-100 text-blue-800 border-blue-200",
@@ -78,6 +80,7 @@ export default function Kitchen() {
     const nextStatus: Record<OrderStatus, OrderStatus | null> = {
       pending: "preparing",
       confirmed: "preparing",
+      arrived: "preparing",
       preparing: "ready",
       ready: "delivered",
       delivered: null,
@@ -250,6 +253,16 @@ export default function Kitchen() {
               </div>
             </CardContent>
           </Card>
+          <Card className={ordersByStatus.arrived.length > 0 ? "border-orange-400 ring-2 ring-orange-300" : ""}>
+            <CardContent className="pt-6">
+              <div className="text-center">
+                <div className="text-3xl font-bold text-orange-600">
+                  {ordersByStatus.arrived.length}
+                </div>
+                <div className="text-sm text-muted-foreground">Arrived</div>
+              </div>
+            </CardContent>
+          </Card>
           <Card>
             <CardContent className="pt-6">
               <div className="text-center">
@@ -287,7 +300,7 @@ export default function Kitchen() {
         ) : viewMode === "kanban" ? (
           <>
             {/* Kanban Board - Active Orders */}
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
+            <div className="grid grid-cols-1 md:grid-cols-4 gap-6 mb-8">
               {/* Pending Column */}
               <div>
                 <div className="bg-yellow-100 text-yellow-800 px-4 py-2 rounded-t-lg font-semibold">
@@ -299,6 +312,22 @@ export default function Kitchen() {
                   ))}
                   {ordersByStatus.pending.length === 0 && (
                     <div className="text-center text-muted-foreground py-8">No pending orders</div>
+                  )}
+                </div>
+              </div>
+
+              {/* Arrived Column */}
+              <div>
+                <div className={`px-4 py-2 rounded-t-lg font-semibold flex items-center gap-2 ${ordersByStatus.arrived.length > 0 ? "bg-orange-400 text-white" : "bg-orange-100 text-orange-800"}`}>
+                  {ordersByStatus.arrived.length > 0 && <span className="animate-pulse h-2 w-2 rounded-full bg-white inline-block" />}
+                  Customer Arrived ({ordersByStatus.arrived.length})
+                </div>
+                <div className="bg-orange-50 p-4 rounded-b-lg min-h-[300px]">
+                  {ordersByStatus.arrived.map((order) => (
+                    <OrderCard key={order.id} order={order} />
+                  ))}
+                  {ordersByStatus.arrived.length === 0 && (
+                    <div className="text-center text-muted-foreground py-8">No customers arrived yet</div>
                   )}
                 </div>
               </div>
@@ -422,7 +451,7 @@ export default function Kitchen() {
                             disabled={updateStatus.isPending}
                           >
                             Mark as {
-                              ({ pending: "Preparing", confirmed: "Preparing", preparing: "Ready", ready: "Delivered", delivered: "", canceled: "" } as Record<string, string>)[order.status]
+                              ({ pending: "Preparing", confirmed: "Preparing", arrived: "Preparing", preparing: "Ready", ready: "Delivered", delivered: "", canceled: "" } as Record<string, string>)[order.status]
                             }
                           </Button>
                         )}

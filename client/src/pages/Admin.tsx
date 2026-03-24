@@ -9,7 +9,7 @@ import { Label } from "@/components/ui/label";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { trpc } from "@/lib/trpc";
-import { BarChart3, DollarSign, Package, Users, Star, Plus, Building2, User, Filter, Camera, X, Check, Upload, Pencil, Trash2 } from "lucide-react";
+import { BarChart3, DollarSign, Package, Users, Star, Plus, Building2, User, Filter, Camera, X, Check, Upload, Pencil, Trash2, Download } from "lucide-react";
 import { useLocation } from "wouter";
 import { toast } from "sonner";
 
@@ -22,6 +22,7 @@ export default function Admin() {
   const [selectedSpecial, setSelectedSpecial] = useState<string>("");
   const [ordersDateFilter, setOrdersDateFilter] = useState<DateFilter>("today");
   const [groupBy, setGroupBy] = useState<GroupBy>("all");
+  const [isExporting, setIsExporting] = useState(false);
 
   // New Special item form state
   const [newSpecialName, setNewSpecialName] = useState("");
@@ -61,6 +62,45 @@ export default function Admin() {
   const { data: todaysSpecial } = trpc.menu.getTodaysSpecial.useQuery();
 
   const utils = trpc.useUtils();
+
+  const { refetch: refetchExport } = trpc.stats.exportOrders.useQuery(
+    { dateFilter: ordersDateFilter },
+    { enabled: false } // Only fetch on demand
+  );
+
+  const handleExportCSV = async () => {
+    setIsExporting(true);
+    try {
+      const result = await refetchExport();
+      const rows = result.data;
+      if (!rows || rows.length === 0) {
+        toast.info("No orders to export for the selected filters.");
+        return;
+      }
+      const headers = Object.keys(rows[0]);
+      const csvContent = [
+        headers.join(","),
+        ...rows.map(row =>
+          headers.map(h => {
+            const val = String((row as any)[h] ?? "");
+            return val.includes(",") || val.includes('"') ? `"${val.replace(/"/g, '""')}"` : val;
+          }).join(",")
+        )
+      ].join("\n");
+      const blob = new Blob([csvContent], { type: "text/csv;charset=utf-8;" });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement("a");
+      a.href = url;
+      a.download = `fuda-orders-${ordersDateFilter}-${new Date().toISOString().substring(0, 10)}.csv`;
+      a.click();
+      URL.revokeObjectURL(url);
+      toast.success(`Exported ${rows.length} orders to CSV`);
+    } catch (err: any) {
+      toast.error(err.message || "Export failed");
+    } finally {
+      setIsExporting(false);
+    }
+  };
 
   const setSpecial = trpc.menu.setTodaysSpecial.useMutation({
     onSuccess: () => {
@@ -337,8 +377,18 @@ export default function Admin() {
                       </Button>
                     </div>
                   </div>
-                  <div className="ml-auto text-sm text-muted-foreground">
-                    {allOrders?.length || 0} orders
+                  <div className="ml-auto flex items-center gap-3">
+                    <span className="text-sm text-muted-foreground">{allOrders?.length || 0} orders</span>
+                    <Button
+                      size="sm"
+                      variant="outline"
+                      onClick={handleExportCSV}
+                      disabled={isExporting}
+                      className="h-8 text-xs"
+                    >
+                      <Download className="h-3 w-3 mr-1" />
+                      {isExporting ? "Exporting..." : "Download CSV"}
+                    </Button>
                   </div>
                 </div>
               </CardContent>

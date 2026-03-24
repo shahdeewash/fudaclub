@@ -8,6 +8,7 @@ import { publicProcedure, protectedProcedure, router } from "./_core/trpc";
 import * as db from "./db";
 import { nanoid } from "nanoid";
 import { notifyOwner } from "./_core/notification";
+import { getOrCreateSubscriptionPriceId } from "./products";
 
 // Helper to extract domain from email
 function extractDomain(email: string): string {
@@ -79,51 +80,141 @@ export const appRouter = router({
   }),
 
   subscription: router({
-    create: protectedProcedure
+    /**
+     * Creates a Stripe Checkout session for a recurring fortnightly subscription.
+     * Returns the Stripe-hosted checkout URL; the frontend opens it in a new tab.
+     */
+    createCheckout: protectedProcedure
       .input(z.object({
         companyId: z.number(),
+        origin: z.string(),
       }))
       .mutation(async ({ ctx, input }) => {
         // Check if user already has active subscription
         const existing = await db.getActiveSubscriptionByUserId(ctx.user.id);
-        if (existing) {
+        if (existing && existing.status === 'active') {
           throw new TRPCError({
             code: 'BAD_REQUEST',
             message: 'User already has an active subscription',
           });
         }
 
-        // In MVP, we simulate Stripe subscription
-        const now = new Date();
-        const twoWeeksLater = new Date(now);
-        twoWeeksLater.setDate(twoWeeksLater.getDate() + 14);
+        const priceId = await getOrCreateSubscriptionPriceId();
+        const Stripe = (await import("stripe")).default;
+        const stripe = new Stripe(process.env.STRIPE_SECRET_KEY || "");
 
-        const subscription = await db.createSubscription({
-          userId: ctx.user.id,
-          stripeSubscriptionId: `sim_sub_${nanoid(10)}`,
-          stripeCustomerId: `sim_cus_${nanoid(10)}`,
-          status: 'active',
-          planAmount: 2500, // $25.00
-          currentPeriodStart: now,
-          currentPeriodEnd: twoWeeksLater,
-          cancelAtPeriodEnd: false,
-        });
+        const sessionParams: any = {
+          mode: "subscription",
+          payment_method_types: ["card"],
+          line_items: [{ price: priceId, quantity: 1 }],
+          customer_email: ctx.user.email,
+          client_reference_id: ctx.user.id.toString(),
+          metadata: {
+            user_id: ctx.user.id.toString(),
+            company_id: input.companyId.toString(),
+            customer_email: ctx.user.email,
+            customer_name: ctx.user.name ?? "",
+          },
+          success_url: `${input.origin}/subscription-success?session_id={CHECKOUT_SESSION_ID}`,
+          cancel_url: `${input.origin}/subscribe`,
+          allow_promotion_codes: true,
+        };
+        const session = await stripe.checkout.sessions.create(sessionParams);
 
-        // Update user's company
-        const dbInstance = await db.getDb();
-        if (dbInstance) {
-          const { users } = await import("../drizzle/schema");
-          const { eq } = await import("drizzle-orm");
-          await dbInstance.update(users)
-            .set({ companyId: input.companyId })
-            .where(eq(users.id, ctx.user.id));
-        }
-
-        return subscription;
+        return { checkoutUrl: (session as any).url ?? "" };
       }),
 
     getMine: protectedProcedure.query(async ({ ctx }) => {
       return await db.getActiveSubscriptionByUserId(ctx.user.id);
+    }),
+
+    /**
+     * Activates a subscription after Stripe Checkout completes.
+     * Called from the SubscriptionSuccess page with the Stripe session ID.
+     */
+    activateFromSession: protectedProcedure
+      .input(z.object({ sessionId: z.string() }))
+      .mutation(async ({ ctx, input }) => {
+        const Stripe = (await import("stripe")).default;
+        const stripe = new Stripe(process.env.STRIPE_SECRET_KEY || "");
+
+        const session = await stripe.checkout.sessions.retrieve(input.sessionId, {
+          expand: ["subscription"],
+        }) as any;
+
+        if (session.payment_status !== "paid" && session.status !== "complete") {
+          throw new TRPCError({ code: "BAD_REQUEST", message: "Payment not completed" });
+        }
+
+        const stripeSubscription = session.subscription as any;
+        const companyId = session.metadata?.company_id ? parseInt(session.metadata.company_id) : null;
+
+        // Check if subscription already activated (idempotency)
+        const existing = await db.getActiveSubscriptionByUserId(ctx.user.id);
+        if (existing && existing.stripeSubscriptionId === stripeSubscription?.id) {
+          return existing;
+        }
+
+        const now = new Date();
+        const periodStart = stripeSubscription?.current_period_start
+          ? new Date(stripeSubscription.current_period_start * 1000)
+          : now;
+        const periodEnd = stripeSubscription?.current_period_end
+          ? new Date(stripeSubscription.current_period_end * 1000)
+          : new Date(now.getTime() + 14 * 24 * 60 * 60 * 1000);
+
+        const sub = await db.createSubscription({
+          userId: ctx.user.id,
+          stripeSubscriptionId: stripeSubscription?.id ?? input.sessionId,
+          stripeCustomerId: typeof session.customer === "string" ? session.customer : session.customer?.id ?? "",
+          status: "active",
+          planAmount: 2500,
+          currentPeriodStart: periodStart,
+          currentPeriodEnd: periodEnd,
+          cancelAtPeriodEnd: false,
+        });
+
+        // Link user to company if provided
+        if (companyId) {
+          const dbInstance = await db.getDb();
+          if (dbInstance) {
+            const { users } = await import("../drizzle/schema");
+            const { eq } = await import("drizzle-orm");
+            await dbInstance.update(users).set({ companyId }).where(eq(users.id, ctx.user.id));
+          }
+        }
+
+        await notifyOwner({
+          title: `New Subscription: ${ctx.user.name ?? ctx.user.email}`,
+          content: `User ${ctx.user.email} subscribed.\nStripe subscription: ${stripeSubscription?.id ?? "N/A"}\nPeriod: ${periodStart.toLocaleDateString()} – ${periodEnd.toLocaleDateString()}`,
+        }).catch(() => {});
+
+        return sub;
+      }),
+
+    /**
+     * Cancel the current subscription at period end.
+     */
+    cancel: protectedProcedure.mutation(async ({ ctx }) => {
+      const sub = await db.getActiveSubscriptionByUserId(ctx.user.id);
+      if (!sub) throw new TRPCError({ code: 'NOT_FOUND', message: 'No active subscription' });
+
+      if (sub.stripeSubscriptionId && !sub.stripeSubscriptionId.startsWith('sim_')) {
+        const Stripe = (await import("stripe")).default;
+        const stripe = new Stripe(process.env.STRIPE_SECRET_KEY || "");
+        await stripe.subscriptions.update(sub.stripeSubscriptionId, { cancel_at_period_end: true });
+      }
+
+      const dbInstance = await db.getDb();
+      if (dbInstance) {
+        const { subscriptions } = await import("../drizzle/schema");
+        const { eq } = await import("drizzle-orm");
+        await dbInstance.update(subscriptions)
+          .set({ cancelAtPeriodEnd: true })
+          .where(eq(subscriptions.id, sub.id));
+      }
+
+      return { success: true };
     }),
   }),
 
@@ -442,7 +533,7 @@ export const appRouter = router({
     updateStatus: protectedProcedure
       .input(z.object({
         orderId: z.number(),
-        status: z.enum(['pending', 'confirmed', 'preparing', 'ready', 'delivered', 'canceled']),
+        status: z.enum(['pending', 'confirmed', 'arrived', 'preparing', 'ready', 'delivered', 'canceled']),
       }))
       .mutation(async ({ ctx, input }) => {
         if (ctx.user.role !== 'admin' && ctx.user.role !== 'kitchen') {
@@ -601,6 +692,104 @@ export const appRouter = router({
         );
 
         return ordersWithDetails;
+      }),
+
+    /**
+     * Export orders as CSV-ready rows. Admin only.
+     * Columns: order_id, created_at (ACST), lane, status, items_count,
+     *          subtotal_ex_gst, gst_10pct, total_inc_gst, payment_method,
+     *          customer_name, customer_email
+     * GST: total_inc_gst = round(subtotal_ex_gst * 1.10, 2)
+     *      gst_10pct     = round(subtotal_ex_gst * 0.10, 2)
+     */
+    exportOrders: protectedProcedure
+      .input(z.object({
+        dateFilter: z.enum(['today', 'yesterday', 'week', 'all']).optional(),
+        status: z.enum(['pending', 'confirmed', 'arrived', 'preparing', 'ready', 'delivered', 'canceled', 'all']).optional(),
+      }).optional())
+      .query(async ({ ctx, input }) => {
+        if (ctx.user.role !== 'admin') {
+          throw new TRPCError({ code: 'FORBIDDEN' });
+        }
+
+        const allOrders = await db.getAllOrdersFiltered(input?.dateFilter || 'all');
+        const filteredOrders = input?.status && input.status !== 'all'
+          ? allOrders.filter(o => o.status === input.status)
+          : allOrders;
+
+        const rows = await Promise.all(
+          filteredOrders.map(async (order) => {
+            const items = await db.getOrderItemsByOrderId(order.id);
+            const user = await db.getUserById(order.userId);
+
+            // Convert to ACST (Australia/Darwin, UTC+9:30)
+            const createdAt = new Date(order.createdAt.getTime() + 9.5 * 60 * 60 * 1000);
+            const createdAtStr = createdAt.toISOString().replace('T', ' ').substring(0, 19) + ' ACST';
+
+            // GST calculations (prices stored in cents, export in dollars)
+            const subtotalDollars = order.subtotal / 100;
+            const subtotalExGst = Math.round(subtotalDollars / 1.1 * 100) / 100;
+            const gst10pct = Math.round(subtotalExGst * 0.10 * 100) / 100;
+            const totalIncGst = Math.round(subtotalExGst * 1.10 * 100) / 100;
+
+            const paymentMethod = order.stripeSessionId ? 'Stripe' : 'Daily Credit';
+
+            return {
+              order_id: order.orderNumber,
+              created_at: createdAtStr,
+              lane: order.fulfillmentType,
+              status: order.status,
+              items_count: items.reduce((sum, i) => sum + i.quantity, 0),
+              subtotal_ex_gst: subtotalExGst.toFixed(2),
+              gst_10pct: gst10pct.toFixed(2),
+              total_inc_gst: totalIncGst.toFixed(2),
+              payment_method: paymentMethod,
+              customer_name: user?.name || 'Unknown',
+              customer_email: user?.email || 'Unknown',
+            };
+          })
+        );
+
+        return rows;
+      }),
+
+    /**
+     * Customer marks themselves as arrived for order pickup.
+     * Transitions order status from 'confirmed' → 'arrived'.
+     */
+    markArrived: protectedProcedure
+      .input(z.object({ orderId: z.number() }))
+      .mutation(async ({ ctx, input }) => {
+        const dbInstance = await db.getDb();
+        if (!dbInstance) throw new TRPCError({ code: 'INTERNAL_SERVER_ERROR' });
+
+        const { orders: ordersTable } = await import('../drizzle/schema');
+        const { eq, and } = await import('drizzle-orm');
+
+        // Verify the order belongs to this user
+        const existing = await dbInstance
+          .select()
+          .from(ordersTable)
+          .where(and(eq(ordersTable.id, input.orderId), eq(ordersTable.userId, ctx.user.id)))
+          .limit(1);
+
+        if (!existing[0]) throw new TRPCError({ code: 'NOT_FOUND', message: 'Order not found' });
+        if (!['confirmed', 'pending'].includes(existing[0].status)) {
+          throw new TRPCError({ code: 'BAD_REQUEST', message: 'Order cannot be marked as arrived in its current state' });
+        }
+
+        await dbInstance
+          .update(ordersTable)
+          .set({ status: 'arrived' })
+          .where(eq(ordersTable.id, input.orderId));
+
+        // Notify kitchen/owner
+        await notifyOwner({
+          title: `Customer Arrived: ${existing[0].orderNumber}`,
+          content: `Order ${existing[0].orderNumber} — customer has arrived and is ready for pickup.`,
+        }).catch(() => {});
+
+        return { success: true, orderNumber: existing[0].orderNumber };
       }),
   }),
 
@@ -846,7 +1035,7 @@ export const appRouter = router({
           content: `Customer: ${ctx.user.name ?? ctx.user.email}\nItems: ${itemsSummary}\nTotal: $${(total / 100).toFixed(2)} AUD\nPayment: Stripe (${input.sessionId})`,
         }).catch(() => {});
 
-        return { order, orderNumber: order.orderNumber };
+        return { order, orderNumber: order.orderNumber, orderId: order.id };
       }),
 
     getPaymentDetails: protectedProcedure

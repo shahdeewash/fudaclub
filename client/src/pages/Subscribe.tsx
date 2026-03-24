@@ -18,16 +18,17 @@ export default function Subscribe() {
   const [isDetecting, setIsDetecting] = useState(false);
   const utils = trpc.useUtils();
 
-  const createSubscription = trpc.subscription.create.useMutation({
-    onSuccess: () => {
-      setStep("success");
-      toast.success("Subscription created successfully!");
-      setTimeout(() => {
-        setLocation("/menu");
-      }, 2000);
+  const createCheckout = trpc.subscription.createCheckout.useMutation({
+    onSuccess: (data) => {
+      if (data.checkoutUrl) {
+        toast.info("Redirecting to payment...");
+        window.open(data.checkoutUrl, "_blank");
+      } else {
+        toast.error("Failed to get checkout URL");
+      }
     },
     onError: (error: any) => {
-      toast.error(error.message || "Failed to create subscription");
+      toast.error(error.message || "Failed to start checkout");
     },
   });
 
@@ -65,8 +66,8 @@ export default function Subscribe() {
       toast.error("User not authenticated");
       return;
     }
-    toast.info("Creating subscription...");
-    createSubscription.mutate({ companyId: detectedCompany.id });
+    toast.info("Redirecting to Stripe Checkout...");
+    createCheckout.mutate({ companyId: detectedCompany.id, origin: window.location.origin });
   };
 
   if (!isAuthenticated) {
@@ -222,7 +223,7 @@ export default function Subscribe() {
               <Alert variant="default" className="border-secondary/50 bg-secondary/10">
                 <AlertCircle className="h-4 w-4 text-secondary" />
                 <AlertDescription className="text-sm">
-                  <strong>Note:</strong> This is an MVP demo. Payment processing is simulated. In production, this would integrate with Stripe for real payments.
+                  You'll be redirected to Stripe's secure checkout to complete your payment. Use card <strong>4242 4242 4242 4242</strong> for testing.
                 </AlertDescription>
               </Alert>
 
@@ -231,7 +232,7 @@ export default function Subscribe() {
                   variant="outline"
                   onClick={() => setStep("email")}
                   className="flex-1"
-                  disabled={createSubscription.isPending}
+                  disabled={createCheckout.isPending}
                 >
                   Back
                 </Button>
@@ -239,15 +240,15 @@ export default function Subscribe() {
                   onClick={handleConfirmSubscription}
                   className="flex-1"
                   size="lg"
-                  disabled={createSubscription.isPending}
+                  disabled={createCheckout.isPending}
                 >
-                  {createSubscription.isPending ? (
+                  {createCheckout.isPending ? (
                     <>
                       <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                      Processing...
+                      Redirecting...
                     </>
                   ) : (
-                    "Confirm Subscription"
+                    "Pay with Stripe"
                   )}
                 </Button>
               </div>

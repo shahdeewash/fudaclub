@@ -4,9 +4,10 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { trpc } from "@/lib/trpc";
-import { ArrowLeft, Package, Truck, LogOut, CreditCard, ExternalLink, CheckCircle2 } from "lucide-react";
+import { ArrowLeft, Package, Truck, LogOut, CreditCard, ExternalLink, CheckCircle2, MapPin, Loader2 } from "lucide-react";
 import { CartIndicator } from "@/components/CartIndicator";
 import { useState } from "react";
+import { toast } from "sonner";
 
 // Sub-component to lazily fetch and show payment details for a single order
 function PaymentDetailsBadge({ orderId, stripeSessionId }: { orderId: number; stripeSessionId?: string | null }) {
@@ -68,6 +69,18 @@ export default function Orders() {
     enabled: isAuthenticated,
   });
 
+  const utils = trpc.useUtils();
+
+  const markArrived = trpc.stats.markArrived.useMutation({
+    onSuccess: (data) => {
+      toast.success(`Checked in! Kitchen notified for order ${data.orderNumber}.`);
+      utils.order.getMyOrders.invalidate();
+    },
+    onError: (err: any) => {
+      toast.error(err.message || "Failed to check in");
+    },
+  });
+
   const logout = trpc.auth.logout.useMutation({
     onSuccess: () => {
       window.location.href = "/";
@@ -103,6 +116,8 @@ export default function Orders() {
         return "bg-green-100 text-green-800";
       case "delivered":
         return "bg-gray-100 text-gray-800";
+      case "arrived":
+        return "bg-orange-100 text-orange-800";
       case "canceled":
         return "bg-red-100 text-red-800";
       default:
@@ -230,6 +245,39 @@ export default function Orders() {
                       <div className="text-sm">
                         <span className="font-medium">Special Instructions:</span>
                         <p className="text-muted-foreground mt-1">{order.specialInstructions}</p>
+                      </div>
+                    )}
+
+                    {/* I'm Here button for confirmed pickup orders */}
+                    {(order.status === "confirmed" || order.status === "pending") && order.fulfillmentType === "pickup" && (
+                      <div className="border-t pt-3">
+                        <Button
+                          onClick={() => markArrived.mutate({ orderId: order.id })}
+                          disabled={markArrived.isPending}
+                          className="w-full"
+                          variant="default"
+                          size="sm"
+                        >
+                          {markArrived.isPending ? (
+                            <><Loader2 className="mr-2 h-4 w-4 animate-spin" />Notifying kitchen...</>
+                          ) : (
+                            <><MapPin className="mr-2 h-4 w-4" />I'm Here — Start My Order</>
+                          )}
+                        </Button>
+                        <p className="text-xs text-muted-foreground text-center mt-1">
+                          Tap when you arrive at the pickup point
+                        </p>
+                      </div>
+                    )}
+
+                    {/* Arrived confirmation */}
+                    {order.status === "arrived" && (
+                      <div className="border-t pt-3">
+                        <div className="rounded-md bg-orange-50 border border-orange-200 p-3 text-center">
+                          <MapPin className="h-4 w-4 text-orange-600 mx-auto mb-1" />
+                          <p className="text-sm font-medium text-orange-800">You're checked in!</p>
+                          <p className="text-xs text-orange-600">Kitchen has been notified and will start preparing your order.</p>
+                        </div>
                       </div>
                     )}
                   </div>

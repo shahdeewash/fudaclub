@@ -5,14 +5,16 @@ import { trpc } from "@/lib/trpc";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
 import { Alert, AlertDescription } from "@/components/ui/alert";
-import { CheckCircle2, Loader2, XCircle } from "lucide-react";
+import { CheckCircle2, Loader2, XCircle, MapPin } from "lucide-react";
 import { toast } from "sonner";
 
 export default function PaymentSuccess() {
   const { isAuthenticated } = useAuth();
   const [, setLocation] = useLocation();
   const [orderNumber, setOrderNumber] = useState<string | null>(null);
+  const [orderId, setOrderId] = useState<number | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const [arrivedStatus, setArrivedStatus] = useState<"idle" | "loading" | "done">("idle");
   const hasProcessed = useRef(false);
 
   // Extract session_id from URL
@@ -22,19 +24,27 @@ export default function PaymentSuccess() {
   const verifyAndCreateOrder = trpc.payment.verifyAndCreateOrder.useMutation({
     onSuccess: (data) => {
       setOrderNumber(data.orderNumber);
+      setOrderId(data.orderId ?? null);
       toast.success("Order placed successfully!");
       // Clear cart
       localStorage.removeItem("fuda_cart");
       localStorage.removeItem("fuda_special_instructions");
       window.dispatchEvent(new Event("cartUpdated"));
-      // Redirect to orders after 3 seconds
-      setTimeout(() => {
-        setLocation("/orders");
-      }, 3000);
     },
     onError: (err: any) => {
       setError(err.message || "Failed to create order after payment");
       toast.error(err.message || "Failed to create order");
+    },
+  });
+
+  const markArrived = trpc.stats.markArrived.useMutation({
+    onSuccess: () => {
+      setArrivedStatus("done");
+      toast.success("Great! The kitchen has been notified you're here.");
+    },
+    onError: (err: any) => {
+      toast.error(err.message || "Failed to mark arrival");
+      setArrivedStatus("idle");
     },
   });
 
@@ -43,6 +53,12 @@ export default function PaymentSuccess() {
     hasProcessed.current = true;
     verifyAndCreateOrder.mutate({ sessionId });
   }, [isAuthenticated, sessionId]);
+
+  const handleImHere = () => {
+    if (!orderId) return;
+    setArrivedStatus("loading");
+    markArrived.mutate({ orderId });
+  };
 
   if (!sessionId) {
     return (
@@ -109,15 +125,47 @@ export default function PaymentSuccess() {
             <Alert className="border-secondary/50 bg-secondary/10">
               <CheckCircle2 className="h-4 w-4 text-secondary" />
               <AlertDescription>
-                Your payment has been processed and your order is confirmed. The kitchen has been notified!
+                Your payment has been processed and your order is confirmed.
               </AlertDescription>
             </Alert>
-            <p className="text-center text-sm text-muted-foreground">
-              Redirecting to your orders...
-            </p>
+
+            {/* I'm Here button — triggers kitchen to start preparing */}
+            {arrivedStatus === "done" ? (
+              <div className="rounded-lg bg-primary/10 border border-primary/30 p-4 text-center space-y-1">
+                <MapPin className="h-6 w-6 text-primary mx-auto" />
+                <p className="font-semibold text-primary">You're checked in!</p>
+                <p className="text-sm text-muted-foreground">The kitchen has been notified and will start preparing your order.</p>
+              </div>
+            ) : (
+              <div className="rounded-lg bg-muted p-4 space-y-3">
+                <p className="text-sm font-medium text-center">Arrived at the pickup point?</p>
+                <Button
+                  onClick={handleImHere}
+                  disabled={arrivedStatus === "loading" || !orderId}
+                  className="w-full"
+                  size="lg"
+                  variant="default"
+                >
+                  {arrivedStatus === "loading" ? (
+                    <>
+                      <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                      Notifying kitchen...
+                    </>
+                  ) : (
+                    <>
+                      <MapPin className="mr-2 h-4 w-4" />
+                      I'm Here — Start My Order
+                    </>
+                  )}
+                </Button>
+                <p className="text-xs text-muted-foreground text-center">
+                  Tap when you arrive so the kitchen can start preparing your meal.
+                </p>
+              </div>
+            )}
           </CardContent>
           <CardFooter>
-            <Button onClick={() => setLocation("/orders")} className="w-full" size="lg">
+            <Button onClick={() => setLocation("/orders")} className="w-full" variant="outline">
               View My Orders
             </Button>
           </CardFooter>

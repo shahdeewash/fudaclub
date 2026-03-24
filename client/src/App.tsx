@@ -14,6 +14,7 @@ import Kitchen from "./pages/Kitchen";
 import Checkout from "./pages/Checkout";
 import Payment from "./pages/Payment";
 import PaymentSuccess from "./pages/PaymentSuccess";
+import SubscriptionSuccess from "./pages/SubscriptionSuccess";
 import DevLogin from "./pages/DevLogin";
 
 function Router() {
@@ -24,6 +25,7 @@ function Router() {
       <Route path={"/checkout"} component={Checkout} />
       <Route path={"/payment"} component={Payment} />
       <Route path={"/payment-success"} component={PaymentSuccess} />
+      <Route path={"/subscription-success"} component={SubscriptionSuccess} />
       <Route path={"/dev-login"} component={DevLogin} />
       <Route path={"/orders"} component={Orders} />
       <Route path={"/admin"} component={Admin} />

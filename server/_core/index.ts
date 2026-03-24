@@ -168,6 +168,41 @@ async function startServer() {
         console.error("[Stripe Webhook] Error processing checkout.session.completed:", err.message);
       }
     }
+    // Handle subscription lifecycle events
+    if (
+      event.type === "customer.subscription.updated" ||
+      event.type === "customer.subscription.deleted"
+    ) {
+      const stripeSub = event.data.object as any;
+      console.log(`[Stripe Webhook] Subscription event: ${event.type}, sub: ${stripeSub.id}`);
+      try {
+        const dbInstance = await db.getDb();
+        if (dbInstance) {
+          const { subscriptions } = await import("../../drizzle/schema");
+          const { eq } = await import("drizzle-orm");
+          const newStatus: "active" | "canceled" | "past_due" | "trialing" =
+            event.type === "customer.subscription.deleted"
+              ? "canceled"
+              : (stripeSub.status === "active" || stripeSub.status === "trialing" || stripeSub.status === "past_due"
+                ? stripeSub.status
+                : "canceled");
+          await dbInstance
+            .update(subscriptions)
+            .set({
+              status: newStatus,
+              cancelAtPeriodEnd: stripeSub.cancel_at_period_end ?? false,
+              currentPeriodEnd: stripeSub.current_period_end
+                ? new Date(stripeSub.current_period_end * 1000)
+                : undefined,
+            })
+            .where(eq(subscriptions.stripeSubscriptionId, stripeSub.id));
+          console.log(`[Stripe Webhook] Subscription ${stripeSub.id} updated to status: ${newStatus}`);
+        }
+      } catch (err: any) {
+        console.error("[Stripe Webhook] Error handling subscription event:", err.message);
+      }
+    }
+
     return res.json({ received: true });
   });
 

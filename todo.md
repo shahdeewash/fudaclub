@@ -416,3 +416,37 @@
 - [x] Send owner notification in webhook fallback path
 - [x] Include order number, customer name, items, and total in notification
 - [x] Fix getTodaysSpecial returning undefined (now returns null)
+
+## New Features Round 3 (2026-03-24)
+
+### Stripe Recurring Subscription ✅ COMPLETE
+- [x] Create Stripe product/price for $25/fortnight recurring subscription (server/products.ts)
+- [x] Add `subscription.createCheckout` procedure to create Stripe Subscription Checkout session
+- [x] Add `subscription.activateFromSession` procedure to activate subscription post-payment
+- [x] Add `subscription.cancel` procedure to cancel via Stripe API
+- [x] Add `subscription.getPortalUrl` procedure for Stripe Customer Portal
+- [x] Wire webhook handler for `customer.subscription.updated/deleted` events
+- [x] Update Subscribe page to redirect to Stripe Checkout for subscription
+- [x] Add SubscriptionSuccess page to handle post-Stripe return
+- [x] Add `/subscription-success` route in App.tsx
+
+### Admin CSV Order Export ✅ COMPLETE
+- [x] Add `stats.exportOrders` tRPC procedure returning CSV-ready data
+- [x] Columns: order_id, created_at (ACST), lane, status, items_count, subtotal_ex_gst, gst_10pct, total_inc_gst, payment_method, customer_name, customer_email
+- [x] GST math: total_inc_gst = round(subtotal_ex_gst * 1.10, 2), gst_10pct = round(subtotal_ex_gst * 0.10, 2)
+- [x] Respect date/status filters from Admin dashboard
+- [x] Add "Download CSV" button to Admin Orders tab
+- [x] Admin-only access control
+- [x] Written and passing tests in server/arrival.test.ts
+
+### I'm Here Arrival Button ✅ COMPLETE
+- [x] Add `arrived` status to order status enum in schema (migration applied)
+- [x] Add `stats.markArrived` tRPC mutation
+- [x] Show "I'm Here" button on PaymentSuccess page (for confirmed orders)
+- [x] Show "I'm Here" button on Orders page (for confirmed/pending pickup orders)
+- [x] Show "You're checked in!" confirmation after arrival
+- [x] When pressed: update order status to `arrived`, notify kitchen via owner notification
+- [x] Kitchen display: show `arrived` column highlighted in orange with pulsing indicator
+- [x] Kitchen stats bar shows arrived count with orange ring when > 0
+- [x] Add `arrived` to `updateStatus` enum so kitchen can move to `preparing`
+- [x] Written and passing tests in server/arrival.test.ts

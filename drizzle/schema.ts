@@ -86,7 +86,7 @@ export const orders = mysqlTable("orders", {
   squareOrderId: varchar("squareOrderId", { length: 255 }),
   orderNumber: varchar("orderNumber", { length: 50 }).notNull().unique(),
   orderDate: timestamp("orderDate").notNull(),
-  status: mysqlEnum("status", ["pending", "confirmed", "preparing", "ready", "delivered", "canceled"]).default("pending").notNull(),
+  status: mysqlEnum("status", ["pending", "confirmed", "arrived", "preparing", "ready", "delivered", "canceled"]).default("pending").notNull(),
   fulfillmentType: mysqlEnum("fulfillmentType", ["delivery", "pickup"]).default("pickup").notNull(),
   isFreeDelivery: boolean("isFreeDelivery").default(false).notNull(),
   dailyCreditUsed: boolean("dailyCreditUsed").default(false).notNull(),
