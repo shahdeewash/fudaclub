@@ -492,3 +492,19 @@
 - [x] Wire daily cron job in server/_core/index.ts — fires at 8:00 AM Darwin time (22:30 UTC)
 - [x] Cron job queries subscriptions expiring within 3 days and sends notifyOwner for each
 - [x] Logs cron schedule on server startup with minutes until next run
+
+## Admin Setup + Menu Seeding (2026-03-25) ✅ COMPLETE
+
+- [x] Set dee_shah@live.com (Deewash Shah) as admin role in database
+- [x] Local file upload for menu item images already working in Admin UI
+- [x] Scraped full FÜDA menu from DoorDash (all categories)
+- [x] Seeded 70 menu items into the database with DoorDash CDN images
+
+## Admin UI Fixes (2026-03-25) ✅ COMPLETE
+
+- [x] Add category rename (inline edit) and delete (with confirmation) in Admin menu management
+- [x] Menu items now grouped by category with Rename/Delete buttons per category header
+- [x] Menu item edit/delete buttons verified end-to-end
+- [x] Fix local image file upload in Today's Special section (added Upload button + preview)
+- [x] Add `menu.renameCategory` and `menu.deleteCategory` backend procedures
+- [x] Add `renameCategory` and `deleteCategoryItems` db helpers

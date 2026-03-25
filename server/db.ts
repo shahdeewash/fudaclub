@@ -478,3 +478,15 @@ export async function getSubscriptionsExpiringWithin(withinDays: number): Promis
 
   return rows as any;
 }
+
+export async function renameCategory(oldName: string, newName: string): Promise<void> {
+  const db = await getDb();
+  if (!db) return;
+  await db.update(menuItems).set({ category: newName }).where(eq(menuItems.category, oldName));
+}
+
+export async function deleteCategoryItems(category: string): Promise<void> {
+  const db = await getDb();
+  if (!db) return;
+  await db.delete(menuItems).where(eq(menuItems.category, category));
+}

@@ -372,6 +372,26 @@ export const appRouter = router({
         await db.deleteMenuItem(input.menuItemId);
         return { success: true };
       }),
+
+    renameCategory: protectedProcedure
+      .input(z.object({ oldName: z.string(), newName: z.string().min(1) }))
+      .mutation(async ({ ctx, input }) => {
+        if (ctx.user.role !== 'admin') {
+          throw new TRPCError({ code: 'FORBIDDEN' });
+        }
+        await db.renameCategory(input.oldName, input.newName);
+        return { success: true };
+      }),
+
+    deleteCategory: protectedProcedure
+      .input(z.object({ category: z.string() }))
+      .mutation(async ({ ctx, input }) => {
+        if (ctx.user.role !== 'admin') {
+          throw new TRPCError({ code: 'FORBIDDEN' });
+        }
+        await db.deleteCategoryItems(input.category);
+        return { success: true };
+      }),
   }),
 
   order: router({

@@ -44,6 +44,12 @@ export default function Admin() {
   const [editCategory, setEditCategory] = useState("");
   const [deletingItemId, setDeletingItemId] = useState<number | null>(null);
 
+  // Category management state
+  const [renamingCategory, setRenamingCategory] = useState<string | null>(null);
+  const [newCategoryName, setNewCategoryName] = useState("");
+  const [deletingCategory, setDeletingCategory] = useState<string | null>(null);
+  const [uploadingSpecialImage, setUploadingSpecialImage] = useState(false);
+
   const { data: stats } = trpc.stats.getToday.useQuery(undefined, {
     enabled: isAuthenticated && user?.role === "admin",
   });
@@ -157,6 +163,25 @@ export default function Admin() {
     },
   });
 
+  const renameCategory = trpc.menu.renameCategory.useMutation({
+    onSuccess: () => {
+      toast.success("Category renamed!");
+      utils.menu.getAll.invalidate();
+      setRenamingCategory(null);
+      setNewCategoryName("");
+    },
+    onError: (error) => toast.error(error.message),
+  });
+
+  const deleteCategory = trpc.menu.deleteCategory.useMutation({
+    onSuccess: () => {
+      toast.success("Category and all its items deleted!");
+      utils.menu.getAll.invalidate();
+      setDeletingCategory(null);
+    },
+    onError: (error) => toast.error(error.message),
+  });
+
   const createMenuItem = trpc.menu.create.useMutation({
     onSuccess: (newItem) => {
       toast.success(`"${newItem.name}" created and set as today's special!`);
@@ -221,6 +246,26 @@ export default function Admin() {
       toast.error("Failed to upload image. Please try pasting a URL instead.");
     } finally {
       setUploadingImage(false);
+    }
+  };
+
+  const handleSpecialFileUpload = async (file: File) => {
+    setUploadingSpecialImage(true);
+    try {
+      const formData = new FormData();
+      formData.append("file", file);
+      const response = await fetch("/api/upload-image", {
+        method: "POST",
+        body: formData,
+      });
+      if (!response.ok) throw new Error("Upload failed");
+      const { url } = await response.json();
+      setNewSpecialImageUrl(url);
+      toast.success("Image uploaded!");
+    } catch (error) {
+      toast.error("Failed to upload image. Please try pasting a URL instead.");
+    } finally {
+      setUploadingSpecialImage(false);
     }
   };
 
@@ -661,9 +706,71 @@ export default function Admin() {
                   </Button>
                 </div>
               </CardHeader>
-              <CardContent>
-                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-                  {menuItems?.map((item) => (
+              <CardContent className="space-y-8">
+                {/* Category groups */}
+                {menuItems && (() => {
+                  const categories = Array.from(new Set(menuItems.map(i => i.category || "Uncategorised")));
+                  return categories.map(cat => {
+                    const catItems = menuItems.filter(i => (i.category || "Uncategorised") === cat);
+                    return (
+                      <div key={cat}>
+                        {/* Category header with rename/delete */}
+                        <div className="flex items-center gap-3 mb-3 pb-2 border-b">
+                          {renamingCategory === cat ? (
+                            <div className="flex items-center gap-2 flex-1">
+                              <Input
+                                value={newCategoryName}
+                                onChange={(e) => setNewCategoryName(e.target.value)}
+                                className="h-7 text-sm font-semibold max-w-[200px]"
+                                autoFocus
+                                onKeyDown={(e) => {
+                                  if (e.key === "Enter" && newCategoryName.trim()) {
+                                    renameCategory.mutate({ oldName: cat, newName: newCategoryName.trim() });
+                                  } else if (e.key === "Escape") {
+                                    setRenamingCategory(null);
+                                  }
+                                }}
+                              />
+                              <Button size="sm" className="h-7 text-xs bg-[#DC2626] hover:bg-[#DC2626]/90"
+                                onClick={() => newCategoryName.trim() && renameCategory.mutate({ oldName: cat, newName: newCategoryName.trim() })}
+                                disabled={renameCategory.isPending || !newCategoryName.trim()}>
+                                <Check className="h-3 w-3" />
+                              </Button>
+                              <Button size="sm" variant="outline" className="h-7 text-xs"
+                                onClick={() => setRenamingCategory(null)}>
+                                <X className="h-3 w-3" />
+                              </Button>
+                            </div>
+                          ) : deletingCategory === cat ? (
+                            <div className="flex items-center gap-2 flex-1">
+                              <span className="text-sm font-semibold text-destructive">Delete "{cat}" and all {catItems.length} items?</span>
+                              <Button size="sm" variant="destructive" className="h-7 text-xs"
+                                onClick={() => deleteCategory.mutate({ category: cat })}
+                                disabled={deleteCategory.isPending}>
+                                <Trash2 className="h-3 w-3 mr-1" /> Delete All
+                              </Button>
+                              <Button size="sm" variant="outline" className="h-7 text-xs"
+                                onClick={() => setDeletingCategory(null)}>
+                                <X className="h-3 w-3" />
+                              </Button>
+                            </div>
+                          ) : (
+                            <>
+                              <h3 className="font-semibold text-base capitalize flex-1">{cat} <span className="text-xs text-muted-foreground font-normal">({catItems.length})</span></h3>
+                              <Button size="sm" variant="ghost" className="h-7 text-xs gap-1"
+                                onClick={() => { setRenamingCategory(cat); setNewCategoryName(cat); }}>
+                                <Pencil className="h-3 w-3" /> Rename
+                              </Button>
+                              <Button size="sm" variant="ghost" className="h-7 text-xs gap-1 text-destructive hover:text-destructive"
+                                onClick={() => setDeletingCategory(cat)}>
+                                <Trash2 className="h-3 w-3" /> Delete
+                              </Button>
+                            </>
+                          )}
+                        </div>
+                        {/* Items grid */}
+                        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                          {catItems.map((item) => (
                     <Card key={item.id}>
                       <CardContent className="p-4">
                         {/* Image with edit overlay */}
@@ -889,8 +996,12 @@ export default function Admin() {
                         )}
                       </CardContent>
                     </Card>
-                  ))}
-                </div>
+                          ))}
+                        </div>
+                      </div>
+                    );
+                  });
+                })()}
               </CardContent>
             </Card>
           </TabsContent>
@@ -991,13 +1102,51 @@ export default function Admin() {
                     </Select>
                   </div>
                   <div className="space-y-2">
-                    <Label htmlFor="special-image">Image URL (optional)</Label>
-                    <Input
-                      id="special-image"
-                      placeholder="https://example.com/image.jpg"
-                      value={newSpecialImageUrl}
-                      onChange={(e) => setNewSpecialImageUrl(e.target.value)}
-                    />
+                    <Label htmlFor="special-image">Image (optional)</Label>
+                    <div className="flex gap-2">
+                      <Input
+                        id="special-image"
+                        placeholder="Paste image URL..."
+                        value={newSpecialImageUrl}
+                        onChange={(e) => setNewSpecialImageUrl(e.target.value)}
+                        className="flex-1"
+                      />
+                      <label className="cursor-pointer">
+                        <Button
+                          type="button"
+                          variant="outline"
+                          size="sm"
+                          className="h-10 gap-1.5 pointer-events-none"
+                          disabled={uploadingSpecialImage}
+                        >
+                          {uploadingSpecialImage ? (
+                            <span className="text-xs">Uploading...</span>
+                          ) : (
+                            <>
+                              <Upload className="h-4 w-4" />
+                              <span className="text-xs">Upload</span>
+                            </>
+                          )}
+                        </Button>
+                        <input
+                          type="file"
+                          accept="image/*"
+                          className="hidden"
+                          onChange={(e) => {
+                            const file = e.target.files?.[0];
+                            if (file) handleSpecialFileUpload(file);
+                          }}
+                        />
+                      </label>
+                    </div>
+                    {newSpecialImageUrl && (
+                      <img
+                        src={newSpecialImageUrl}
+                        alt="Preview"
+                        className="w-full h-32 object-cover rounded-lg mt-1"
+                        onError={(e) => { (e.target as HTMLImageElement).style.display = 'none'; }}
+                      />
+                    )}
                   </div>
                 </div>
                 <Button

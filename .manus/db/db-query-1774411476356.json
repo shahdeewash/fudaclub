@@ -1,0 +1,58 @@
+{
+  "query": "SELECT id, email, name, role FROM users LIMIT 20;",
+  "command": "mysql --batch --raw --column-names --default-character-set=utf8mb4 --host gateway02.us-east-1.prod.aws.tidbcloud.com --port 4000 --user 26Zg4bMSKinv2hB.b060407587d5 --database Y3xsU4JPingL5a2iZMTuYr --execute SELECT id, email, name, role FROM users LIMIT 20;",
+  "rows": [
+    {
+      "id": "1",
+      "email": "dee_shah@live.com",
+      "name": "Deewash Shah",
+      "role": "admin"
+    },
+    {
+      "id": "90045",
+      "email": "user@testcompany.com",
+      "name": "Test User",
+      "role": "user"
+    },
+    {
+      "id": "90066",
+      "email": "admin@fuda.com.au",
+      "name": "Admin User",
+      "role": "admin"
+    },
+    {
+      "id": "90098",
+      "email": "kitchen@fuda.com.au",
+      "name": "Kitchen Staff",
+      "role": "kitchen"
+    },
+    {
+      "id": "360104",
+      "email": "arrival-test-1774348839988@fuda.test",
+      "name": "Arrival Tester",
+      "role": "user"
+    },
+    {
+      "id": "360112",
+      "email": "arrival-test-1774349269957@fuda.test",
+      "name": "Arrival Tester",
+      "role": "user"
+    },
+    {
+      "id": "360133",
+      "email": "expiry@expiry-test.com",
+      "name": "Expiry Test User",
+      "role": "user"
+    },
+    {
+      "id": "360135",
+      "email": "expiry2@expiry-test.com",
+      "name": "Expiry Test User 2",
+      "role": "user"
+    }
+  ],
+  "messages": [],
+  "stdout": "id\temail\tname\trole\n1\tdee_shah@live.com\tDeewash Shah\tadmin\n90045\tuser@testcompany.com\tTest User\tuser\n90066\tadmin@fuda.com.au\tAdmin User\tadmin\n90098\tkitchen@fuda.com.au\tKitchen Staff\tkitchen\n360104\tarrival-test-1774348839988@fuda.test\tArrival Tester\tuser\n360112\tarrival-test-1774349269957@fuda.test\tArrival Tester\tuser\n360133\texpiry@expiry-test.com\tExpiry Test User\tuser\n360135\texpiry2@expiry-test.com\tExpiry Test User 2\tuser\n",
+  "stderr": "",
+  "execution_time_ms": 1708
+}
