@@ -1,0 +1,30 @@
+{
+  "query": "SELECT id, name FROM menuItems ORDER BY id LIMIT 5;",
+  "command": "mysql --batch --raw --column-names --default-character-set=utf8mb4 --host gateway02.us-east-1.prod.aws.tidbcloud.com --port 4000 --user 26Zg4bMSKinv2hB.b060407587d5 --database Y3xsU4JPingL5a2iZMTuYr --execute SELECT id, name FROM menuItems ORDER BY id LIMIT 5;",
+  "rows": [
+    {
+      "id": "90001",
+      "name": "Lamb Meatball with Rice"
+    },
+    {
+      "id": "90002",
+      "name": "Iskender Kebab"
+    },
+    {
+      "id": "90003",
+      "name": "Doner Main"
+    },
+    {
+      "id": "90004",
+      "name": "Mixed Grill Kebab"
+    },
+    {
+      "id": "90005",
+      "name": "Chicken Shish Kebab"
+    }
+  ],
+  "messages": [],
+  "stdout": "id\tname\n90001\tLamb Meatball with Rice\n90002\tIskender Kebab\n90003\tDoner Main\n90004\tMixed Grill Kebab\n90005\tChicken Shish Kebab\n",
+  "stderr": "",
+  "execution_time_ms": 1610
+}

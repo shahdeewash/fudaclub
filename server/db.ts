@@ -490,3 +490,31 @@ export async function deleteCategoryItems(category: string): Promise<void> {
   if (!db) return;
   await db.delete(menuItems).where(eq(menuItems.category, category));
 }
+
+export async function bulkUpdateCategoryPrice(category: string, priceInCents: number): Promise<void> {
+  const db = await getDb();
+  if (!db) return;
+  await db.update(menuItems).set({ price: priceInCents }).where(eq(menuItems.category, category));
+}
+
+export async function reorderMenuItems(items: { id: number; sortOrder: number }[]): Promise<void> {
+  const db = await getDb();
+  if (!db) return;
+  for (const item of items) {
+    await db.update(menuItems).set({ sortOrder: item.sortOrder }).where(eq(menuItems.id, item.id));
+  }
+}
+
+export async function toggleMenuItemAvailability(id: number, isAvailable: boolean): Promise<void> {
+  const db = await getDb();
+  if (!db) return;
+  await db.update(menuItems).set({ isAvailable }).where(eq(menuItems.id, id));
+}
+
+export async function getAllMenuItemsAdmin(): Promise<MenuItem[]> {
+  const db = await getDb();
+  if (!db) return [];
+  // Return ALL items (including unavailable) for admin, sorted by category then sortOrder
+  const { asc } = await import("drizzle-orm");
+  return await db.select().from(menuItems).orderBy(asc(menuItems.category), asc(menuItems.sortOrder), asc(menuItems.id));
+}

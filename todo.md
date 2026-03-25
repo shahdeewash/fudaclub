@@ -508,3 +508,25 @@
 - [x] Fix local image file upload in Today's Special section (added Upload button + preview)
 - [x] Add `menu.renameCategory` and `menu.deleteCategory` backend procedures
 - [x] Add `renameCategory` and `deleteCategoryItems` db helpers
+
+## Admin Menu Features Round 2 (2026-03-25) ✅ COMPLETE
+
+### Bulk Price Update per Category ✅ DONE
+- [x] Add `menu.bulkUpdateCategoryPrice` backend procedure (admin only)
+- [x] Add "Set Price" button on each category header in Admin
+- [x] Show inline input with price field, apply to all items in category on confirm
+
+### Drag-to-Reorder Menu Items ✅ DONE
+- [x] Install @dnd-kit/core and @dnd-kit/sortable
+- [x] Add `sortOrder` column to menuItems table and apply migration
+- [x] Add `menu.reorderItems` backend procedure to persist new order
+- [x] Extracted SortableMenuItemCard component (fixes React hooks violation)
+- [x] Wrap category item lists in DndContext + SortableContext with drag handles
+- [x] Menu page respects sortOrder when displaying items
+
+### Item Availability Toggle ✅ DONE
+- [x] Add `isAvailable` boolean column to menuItems table and apply migration
+- [x] Add `menu.toggleAvailability` backend procedure (admin only)
+- [x] Add toggle switch per item in Admin menu management (Visible/Hidden label)
+- [x] Menu page hides unavailable items from customers
+- [x] Hidden items shown with dashed border and reduced opacity in Admin

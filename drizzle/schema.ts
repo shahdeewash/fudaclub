@@ -68,6 +68,7 @@ export const menuItems = mysqlTable("menuItems", {
   price: int("price").notNull(), // in cents
   imageUrl: text("imageUrl"),
   isAvailable: boolean("isAvailable").default(true).notNull(),
+  sortOrder: int("sortOrder").default(0).notNull(),
   isTodaysSpecial: boolean("isTodaysSpecial").default(false).notNull(),
   specialDate: timestamp("specialDate"),
   createdAt: timestamp("createdAt").defaultNow().notNull(),

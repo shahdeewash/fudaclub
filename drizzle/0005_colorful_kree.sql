@@ -1,0 +1,1 @@
+ALTER TABLE `menuItems` ADD `sortOrder` int DEFAULT 0 NOT NULL;

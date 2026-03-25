@@ -1,7 +1,7 @@
-import { describe, expect, it, beforeEach } from "vitest";
+import { describe, expect, it } from "vitest";
 import { appRouter } from "./routers";
 import type { TrpcContext } from "./_core/context";
-import { getDb } from "./db";
+import * as db from "./db";
 
 type AuthenticatedUser = NonNullable<TrpcContext["user"]>;
 
@@ -51,14 +51,24 @@ describe("Company Detection", () => {
   });
 
   it("should return colleague count for existing company", async () => {
-    const ctx = createAuthContext();
+    const ctx = createAuthContext({ id: 1, email: "user1@testcompany.com" });
     const caller = appRouter.createCaller(ctx);
 
     // First user creates company
     const result1 = await caller.company.detectFromEmail({ email: "user1@testcompany.com" });
-    
-    // Create subscription for first user
-    await caller.subscription.create({ companyId: result1.company.id });
+
+    // Directly seed a subscription for user 1 via db helper so we don't rely on Stripe
+    const periodStart = new Date();
+    const periodEnd = new Date(Date.now() + 14 * 24 * 60 * 60 * 1000);
+    await db.createSubscription({
+      userId: 1,
+      companyId: result1.company.id,
+      status: "active",
+      price: 27000,
+      planAmount: 27000,
+      currentPeriodStart: periodStart,
+      currentPeriodEnd: periodEnd,
+    });
 
     // Second user checks same company
     const ctx2 = createAuthContext({ id: 2, email: "user2@testcompany.com" });
@@ -70,43 +80,45 @@ describe("Company Detection", () => {
 });
 
 describe("Subscription Management", () => {
-  it("should create subscription for new user", async () => {
-    const ctx = createAuthContext({ email: "newuser@company.com" });
+  it("should return null subscription status when no subscription exists", async () => {
+    const ctx = createAuthContext({ id: 9991, email: "nosubscription@company.com" });
     const caller = appRouter.createCaller(ctx);
 
-    // Detect company first
-    const companyResult = await caller.company.detectFromEmail({ email: "newuser@company.com" });
+    const status = await caller.subscription.getStatus();
 
-    // Create subscription
-    const subscription = await caller.subscription.create({
-      companyId: companyResult.company.id,
-    });
-
-    expect(subscription.status).toBe("active");
-    expect(subscription.price).toBe(2500); // $25.00
+    expect(status).toBeNull();
   });
 
-  it("should retrieve user's subscription", async () => {
-    const ctx = createAuthContext({ email: "subscriber@company.com" });
+  it("should return active subscription status when subscription exists", async () => {
+    const ctx = createAuthContext({ id: 9992, email: "subscriber@company.com" });
     const caller = appRouter.createCaller(ctx);
 
-    // Create subscription
+    // Seed company and subscription
     const companyResult = await caller.company.detectFromEmail({ email: "subscriber@company.com" });
-    await caller.subscription.create({ companyId: companyResult.company.id });
+    const periodStart = new Date();
+    const periodEnd = new Date(Date.now() + 14 * 24 * 60 * 60 * 1000);
+    await db.createSubscription({
+      userId: 9992,
+      companyId: companyResult.company.id,
+      status: "active",
+      price: 27000,
+      planAmount: 27000,
+      currentPeriodStart: periodStart,
+      currentPeriodEnd: periodEnd,
+    });
 
-    // Retrieve subscription
-    const subscription = await caller.subscription.getMine();
+    const status = await caller.subscription.getStatus();
 
-    expect(subscription).toBeDefined();
-    expect(subscription?.status).toBe("active");
+    expect(status).not.toBeNull();
+    expect(status?.status).toBe("active");
   });
 
   it("should return null for user without subscription", async () => {
-    const ctx = createAuthContext({ id: 999, email: "nosubscription@company.com" });
+    const ctx = createAuthContext({ id: 9993, email: "nosub2@company.com" });
     const caller = appRouter.createCaller(ctx);
 
-    const subscription = await caller.subscription.getMine();
+    const status = await caller.subscription.getStatus();
 
-    expect(subscription).toBeNull();
+    expect(status).toBeNull();
   });
 });

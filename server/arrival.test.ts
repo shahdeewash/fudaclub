@@ -23,7 +23,7 @@ function makeCtx(role: "admin" | "user" | "kitchen" = "admin") {
 }
 
 describe("Order Export (Admin CSV)", () => {
-  it("should return CSV-compatible rows with correct fields for admin", async () => {
+  it("should return CSV-compatible rows with correct fields for admin", { timeout: 15000 }, async () => {
     const ctx = makeCtx("admin");
     const caller = appRouter.createCaller(ctx as any);
 

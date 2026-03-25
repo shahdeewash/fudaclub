@@ -1,5 +1,9 @@
 import { useState } from "react";
 import { useAuth } from "@/_core/hooks/useAuth";
+import { DndContext, closestCenter, KeyboardSensor, PointerSensor, useSensor, useSensors, DragEndEvent } from '@dnd-kit/core';
+import { SortableContext, sortableKeyboardCoordinates, useSortable, verticalListSortingStrategy, arrayMove } from '@dnd-kit/sortable';
+import { CSS } from '@dnd-kit/utilities';
+import { Switch } from "@/components/ui/switch";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -9,12 +13,199 @@ import { Label } from "@/components/ui/label";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { trpc } from "@/lib/trpc";
-import { BarChart3, DollarSign, Package, Users, Star, Plus, Building2, User, Filter, Camera, X, Check, Upload, Pencil, Trash2, Download, Bell } from "lucide-react";
+import { BarChart3, DollarSign, Package, Users, Star, Plus, Building2, User, Filter, Camera, X, Check, Upload, Pencil, Trash2, Download, Bell, GripVertical } from "lucide-react";
 import { useLocation } from "wouter";
 import { toast } from "sonner";
 
 type DateFilter = "today" | "yesterday" | "week" | "all";
 type GroupBy = "all" | "company" | "individual";
+
+type MenuItemType = {
+  id: number;
+  name: string;
+  description: string | null;
+  price: number;
+  category: string | null;
+  imageUrl: string | null;
+  isTodaysSpecial: boolean | null;
+  isAvailable: boolean | null;
+};
+
+function SortableMenuItemCard({
+  item,
+  editingItemId, deletingItemId, editingImageId, editingImageUrl,
+  editName, editDescription, editPrice, editCategory,
+  updateMenuItem, deleteMenuItem, updateImage, toggleAvailability,
+  setEditingItemId, setDeletingItemId, setEditingImageId, setEditingImageUrl,
+  setEditName, setEditDescription, setEditPrice, setEditCategory,
+  handleFileUpload, handleSaveImage,
+}: {
+  item: MenuItemType;
+  editingItemId: number | null;
+  deletingItemId: number | null;
+  editingImageId: number | null;
+  editingImageUrl: string;
+  editName: string;
+  editDescription: string;
+  editPrice: string;
+  editCategory: string;
+  updateMenuItem: any;
+  deleteMenuItem: any;
+  updateImage: any;
+  toggleAvailability: any;
+  setEditingItemId: (id: number | null) => void;
+  setDeletingItemId: (id: number | null) => void;
+  setEditingImageId: (id: number | null) => void;
+  setEditingImageUrl: (url: string) => void;
+  setEditName: (v: string) => void;
+  setEditDescription: (v: string) => void;
+  setEditPrice: (v: string) => void;
+  setEditCategory: (v: string) => void;
+  handleFileUpload: (id: number, file: File) => void;
+  handleSaveImage: (id: number) => void;
+}) {
+  const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({ id: item.id });
+  const style = { transform: CSS.Transform.toString(transform), transition, opacity: isDragging ? 0.5 : 1 };
+  const isAvailable = item.isAvailable !== false;
+
+  return (
+    <div ref={setNodeRef} style={style}>
+      <Card className={!isAvailable ? 'opacity-60 border-dashed' : ''}>
+        <CardContent className="p-4">
+          {/* Drag handle + availability toggle row */}
+          <div className="flex items-center justify-between mb-2">
+            <button {...attributes} {...listeners} className="cursor-grab active:cursor-grabbing text-muted-foreground hover:text-foreground p-1 rounded">
+              <GripVertical className="h-4 w-4" />
+            </button>
+            <div className="flex items-center gap-2">
+              <span className="text-xs text-muted-foreground">{isAvailable ? 'Visible' : 'Hidden'}</span>
+              <Switch
+                checked={isAvailable}
+                onCheckedChange={(checked) => toggleAvailability.mutate({ menuItemId: item.id, isAvailable: checked })}
+                className="scale-75"
+              />
+            </div>
+          </div>
+          {/* Image with edit overlay */}
+          <div className="relative mb-2">
+            {item.imageUrl ? (
+              <img src={item.imageUrl} alt={item.name} className="w-full h-40 object-cover rounded-lg" />
+            ) : (
+              <div className="w-full h-40 bg-muted rounded-lg flex items-center justify-center">
+                <Camera className="h-8 w-8 text-muted-foreground" />
+              </div>
+            )}
+          </div>
+          {/* Always-visible Change Photo button */}
+          {editingImageId !== item.id && (
+            <button
+              onClick={() => { setEditingImageId(item.id); setEditingImageUrl(item.imageUrl || ""); }}
+              className="w-full mb-3 flex items-center justify-center gap-1.5 text-xs text-muted-foreground hover:text-foreground border border-dashed border-muted-foreground/40 hover:border-foreground/60 rounded-md py-1.5 transition-colors"
+            >
+              <Camera className="h-3.5 w-3.5" />
+              Change Photo
+            </button>
+          )}
+          {/* Image edit panel */}
+          {editingImageId === item.id && (
+            <div className="mb-3 p-3 bg-muted rounded-lg space-y-2">
+              <p className="text-xs font-medium text-muted-foreground">Update Photo</p>
+              <Input placeholder="Paste image URL..." value={editingImageUrl}
+                onChange={(e) => setEditingImageUrl(e.target.value)} className="text-xs h-8" />
+              {editingImageUrl && (
+                <img src={editingImageUrl} alt="Preview" className="w-full h-24 object-cover rounded"
+                  onError={(e) => { (e.target as HTMLImageElement).style.display = 'none'; }} />
+              )}
+              <label className="flex items-center gap-2 text-xs text-muted-foreground cursor-pointer hover:text-foreground transition-colors">
+                <Upload className="h-3 w-3" />
+                Upload from device
+                <input type="file" accept="image/*" className="hidden"
+                  onChange={(e) => { const f = e.target.files?.[0]; if (f) handleFileUpload(item.id, f); }} />
+              </label>
+              <div className="flex gap-2">
+                <Button size="sm" className="h-7 text-xs flex-1 bg-[#DC2626] hover:bg-[#DC2626]/90"
+                  onClick={() => handleSaveImage(item.id)}
+                  disabled={updateImage.isPending || !editingImageUrl.trim()}>
+                  <Check className="h-3 w-3 mr-1" />Save
+                </Button>
+                <Button size="sm" variant="outline" className="h-7 text-xs"
+                  onClick={() => { setEditingImageId(null); setEditingImageUrl(""); }}>
+                  <X className="h-3 w-3" />
+                </Button>
+              </div>
+            </div>
+          )}
+          {/* Item details or edit form */}
+          {editingItemId === item.id ? (
+            <div className="space-y-2">
+              <Input placeholder="Item name" value={editName} onChange={(e) => setEditName(e.target.value)} className="text-xs h-8" />
+              <Textarea placeholder="Description" value={editDescription} onChange={(e) => setEditDescription(e.target.value)} className="text-xs min-h-[60px]" />
+              <div className="flex gap-2">
+                <Input placeholder="Price (AUD)" type="number" step="0.01" value={editPrice}
+                  onChange={(e) => setEditPrice(e.target.value)} className="text-xs h-8" />
+                <Input placeholder="Category" value={editCategory}
+                  onChange={(e) => setEditCategory(e.target.value)} className="text-xs h-8" />
+              </div>
+              <div className="flex gap-2">
+                <Button size="sm" className="h-7 text-xs flex-1 bg-[#DC2626] hover:bg-[#DC2626]/90"
+                  onClick={() => updateMenuItem.mutate({ menuItemId: item.id, name: editName || undefined, description: editDescription || undefined, price: editPrice ? parseFloat(editPrice) : undefined, category: editCategory || undefined })}
+                  disabled={updateMenuItem.isPending}>
+                  <Check className="h-3 w-3 mr-1" />Save
+                </Button>
+                <Button size="sm" variant="outline" className="h-7 text-xs" onClick={() => setEditingItemId(null)}>
+                  <X className="h-3 w-3" />
+                </Button>
+              </div>
+            </div>
+          ) : deletingItemId === item.id ? (
+            <div className="p-3 bg-destructive/10 rounded-lg space-y-2">
+              <p className="text-xs font-medium text-destructive">Remove this item?</p>
+              <p className="text-xs text-muted-foreground">This will hide it from the menu.</p>
+              <div className="flex gap-2">
+                <Button size="sm" variant="destructive" className="h-7 text-xs flex-1"
+                  onClick={() => deleteMenuItem.mutate({ menuItemId: item.id })} disabled={deleteMenuItem.isPending}>
+                  <Trash2 className="h-3 w-3 mr-1" />Remove
+                </Button>
+                <Button size="sm" variant="outline" className="h-7 text-xs" onClick={() => setDeletingItemId(null)}>
+                  <X className="h-3 w-3" />
+                </Button>
+              </div>
+            </div>
+          ) : (
+            <div className="flex-1">
+              <h3 className="font-bold text-sm">{item.name}</h3>
+              <p className="text-xs text-muted-foreground line-clamp-2">{item.description}</p>
+              <div className="flex items-center justify-between mt-2">
+                <span className="font-semibold text-sm">${(item.price / 100).toFixed(2)}</span>
+                <Badge variant="outline" className="text-xs">{item.category}</Badge>
+              </div>
+              {item.isTodaysSpecial && (
+                <Badge variant="secondary" className="mt-1 text-xs">
+                  <Star className="h-3 w-3 mr-1" />Today's Special
+                </Badge>
+              )}
+              {!isAvailable && (
+                <Badge variant="outline" className="mt-1 text-xs text-muted-foreground">
+                  Hidden from menu
+                </Badge>
+              )}
+              <div className="flex gap-2 mt-3">
+                <Button size="sm" variant="outline" className="h-7 text-xs flex-1"
+                  onClick={() => { setEditingItemId(item.id); setEditName(item.name); setEditDescription(item.description || ""); setEditPrice((item.price / 100).toFixed(2)); setEditCategory(item.category || ""); }}>
+                  <Pencil className="h-3 w-3 mr-1" />Edit
+                </Button>
+                <Button size="sm" variant="outline" className="h-7 text-xs text-destructive hover:bg-destructive hover:text-destructive-foreground"
+                  onClick={() => setDeletingItemId(item.id)}>
+                  <Trash2 className="h-3 w-3" />
+                </Button>
+              </div>
+            </div>
+          )}
+        </CardContent>
+      </Card>
+    </div>
+  );
+}
 
 export default function Admin() {
   const { user, isAuthenticated } = useAuth();
@@ -64,8 +255,23 @@ export default function Admin() {
     { enabled: isAuthenticated && user?.role === "admin" && groupBy === "company" }
   );
 
-  const { data: menuItems } = trpc.menu.getAll.useQuery();
+  const { data: menuItems } = trpc.menu.getAllAdmin.useQuery(
+    undefined,
+    { enabled: isAuthenticated && user?.role === 'admin' }
+  );
   const { data: todaysSpecial } = trpc.menu.getTodaysSpecial.useQuery();
+
+  // Bulk price update state
+  const [bulkPriceCategory, setBulkPriceCategory] = useState<string | null>(null);
+  const [bulkPriceValue, setBulkPriceValue] = useState("");
+
+  // Local item order state for optimistic drag-to-reorder
+  const [localItemOrder, setLocalItemOrder] = useState<Record<string, number[]>>({});
+
+  const sensors = useSensors(
+    useSensor(PointerSensor),
+    useSensor(KeyboardSensor, { coordinateGetter: sortableKeyboardCoordinates })
+  );
 
   const utils = trpc.useUtils();
 
@@ -166,6 +372,7 @@ export default function Admin() {
   const renameCategory = trpc.menu.renameCategory.useMutation({
     onSuccess: () => {
       toast.success("Category renamed!");
+      utils.menu.getAllAdmin.invalidate();
       utils.menu.getAll.invalidate();
       setRenamingCategory(null);
       setNewCategoryName("");
@@ -176,11 +383,50 @@ export default function Admin() {
   const deleteCategory = trpc.menu.deleteCategory.useMutation({
     onSuccess: () => {
       toast.success("Category and all its items deleted!");
+      utils.menu.getAllAdmin.invalidate();
       utils.menu.getAll.invalidate();
       setDeletingCategory(null);
     },
     onError: (error) => toast.error(error.message),
   });
+
+  const bulkUpdatePrice = trpc.menu.bulkUpdateCategoryPrice.useMutation({
+    onSuccess: () => {
+      toast.success("All items in category updated!");
+      utils.menu.getAllAdmin.invalidate();
+      utils.menu.getAll.invalidate();
+      setBulkPriceCategory(null);
+      setBulkPriceValue("");
+    },
+    onError: (error) => toast.error(error.message),
+  });
+
+  const reorderItems = trpc.menu.reorderItems.useMutation({
+    onError: (error) => toast.error("Reorder failed: " + error.message),
+  });
+
+  const toggleAvailability = trpc.menu.toggleAvailability.useMutation({
+    onSuccess: (_, vars) => {
+      toast.success(vars.isAvailable ? "Item is now visible on menu" : "Item hidden from menu");
+      utils.menu.getAllAdmin.invalidate();
+      utils.menu.getAll.invalidate();
+    },
+    onError: (error) => toast.error(error.message),
+  });
+
+  const handleDragEnd = (event: DragEndEvent, category: string, catItems: typeof menuItems) => {
+    const { active, over } = event;
+    if (!over || active.id === over.id || !catItems) return;
+    const oldIndex = catItems.findIndex(i => i.id === active.id);
+    const newIndex = catItems.findIndex(i => i.id === over.id);
+    const reordered = arrayMove(catItems, oldIndex, newIndex);
+    // Optimistic update
+    setLocalItemOrder(prev => ({ ...prev, [category]: reordered.map(i => i.id) }));
+    // Persist to server
+    reorderItems.mutate({
+      items: reordered.map((item, idx) => ({ id: item.id, sortOrder: idx }))
+    });
+  };
 
   const createMenuItem = trpc.menu.create.useMutation({
     onSuccess: (newItem) => {
@@ -711,11 +957,16 @@ export default function Admin() {
                 {menuItems && (() => {
                   const categories = Array.from(new Set(menuItems.map(i => i.category || "Uncategorised")));
                   return categories.map(cat => {
-                    const catItems = menuItems.filter(i => (i.category || "Uncategorised") === cat);
+                    // Apply local drag order if present
+                    const localOrder = localItemOrder[cat];
+                    const rawItems = menuItems.filter(i => (i.category || "Uncategorised") === cat);
+                    const catItems = localOrder
+                      ? localOrder.map(id => rawItems.find(i => i.id === id)!).filter(Boolean)
+                      : rawItems;
                     return (
                       <div key={cat}>
-                        {/* Category header with rename/delete */}
-                        <div className="flex items-center gap-3 mb-3 pb-2 border-b">
+                        {/* Category header with rename/delete/bulk-price */}
+                        <div className="flex flex-wrap items-center gap-2 mb-3 pb-2 border-b">
                           {renamingCategory === cat ? (
                             <div className="flex items-center gap-2 flex-1">
                               <Input
@@ -754,9 +1005,34 @@ export default function Admin() {
                                 <X className="h-3 w-3" />
                               </Button>
                             </div>
+                          ) : bulkPriceCategory === cat ? (
+                            <div className="flex items-center gap-2 flex-1">
+                              <span className="text-sm font-semibold flex-1">Set price for all "{cat}" items:</span>
+                              <Input
+                                type="number" step="0.01" min="0"
+                                placeholder="e.g. 12.50"
+                                value={bulkPriceValue}
+                                onChange={(e) => setBulkPriceValue(e.target.value)}
+                                className="h-7 text-xs w-28"
+                                autoFocus
+                              />
+                              <Button size="sm" className="h-7 text-xs bg-[#DC2626] hover:bg-[#DC2626]/90"
+                                onClick={() => bulkPriceValue && bulkUpdatePrice.mutate({ category: cat, price: parseFloat(bulkPriceValue) })}
+                                disabled={bulkUpdatePrice.isPending || !bulkPriceValue}>
+                                <Check className="h-3 w-3 mr-1" /> Apply
+                              </Button>
+                              <Button size="sm" variant="outline" className="h-7 text-xs"
+                                onClick={() => { setBulkPriceCategory(null); setBulkPriceValue(""); }}>
+                                <X className="h-3 w-3" />
+                              </Button>
+                            </div>
                           ) : (
                             <>
                               <h3 className="font-semibold text-base capitalize flex-1">{cat} <span className="text-xs text-muted-foreground font-normal">({catItems.length})</span></h3>
+                              <Button size="sm" variant="ghost" className="h-7 text-xs gap-1"
+                                onClick={() => { setBulkPriceCategory(cat); setBulkPriceValue(""); }}>
+                                <DollarSign className="h-3 w-3" /> Set Price
+                              </Button>
                               <Button size="sm" variant="ghost" className="h-7 text-xs gap-1"
                                 onClick={() => { setRenamingCategory(cat); setNewCategoryName(cat); }}>
                                 <Pencil className="h-3 w-3" /> Rename
@@ -768,236 +1044,42 @@ export default function Admin() {
                             </>
                           )}
                         </div>
-                        {/* Items grid */}
-                        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-                          {catItems.map((item) => (
-                    <Card key={item.id}>
-                      <CardContent className="p-4">
-                        {/* Image with edit overlay */}
-                        <div className="relative mb-2">
-                          {item.imageUrl ? (
-                            <img
-                              src={item.imageUrl}
-                              alt={item.name}
-                              className="w-full h-40 object-cover rounded-lg"
-                            />
-                          ) : (
-                            <div className="w-full h-40 bg-muted rounded-lg flex items-center justify-center">
-                              <Camera className="h-8 w-8 text-muted-foreground" />
+                        {/* Items grid with drag-to-reorder */}
+                        <DndContext sensors={sensors} collisionDetection={closestCenter}
+                          onDragEnd={(e) => handleDragEnd(e, cat, catItems)}>
+                          <SortableContext items={catItems.map(i => i.id)} strategy={verticalListSortingStrategy}>
+                            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                              {catItems.map((item) => (
+                                <SortableMenuItemCard
+                                  key={item.id}
+                                  item={item}
+                                  editingItemId={editingItemId}
+                                  deletingItemId={deletingItemId}
+                                  editingImageId={editingImageId}
+                                  editingImageUrl={editingImageUrl}
+                                  editName={editName}
+                                  editDescription={editDescription}
+                                  editPrice={editPrice}
+                                  editCategory={editCategory}
+                                  updateMenuItem={updateMenuItem}
+                                  deleteMenuItem={deleteMenuItem}
+                                  updateImage={updateImage}
+                                  toggleAvailability={toggleAvailability}
+                                  setEditingItemId={setEditingItemId}
+                                  setDeletingItemId={setDeletingItemId}
+                                  setEditingImageId={setEditingImageId}
+                                  setEditingImageUrl={setEditingImageUrl}
+                                  setEditName={setEditName}
+                                  setEditDescription={setEditDescription}
+                                  setEditPrice={setEditPrice}
+                                  setEditCategory={setEditCategory}
+                                  handleFileUpload={handleFileUpload}
+                                  handleSaveImage={handleSaveImage}
+                                />
+                              ))}
                             </div>
-                          )}
-                        </div>
-                        {/* Always-visible Change Photo button */}
-                        {editingImageId !== item.id && (
-                          <button
-                            onClick={() => {
-                              setEditingImageId(item.id);
-                              setEditingImageUrl(item.imageUrl || "");
-                            }}
-                            className="w-full mb-3 flex items-center justify-center gap-1.5 text-xs text-muted-foreground hover:text-foreground border border-dashed border-muted-foreground/40 hover:border-foreground/60 rounded-md py-1.5 transition-colors"
-                          >
-                            <Camera className="h-3.5 w-3.5" />
-                            Change Photo
-                          </button>
-                        )}
-
-                        {/* Image edit panel */}
-                        {editingImageId === item.id && (
-                          <div className="mb-3 p-3 bg-muted rounded-lg space-y-2">
-                            <p className="text-xs font-medium text-muted-foreground">Update Photo</p>
-                            {/* URL input */}
-                            <div className="flex gap-2">
-                              <Input
-                                placeholder="Paste image URL..."
-                                value={editingImageUrl}
-                                onChange={(e) => setEditingImageUrl(e.target.value)}
-                                className="text-xs h-8"
-                              />
-                            </div>
-                            {/* Preview */}
-                            {editingImageUrl && (
-                              <img
-                                src={editingImageUrl}
-                                alt="Preview"
-                                className="w-full h-24 object-cover rounded"
-                                onError={(e) => { (e.target as HTMLImageElement).style.display = 'none'; }}
-                              />
-                            )}
-                            {/* File upload */}
-                            <label className="flex items-center gap-2 text-xs text-muted-foreground cursor-pointer hover:text-foreground transition-colors">
-                              <Upload className="h-3 w-3" />
-                              Upload from device
-                              <input
-                                type="file"
-                                accept="image/*"
-                                className="hidden"
-                                onChange={(e) => {
-                                  const file = e.target.files?.[0];
-                                  if (file) {
-                                    handleFileUpload(item.id, file);
-                                  }
-                                }}
-                              />
-                            </label>
-                            {/* Action buttons */}
-                            <div className="flex gap-2">
-                              <Button
-                                size="sm"
-                                className="h-7 text-xs flex-1 bg-[#DC2626] hover:bg-[#DC2626]/90"
-                                onClick={() => handleSaveImage(item.id)}
-                                disabled={updateImage.isPending || !editingImageUrl.trim()}
-                              >
-                                <Check className="h-3 w-3 mr-1" />
-                                Save
-                              </Button>
-                              <Button
-                                size="sm"
-                                variant="outline"
-                                className="h-7 text-xs"
-                                onClick={() => { setEditingImageId(null); setEditingImageUrl(""); }}
-                              >
-                                <X className="h-3 w-3" />
-                              </Button>
-                            </div>
-                          </div>
-                        )}
-
-                        {/* Item details or edit form */}
-                        {editingItemId === item.id ? (
-                          <div className="space-y-2">
-                            <Input
-                              placeholder="Item name"
-                              value={editName}
-                              onChange={(e) => setEditName(e.target.value)}
-                              className="text-xs h-8"
-                            />
-                            <Textarea
-                              placeholder="Description"
-                              value={editDescription}
-                              onChange={(e) => setEditDescription(e.target.value)}
-                              className="text-xs min-h-[60px]"
-                            />
-                            <div className="flex gap-2">
-                              <Input
-                                placeholder="Price (AUD)"
-                                type="number"
-                                step="0.01"
-                                value={editPrice}
-                                onChange={(e) => setEditPrice(e.target.value)}
-                                className="text-xs h-8"
-                              />
-                              <Input
-                                placeholder="Category"
-                                value={editCategory}
-                                onChange={(e) => setEditCategory(e.target.value)}
-                                className="text-xs h-8"
-                              />
-                            </div>
-                            <div className="flex gap-2">
-                              <Button
-                                size="sm"
-                                className="h-7 text-xs flex-1 bg-[#DC2626] hover:bg-[#DC2626]/90"
-                                onClick={() => {
-                                  updateMenuItem.mutate({
-                                    menuItemId: item.id,
-                                    name: editName || undefined,
-                                    description: editDescription || undefined,
-                                    price: editPrice ? parseFloat(editPrice) : undefined,
-                                    category: editCategory || undefined,
-                                  });
-                                }}
-                                disabled={updateMenuItem.isPending}
-                              >
-                                <Check className="h-3 w-3 mr-1" />
-                                Save
-                              </Button>
-                              <Button
-                                size="sm"
-                                variant="outline"
-                                className="h-7 text-xs"
-                                onClick={() => setEditingItemId(null)}
-                              >
-                                <X className="h-3 w-3" />
-                              </Button>
-                            </div>
-                          </div>
-                        ) : deletingItemId === item.id ? (
-                          <div className="p-3 bg-destructive/10 rounded-lg space-y-2">
-                            <p className="text-xs font-medium text-destructive">Remove this item?</p>
-                            <p className="text-xs text-muted-foreground">This will hide it from the menu.</p>
-                            <div className="flex gap-2">
-                              <Button
-                                size="sm"
-                                variant="destructive"
-                                className="h-7 text-xs flex-1"
-                                onClick={() => deleteMenuItem.mutate({ menuItemId: item.id })}
-                                disabled={deleteMenuItem.isPending}
-                              >
-                                <Trash2 className="h-3 w-3 mr-1" />
-                                Remove
-                              </Button>
-                              <Button
-                                size="sm"
-                                variant="outline"
-                                className="h-7 text-xs"
-                                onClick={() => setDeletingItemId(null)}
-                              >
-                                <X className="h-3 w-3" />
-                              </Button>
-                            </div>
-                          </div>
-                        ) : (
-                          <div className="flex-1">
-                            <h3 className="font-bold text-sm">{item.name}</h3>
-                            <p className="text-xs text-muted-foreground line-clamp-2">
-                              {item.description}
-                            </p>
-                            <div className="flex items-center justify-between mt-2">
-                              <span className="font-semibold text-sm">
-                                ${(item.price / 100).toFixed(2)}
-                              </span>
-                              <Badge variant="outline" className="text-xs">
-                                {item.category}
-                              </Badge>
-                            </div>
-                            {item.isTodaysSpecial && (
-                              <Badge variant="secondary" className="mt-1 text-xs">
-                                <Star className="h-3 w-3 mr-1" />
-                                Today's Special
-                              </Badge>
-                            )}
-                            {/* Edit and Delete buttons */}
-                            <div className="flex gap-2 mt-3">
-                              <Button
-                                size="sm"
-                                variant="outline"
-                                className="h-7 text-xs flex-1"
-                                onClick={() => {
-                                  setEditingItemId(item.id);
-                                  setEditName(item.name);
-                                  setEditDescription(item.description || "");
-                                  setEditPrice((item.price / 100).toFixed(2));
-                                  setEditCategory(item.category || "");
-                                }}
-                              >
-                                <Pencil className="h-3 w-3 mr-1" />
-                                Edit
-                              </Button>
-                              <Button
-                                size="sm"
-                                variant="outline"
-                                className="h-7 text-xs text-destructive hover:bg-destructive hover:text-destructive-foreground"
-                                onClick={() => setDeletingItemId(item.id)}
-                              >
-                                <Trash2 className="h-3 w-3" />
-                              </Button>
-                            </div>
-                          </div>
-                        )}
-                      </CardContent>
-                    </Card>
-                          ))}
-                        </div>
+                          </SortableContext>
+                        </DndContext>
                       </div>
                     );
                   });

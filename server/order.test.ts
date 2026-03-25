@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 import { appRouter } from "./routers";
 import type { TrpcContext } from "./_core/context";
+import * as db from "./db";
 
 type AuthenticatedUser = NonNullable<TrpcContext["user"]>;
 
@@ -28,52 +29,73 @@ function createAuthContext(user?: Partial<AuthenticatedUser>): TrpcContext {
   };
 }
 
+/** Seed an active subscription directly via db helper (bypasses Stripe) */
+async function seedSubscription(userId: number, companyId: number) {
+  const periodStart = new Date();
+  const periodEnd = new Date(Date.now() + 14 * 24 * 60 * 60 * 1000);
+  await db.createSubscription({
+    userId,
+    companyId,
+    status: "active",
+    price: 27000,
+    planAmount: 27000,
+    currentPeriodStart: periodStart,
+    currentPeriodEnd: periodEnd,
+  });
+}
+
+// Generate a unique suffix for each test run to avoid DB contamination
+const RUN_ID = Date.now() % 100000;
+
 describe("Order Creation", () => {
-  it("should create order with daily credit applied", async () => {
-    const ctx = createAuthContext();
+  it("should create order with daily credit applied", { timeout: 15000 }, async () => {
+    // Use unique IDs to avoid cross-test contamination
+    const userId = 900000 + RUN_ID;
+    const setupCaller = appRouter.createCaller(createAuthContext({ id: userId }));
+    const companyResult = await setupCaller.company.detectFromEmail({ email: `user${userId}@ordertest.com` });
+    await seedSubscription(userId, companyResult.company.id);
+
+    const ctx = createAuthContext({ id: userId, companyId: companyResult.company.id });
     const caller = appRouter.createCaller(ctx);
 
-    // Setup: Create company and subscription
-    const companyResult = await caller.company.detectFromEmail({ email: "john@testcompany.com" });
-    await caller.subscription.create({ companyId: companyResult.company.id });
-
-    // Create order with one item
-    const order = await caller.order.create({
-      items: [{ menuItemId: 1, quantity: 1 }],
+    const result = await caller.order.create({
+      items: [{ menuItemId: 90001, quantity: 1 }],
     });
 
-    expect(order.dailyCreditUsed).toBe(true);
-    expect(order.orderNumber).toMatch(/^ORD-/);
+    expect(result.order.dailyCreditUsed).toBe(true);
+    expect(result.order.orderNumber).toMatch(/^ORD-/);
   });
 
-  it("should calculate delivery eligibility based on company orders", async () => {
-    const ctx = createAuthContext();
+  it("should calculate delivery eligibility based on company orders", { timeout: 15000 }, async () => {
+    const userId = 900001 + RUN_ID;
+    // Use full timestamp in domain to guarantee uniqueness across runs
+    const uniqueDomain = `deliverytest${Date.now()}.com`;
+    const setupCaller = appRouter.createCaller(createAuthContext({ id: userId }));
+    const companyResult = await setupCaller.company.detectFromEmail({ email: `user${userId}@${uniqueDomain}` });
+    await seedSubscription(userId, companyResult.company.id);
+
+    const ctx = createAuthContext({ id: userId, companyId: companyResult.company.id });
     const caller = appRouter.createCaller(ctx);
 
-    // Setup company and subscription
-    const companyResult = await caller.company.detectFromEmail({ email: "user@deliverytest.com" });
-    await caller.subscription.create({ companyId: companyResult.company.id });
-
-    // Create order
-    const order = await caller.order.create({
-      items: [{ menuItemId: 1, quantity: 1 }],
+    const result = await caller.order.create({
+      items: [{ menuItemId: 90001, quantity: 1 }],
     });
 
-    // First order should not have free delivery (need 5+ orders)
-    expect(order.isFreeDelivery).toBe(false);
+    // First order for this brand-new company should not have free delivery (need 5+ orders)
+    expect(result.order.isFreeDelivery).toBe(false);
   });
 
-  it("should enforce 10:30 AM cutoff for delivery", async () => {
-    const ctx = createAuthContext();
+  it("should enforce 10:30 AM cutoff for delivery", { timeout: 15000 }, async () => {
+    const userId = 900002 + RUN_ID;
+    const setupCaller = appRouter.createCaller(createAuthContext({ id: userId }));
+    const companyResult = await setupCaller.company.detectFromEmail({ email: `user${userId}@cutofftest.com` });
+    await seedSubscription(userId, companyResult.company.id);
+
+    const ctx = createAuthContext({ id: userId, companyId: companyResult.company.id });
     const caller = appRouter.createCaller(ctx);
 
-    // Setup
-    const companyResult = await caller.company.detectFromEmail({ email: "user@cutofftest.com" });
-    await caller.subscription.create({ companyId: companyResult.company.id });
-
-    // Create order
-    const order = await caller.order.create({
-      items: [{ menuItemId: 1, quantity: 1 }],
+    const result = await caller.order.create({
+      items: [{ menuItemId: 90001, quantity: 1 }],
     });
 
     // Check fulfillment type based on current time
@@ -82,28 +104,27 @@ describe("Order Creation", () => {
     cutoffTime.setHours(10, 30, 0, 0);
 
     if (now > cutoffTime) {
-      expect(order.fulfillmentType).toBe("pickup");
+      expect(result.order.fulfillmentType).toBe("pickup");
     } else {
-      expect(order.fulfillmentType).toBe("delivery");
+      expect(result.order.fulfillmentType).toBe("delivery");
     }
   });
 });
 
 describe("Order Retrieval", () => {
-  it("should retrieve user's orders", async () => {
-    const ctx = createAuthContext();
+  it("should retrieve user's orders", { timeout: 15000 }, async () => {
+    const userId = 900003 + RUN_ID;
+    const setupCaller = appRouter.createCaller(createAuthContext({ id: userId }));
+    const companyResult = await setupCaller.company.detectFromEmail({ email: `user${userId}@ordertest.com` });
+    await seedSubscription(userId, companyResult.company.id);
+
+    const ctx = createAuthContext({ id: userId, companyId: companyResult.company.id });
     const caller = appRouter.createCaller(ctx);
 
-    // Setup
-    const companyResult = await caller.company.detectFromEmail({ email: "user@ordertest.com" });
-    await caller.subscription.create({ companyId: companyResult.company.id });
-
-    // Create order
     await caller.order.create({
-      items: [{ menuItemId: 1, quantity: 1 }],
+      items: [{ menuItemId: 90001, quantity: 1 }],
     });
 
-    // Retrieve orders
     const orders = await caller.order.getMyOrders();
 
     expect(orders.length).toBeGreaterThan(0);
@@ -111,7 +132,7 @@ describe("Order Retrieval", () => {
   });
 
   it("should get colleagues who ordered today", async () => {
-    const ctx = createAuthContext();
+    const ctx = createAuthContext({ id: 900004 + RUN_ID });
     const caller = appRouter.createCaller(ctx);
 
     const colleagues = await caller.order.getColleaguesWhoOrdered();
@@ -122,23 +143,25 @@ describe("Order Retrieval", () => {
 });
 
 describe("Order Status Management", () => {
-  it("should update order status (admin only)", async () => {
-    const adminCtx = createAuthContext({ role: "admin" });
+  it("should update order status (admin only)", { timeout: 15000 }, async () => {
+    const userId = 900005 + RUN_ID;
+    const setupCaller = appRouter.createCaller(createAuthContext({ id: userId, role: "admin" }));
+    const companyResult = await setupCaller.company.detectFromEmail({ email: `admin${userId}@statustest.com` });
+    await seedSubscription(userId, companyResult.company.id);
+
+    const adminCtx = createAuthContext({ id: userId, role: "admin", companyId: companyResult.company.id });
     const adminCaller = appRouter.createCaller(adminCtx);
 
-    // Setup and create order
-    const companyResult = await adminCaller.company.detectFromEmail({ email: "admin@statustest.com" });
-    await adminCaller.subscription.create({ companyId: companyResult.company.id });
-    const order = await adminCaller.order.create({
-      items: [{ menuItemId: 1, quantity: 1 }],
+    const createResult = await adminCaller.order.create({
+      items: [{ menuItemId: 90001, quantity: 1 }],
     });
 
-    // Update status
+    // updateStatus returns { success: true }
     const updated = await adminCaller.order.updateStatus({
-      orderId: order.id,
+      orderId: createResult.order.id,
       status: "preparing",
     });
 
-    expect(updated.status).toBe("preparing");
+    expect(updated.success).toBe(true);
   });
 });

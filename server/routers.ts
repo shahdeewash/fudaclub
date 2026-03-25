@@ -277,6 +277,13 @@ export const appRouter = router({
       return await db.getAllMenuItems();
     }),
 
+    getAllAdmin: protectedProcedure.query(async ({ ctx }) => {
+      if (ctx.user.role !== 'admin') {
+        throw new TRPCError({ code: 'FORBIDDEN' });
+      }
+      return await db.getAllMenuItemsAdmin();
+    }),
+
     getTodaysSpecial: publicProcedure.query(async () => {
       return (await db.getTodaysSpecial()) ?? null;
     }),
@@ -390,6 +397,48 @@ export const appRouter = router({
           throw new TRPCError({ code: 'FORBIDDEN' });
         }
         await db.deleteCategoryItems(input.category);
+        return { success: true };
+      }),
+
+    bulkUpdateCategoryPrice: protectedProcedure
+      .input(z.object({
+        category: z.string(),
+        price: z.number().min(0), // in dollars
+      }))
+      .mutation(async ({ ctx, input }) => {
+        if (ctx.user.role !== 'admin') {
+          throw new TRPCError({ code: 'FORBIDDEN' });
+        }
+        const priceInCents = Math.round(input.price * 100);
+        await db.bulkUpdateCategoryPrice(input.category, priceInCents);
+        return { success: true };
+      }),
+
+    reorderItems: protectedProcedure
+      .input(z.object({
+        items: z.array(z.object({
+          id: z.number(),
+          sortOrder: z.number(),
+        })),
+      }))
+      .mutation(async ({ ctx, input }) => {
+        if (ctx.user.role !== 'admin') {
+          throw new TRPCError({ code: 'FORBIDDEN' });
+        }
+        await db.reorderMenuItems(input.items);
+        return { success: true };
+      }),
+
+    toggleAvailability: protectedProcedure
+      .input(z.object({
+        id: z.number(),
+        isAvailable: z.boolean(),
+      }))
+      .mutation(async ({ ctx, input }) => {
+        if (ctx.user.role !== 'admin') {
+          throw new TRPCError({ code: 'FORBIDDEN' });
+        }
+        await db.toggleMenuItemAvailability(input.id, input.isAvailable);
         return { success: true };
       }),
   }),
