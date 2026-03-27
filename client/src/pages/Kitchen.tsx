@@ -139,7 +139,7 @@ export default function Kitchen() {
           {/* Company Batch Tag */}
           <div className="p-2 bg-primary/10 rounded-md">
             <span className="text-xs font-semibold text-primary">
-              BATCH: COMPANY-{order.companyId}
+              BATCH: VENUE-{order.companyId}
             </span>
           </div>
 
@@ -194,7 +194,7 @@ export default function Kitchen() {
           <div className="flex items-center justify-between flex-wrap gap-3">
             <div>
               <h1 className="text-2xl font-bold">Kitchen Display</h1>
-              <p className="text-sm opacity-90">FÜDA Corporate Lunch</p>
+              <p className="text-sm opacity-90">FÜDA Daily Lunch</p>
             </div>
             <div className="flex items-center gap-3 flex-wrap">
               {/* Date Filter */}

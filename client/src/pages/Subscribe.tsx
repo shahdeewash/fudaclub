@@ -261,7 +261,7 @@ export default function Subscribe() {
           <div className="space-y-6">
             <div className="text-center">
               <h2 className="text-3xl font-bold mb-2">Choose Your Plan</h2>
-              <p className="text-muted-foreground">Subscribe to the FÜDA Corporate Lunch Deal and enjoy daily free meals with your team.</p>
+              <p className="text-muted-foreground">Manage team subscriptions and billing for FÜDA daily lunch.</p>
             </div>
 
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
@@ -423,7 +423,7 @@ export default function Subscribe() {
                 <CheckCircle2 className="h-10 w-10 text-secondary" />
               </div>
               <CardTitle className="text-2xl">Subscription Activated!</CardTitle>
-              <CardDescription>Welcome to FÜDA Corporate Lunch Deal</CardDescription>
+              <CardDescription>Welcome to FÜDA Daily Lunch</CardDescription>
             </CardHeader>
             <CardContent className="space-y-6">
               <p className="text-center text-muted-foreground">

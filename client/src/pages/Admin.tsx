@@ -773,7 +773,7 @@ export default function Admin() {
       <header className="bg-primary text-primary-foreground py-4 shadow-md">
         <div className="container">
           <h1 className="text-2xl font-bold">Admin Dashboard</h1>
-          <p className="text-sm opacity-90">FÜDA Corporate Lunch Management</p>
+          <p className="text-sm opacity-90">FÜDA Admin Panel</p>
         </div>
       </header>
 

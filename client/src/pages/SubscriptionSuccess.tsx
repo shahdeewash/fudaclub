@@ -58,7 +58,7 @@ export default function SubscriptionSuccess() {
                 <CheckCircle2 className="h-10 w-10 text-secondary" />
               </div>
               <CardTitle className="text-2xl">Subscription Activated!</CardTitle>
-              <CardDescription>Welcome to FÜDA Corporate Lunch Deal</CardDescription>
+              <CardDescription>Welcome to FÜDA Daily Lunch</CardDescription>
             </CardHeader>
             <CardContent className="space-y-6">
               <div className="bg-muted p-4 rounded-lg space-y-2 text-sm">

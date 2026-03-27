@@ -76,11 +76,11 @@ export default function Menu() {
         <Card className="max-w-md">
           <CardHeader>
             <CardTitle>Subscription Required</CardTitle>
-            <CardDescription>Subscribe to access corporate lunch deals</CardDescription>
+            <CardDescription>Join The FÜDA Club to access daily lunch deals</CardDescription>
           </CardHeader>
           <CardContent>
-            <Button onClick={() => setLocation("/subscribe")} className="w-full">
-              Subscribe Now
+            <Button onClick={() => setLocation("/fuda-club")} className="w-full bg-amber-500 hover:bg-amber-600 text-white">
+              Join The FÜDA Club
             </Button>
           </CardContent>
         </Card>
@@ -191,7 +191,7 @@ export default function Menu() {
       <header className="bg-primary text-primary-foreground py-4 shadow-md sticky top-0 z-10">
         <div className="container flex justify-between items-center">
           <div>
-            <h1 className="text-xl font-bold">FÜDA Corporate Lunch</h1>
+            <h1 className="text-xl font-bold">FÜDA · Daily Lunch</h1>
             <p className="text-xs opacity-90">Order before 10:30 AM</p>
           </div>
           <div className="flex gap-2">

@@ -696,3 +696,22 @@
 - [x] Add FÜDA Club section to homepage alongside corporate plan
 - [x] Dual CTA: "For your team" (corporate) and "Join The FÜDA Club" (personal)
 - [x] Highlight: 1 free lunch/day, 10% off extras, Mon–Sat, from $80/fortnight
+
+## Remove Corporate Plan — Individual Only (2026-03-27)
+- [ ] Remove corporate plan from homepage (keep only FÜDA Club CTA)
+- [ ] Remove Subscribe page corporate plan option
+- [ ] Remove corporate plan from navigation
+- [ ] Remove $270/$500 pricing from products.ts and backend
+- [ ] Update homepage hero to individual-focused messaging
+- [ ] Remove company detection / corporate subscription flow from onboarding
+- [ ] Keep FÜDA Club as the single subscription plan
+
+## Remove Corporate Plan — Individual-Only (2026-03-27)
+- [x] Remove Corporate Plan card from homepage
+- [x] Make FÜDA Club the single featured plan on homepage
+- [x] Subscribe.tsx kept for admin use only (hidden from nav for regular users)
+- [x] Update Menu.tsx subscription gate to redirect to FÜDA Club
+- [x] Update Kitchen.tsx to remove corporate references (BATCH: VENUE, FÜDA Daily Lunch)
+- [x] Update Admin.tsx header to remove corporate references (FÜDA Admin Panel)
+- [x] Update SubscriptionSuccess.tsx to remove corporate references
+- [x] Remove all "Corporate Lunch" and "$270" strings from UI
