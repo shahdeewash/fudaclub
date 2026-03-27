@@ -554,3 +554,7 @@
 - [x] Write vitest to validate Square credentials via lightweight API call
 - [x] Write vitest for square.syncMenu mapping logic (13 tests, all passing)
 - [x] All 58 tests passing
+
+## Square OAuth Fix (2026-03-27)
+- [ ] Debug Square OAuth callback route not working
+- [ ] Fix token exchange and redirect logic
