@@ -455,6 +455,19 @@ export const appRouter = router({
         await db.toggleMenuItemAvailability(input.menuItemId, input.isAvailable);
         return { success: true };
       }),
+
+    bulkToggleCategory: protectedProcedure
+      .input(z.object({
+        category: z.string(),
+        isAvailable: z.boolean(),
+      }))
+      .mutation(async ({ ctx, input }) => {
+        if (ctx.user.role !== 'admin') {
+          throw new TRPCError({ code: 'FORBIDDEN' });
+        }
+        await db.bulkToggleCategoryAvailability(input.category, input.isAvailable);
+        return { success: true };
+      }),
   }),
 
   order: router({

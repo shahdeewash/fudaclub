@@ -513,6 +513,12 @@ export async function toggleMenuItemAvailability(id: number, isAvailable: boolea
   await db.update(menuItems).set({ isAvailable }).where(eq(menuItems.id, id));
 }
 
+export async function bulkToggleCategoryAvailability(category: string, isAvailable: boolean): Promise<void> {
+  const db = await getDb();
+  if (!db) return;
+  await db.update(menuItems).set({ isAvailable }).where(eq(menuItems.category, category));
+}
+
 export async function getAllMenuItemsAdmin(): Promise<MenuItem[]> {
   const db = await getDb();
   if (!db) return [];

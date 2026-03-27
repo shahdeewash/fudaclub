@@ -13,7 +13,7 @@ import { Label } from "@/components/ui/label";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { trpc } from "@/lib/trpc";
-import { BarChart3, DollarSign, Package, Users, Star, Plus, Building2, User, Filter, Camera, X, Check, Upload, Pencil, Trash2, Download, Bell, GripVertical, RefreshCw, Link2, Link2Off, Search, ArrowUpDown } from "lucide-react";
+import { BarChart3, DollarSign, Package, Users, Star, Plus, Building2, User, Filter, Camera, X, Check, Upload, Pencil, Trash2, Download, Bell, GripVertical, RefreshCw, Link2, Link2Off, Search, ArrowUpDown, Eye, EyeOff } from "lucide-react";
 import { useLocation } from "wouter";
 import { toast } from "sonner";
 import { useEffect } from "react";
@@ -611,6 +611,15 @@ export default function Admin() {
   const toggleAvailability = trpc.menu.toggleAvailability.useMutation({
     onSuccess: (_, vars) => {
       toast.success(vars.isAvailable ? "Item is now visible on menu" : "Item hidden from menu");
+      utils.menu.getAllAdmin.invalidate();
+      utils.menu.getAll.invalidate();
+    },
+    onError: (error) => toast.error(error.message),
+  });
+
+  const bulkToggleCategory = trpc.menu.bulkToggleCategory.useMutation({
+    onSuccess: (_, vars) => {
+      toast.success(vars.isAvailable ? `All "${vars.category}" items are now visible` : `All "${vars.category}" items hidden from menu`);
       utils.menu.getAllAdmin.invalidate();
       utils.menu.getAll.invalidate();
     },
@@ -1395,7 +1404,31 @@ export default function Admin() {
                             </div>
                           ) : (
                             <>
-                              <h3 className="font-semibold text-base capitalize flex-1">{cat} <span className="text-xs text-muted-foreground font-normal">({catItems.length})</span></h3>
+                              <h3 className="font-semibold text-base capitalize flex-1 flex items-center gap-2">
+                                {cat}
+                                <span className="text-xs text-muted-foreground font-normal">({catItems.length})</span>
+                                {catItems.length > 0 && catItems.every(i => i.isAvailable === false) && (
+                                  <Badge variant="outline" className="text-xs text-muted-foreground">All hidden</Badge>
+                                )}
+                              </h3>
+                              {/* Bulk hide/show toggle */}
+                              {catItems.length > 0 && (() => {
+                                const allHidden = catItems.every(i => i.isAvailable === false);
+                                return (
+                                  <Button
+                                    size="sm"
+                                    variant="ghost"
+                                    className={`h-7 text-xs gap-1 ${allHidden ? 'text-green-600 hover:text-green-700' : 'text-muted-foreground'}`}
+                                    onClick={() => bulkToggleCategory.mutate({ category: cat, isAvailable: allHidden })}
+                                    disabled={bulkToggleCategory.isPending}
+                                    title={allHidden ? `Show all ${cat} items` : `Hide all ${cat} items`}
+                                  >
+                                    {allHidden
+                                      ? <><Eye className="h-3 w-3" /> Show All</>
+                                      : <><EyeOff className="h-3 w-3" /> Hide All</>}
+                                  </Button>
+                                );
+                              })()}
                               <Button size="sm" variant="ghost" className="h-7 text-xs gap-1"
                                 onClick={() => { setBulkPriceCategory(cat); setBulkPriceValue(""); }}>
                                 <DollarSign className="h-3 w-3" /> Set Price

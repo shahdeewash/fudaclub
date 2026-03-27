@@ -630,3 +630,8 @@
 - [x] Add sort controls: by name (A-Z / Z-A), price (low-high / high-low), category, availability
 - [x] Search and sort work together (search filters first, then sort applies)
 - [x] Clear search button when search has text
+
+## Bulk Hide/Show by Category (2026-03-27)
+- [x] Add bulk toggle at each category header to hide/show all items in that category at once
+- [x] Show visual indicator (e.g. "All hidden" badge) when all items in a category are hidden
+- [x] Add backend procedure: menu.bulkToggleCategory(category, isAvailable)
