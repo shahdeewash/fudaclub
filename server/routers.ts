@@ -445,14 +445,14 @@ export const appRouter = router({
 
     toggleAvailability: protectedProcedure
       .input(z.object({
-        id: z.number(),
+        menuItemId: z.number(),
         isAvailable: z.boolean(),
       }))
       .mutation(async ({ ctx, input }) => {
         if (ctx.user.role !== 'admin') {
           throw new TRPCError({ code: 'FORBIDDEN' });
         }
-        await db.toggleMenuItemAvailability(input.id, input.isAvailable);
+        await db.toggleMenuItemAvailability(input.menuItemId, input.isAvailable);
         return { success: true };
       }),
   }),

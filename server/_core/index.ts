@@ -17,6 +17,8 @@ import {
   fetchMerchantName,
   fetchFirstLocationId,
   saveSquareConnection,
+  syncSquareCatalog,
+  getAllSquareConnections,
 } from "../square";
 
 function isPortAvailable(port: number): Promise<boolean> {
@@ -317,6 +319,9 @@ async function startServer() {
   // Daily cron job: send subscription expiry reminders at 8:00 AM Darwin time (UTC+9:30 = 22:30 UTC previous day)
   // Runs every 24 hours starting from the next 22:30 UTC
   scheduleDailyExpiryReminders();
+
+  // Daily cron job: auto-sync Square catalog at 6:00 AM Darwin time (UTC+9:30 = 20:30 UTC previous day)
+  scheduleDailySquareSync();
 }
 
 function scheduleDailyExpiryReminders() {
@@ -365,6 +370,55 @@ function scheduleDailyExpiryReminders() {
   setTimeout(() => {
     runReminders();
     setInterval(runReminders, INTERVAL_MS);
+  }, initialDelay);
+}
+
+function scheduleDailySquareSync() {
+  const INTERVAL_MS = 24 * 60 * 60 * 1000; // 24 hours
+
+  async function runSync() {
+    try {
+      console.log("[Cron] Running daily Square catalog sync...");
+      // Find all admin users with a Square connection
+      const connections = await getAllSquareConnections();
+      if (!connections || connections.length === 0) {
+        console.log("[Cron] No Square connections found, skipping sync.");
+        return;
+      }
+      let totalImported = 0;
+      let totalUpdated = 0;
+      for (const conn of connections) {
+        try {
+          const result = await syncSquareCatalog(conn.accessToken);
+          totalImported += result.imported;
+          totalUpdated += result.updated;
+          console.log(`[Cron] Square sync for merchant ${conn.merchantId}: ${result.imported} imported, ${result.updated} updated, ${result.skipped} skipped`);
+        } catch (err: any) {
+          console.error(`[Cron] Square sync failed for merchant ${conn.merchantId}:`, err.message);
+        }
+      }
+      console.log(`[Cron] Daily Square sync complete: ${totalImported} imported, ${totalUpdated} updated across ${connections.length} connection(s).`);
+    } catch (err: any) {
+      console.error("[Cron] Daily Square sync job failed:", err.message);
+    }
+  }
+
+  // Calculate ms until next 20:30 UTC (= 6:00 AM Darwin)
+  function msUntilNext2030UTC(): number {
+    const now = new Date();
+    const next = new Date(now);
+    next.setUTCHours(20, 30, 0, 0);
+    if (next <= now) {
+      next.setUTCDate(next.getUTCDate() + 1);
+    }
+    return next.getTime() - now.getTime();
+  }
+
+  const initialDelay = msUntilNext2030UTC();
+  console.log(`[Cron] Square catalog auto-sync scheduled in ${Math.round(initialDelay / 60000)} minutes (next 6:00 AM Darwin time).`);
+  setTimeout(() => {
+    runSync();
+    setInterval(runSync, INTERVAL_MS);
   }, initialDelay);
 }
 

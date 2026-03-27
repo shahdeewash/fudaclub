@@ -242,6 +242,15 @@ export default function Admin() {
   const [deletingCategory, setDeletingCategory] = useState<string | null>(null);
   const [uploadingSpecialImage, setUploadingSpecialImage] = useState(false);
 
+  // Inline add-item form state
+  const [showAddItemForm, setShowAddItemForm] = useState(false);
+  const [addItemName, setAddItemName] = useState("");
+  const [addItemDescription, setAddItemDescription] = useState("");
+  const [addItemPrice, setAddItemPrice] = useState("");
+  const [addItemCategory, setAddItemCategory] = useState("");
+  const [addItemImageUrl, setAddItemImageUrl] = useState("");
+  const [uploadingAddItemImage, setUploadingAddItemImage] = useState(false);
+
   const { data: stats } = trpc.stats.getToday.useQuery(undefined, {
     enabled: isAuthenticated && user?.role === "admin",
   });
@@ -343,6 +352,7 @@ export default function Admin() {
     onSuccess: () => {
       toast.success("Menu item updated!");
       utils.menu.getAll.invalidate();
+      utils.menu.getAllAdmin.invalidate();
       setEditingItemId(null);
     },
     onError: (error) => {
@@ -354,6 +364,7 @@ export default function Admin() {
     onSuccess: () => {
       toast.success("Menu item removed!");
       utils.menu.getAll.invalidate();
+      utils.menu.getAllAdmin.invalidate();
       setDeletingItemId(null);
     },
     onError: (error) => {
@@ -474,6 +485,7 @@ export default function Admin() {
     onSuccess: (newItem) => {
       toast.success(`"${newItem.name}" created and set as today's special!`);
       utils.menu.getAll.invalidate();
+      utils.menu.getAllAdmin.invalidate();
       utils.menu.getTodaysSpecial.invalidate();
       // Reset form
       setNewSpecialName("");
@@ -481,6 +493,23 @@ export default function Admin() {
       setNewSpecialPrice("");
       setNewSpecialCategory("special");
       setNewSpecialImageUrl("");
+    },
+    onError: (error) => {
+      toast.error(error.message);
+    },
+  });
+
+  const addMenuItem = trpc.menu.create.useMutation({
+    onSuccess: (newItem) => {
+      toast.success(`"${newItem.name}" added to menu!`);
+      utils.menu.getAll.invalidate();
+      utils.menu.getAllAdmin.invalidate();
+      setShowAddItemForm(false);
+      setAddItemName("");
+      setAddItemDescription("");
+      setAddItemPrice("");
+      setAddItemCategory("");
+      setAddItemImageUrl("");
     },
     onError: (error) => {
       toast.error(error.message);
@@ -554,6 +583,26 @@ export default function Admin() {
       toast.error("Failed to upload image. Please try pasting a URL instead.");
     } finally {
       setUploadingSpecialImage(false);
+    }
+  };
+
+  const handleAddItemFileUpload = async (file: File) => {
+    setUploadingAddItemImage(true);
+    try {
+      const formData = new FormData();
+      formData.append("file", file);
+      const response = await fetch("/api/upload-image", {
+        method: "POST",
+        body: formData,
+      });
+      if (!response.ok) throw new Error("Upload failed");
+      const { url } = await response.json();
+      setAddItemImageUrl(url);
+      toast.success("Image uploaded!");
+    } catch (error) {
+      toast.error("Failed to upload image. Please try pasting a URL instead.");
+    } finally {
+      setUploadingAddItemImage(false);
     }
   };
 
@@ -1041,15 +1090,92 @@ export default function Admin() {
                     </CardDescription>
                   </div>
                   <Button
-                    onClick={() => setLocation("/admin/dish/new")}
+                    onClick={() => setShowAddItemForm(v => !v)}
                     className="bg-[#DC2626] hover:bg-[#DC2626]/90"
                   >
                     <Plus className="h-4 w-4 mr-2" />
-                    Create New Dish
+                    Add New Item
                   </Button>
                 </div>
               </CardHeader>
               <CardContent className="space-y-8">
+                {/* Inline Add Item Form */}
+                {showAddItemForm && (
+                  <div className="p-4 bg-muted/50 rounded-xl border border-dashed space-y-4">
+                    <h3 className="font-semibold text-sm flex items-center gap-2"><Plus className="h-4 w-4" />New Menu Item</h3>
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                      <div className="space-y-1">
+                        <Label className="text-xs">Name *</Label>
+                        <Input placeholder="e.g. Grilled Barramundi" value={addItemName} onChange={e => setAddItemName(e.target.value)} className="h-8 text-sm" />
+                      </div>
+                      <div className="space-y-1">
+                        <Label className="text-xs">Price (AUD) *</Label>
+                        <Input type="number" step="0.01" min="0" placeholder="e.g. 18.50" value={addItemPrice} onChange={e => setAddItemPrice(e.target.value)} className="h-8 text-sm" />
+                      </div>
+                    </div>
+                    <div className="space-y-1">
+                      <Label className="text-xs">Description</Label>
+                      <Textarea placeholder="Describe the dish..." value={addItemDescription} onChange={e => setAddItemDescription(e.target.value)} className="text-sm min-h-[60px]" />
+                    </div>
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                      <div className="space-y-1">
+                        <Label className="text-xs">Category</Label>
+                        <Input
+                          placeholder="e.g. main, wrap, salad…"
+                          value={addItemCategory}
+                          onChange={e => setAddItemCategory(e.target.value)}
+                          list="existing-categories"
+                          className="h-8 text-sm"
+                        />
+                        <datalist id="existing-categories">
+                          {Array.from(new Set(menuItems?.map(i => i.category || "Uncategorised") ?? [])).map(cat => (
+                            <option key={cat} value={cat} />
+                          ))}
+                        </datalist>
+                      </div>
+                      <div className="space-y-1">
+                        <Label className="text-xs">Image</Label>
+                        <div className="flex gap-2">
+                          <Input placeholder="Paste URL or upload…" value={addItemImageUrl} onChange={e => setAddItemImageUrl(e.target.value)} className="h-8 text-sm flex-1" />
+                          <label className="cursor-pointer">
+                            <Button type="button" variant="outline" size="sm" className="h-8 gap-1 pointer-events-none" disabled={uploadingAddItemImage}>
+                              {uploadingAddItemImage ? <span className="text-xs">Uploading…</span> : <><Upload className="h-3 w-3" /><span className="text-xs">Upload</span></>}
+                            </Button>
+                            <input type="file" accept="image/*" className="hidden" onChange={e => { const f = e.target.files?.[0]; if (f) handleAddItemFileUpload(f); }} />
+                          </label>
+                        </div>
+                        {addItemImageUrl && (
+                          <img src={addItemImageUrl} alt="Preview" className="w-full h-24 object-cover rounded mt-1" onError={e => { (e.target as HTMLImageElement).style.display = 'none'; }} />
+                        )}
+                      </div>
+                    </div>
+                    <div className="flex gap-2">
+                      <Button
+                        className="bg-[#DC2626] hover:bg-[#DC2626]/90 flex-1"
+                        disabled={addMenuItem.isPending || !addItemName.trim() || !addItemPrice}
+                        onClick={() => {
+                          if (!addItemName.trim()) { toast.error("Name is required"); return; }
+                          if (!addItemPrice || isNaN(parseFloat(addItemPrice))) { toast.error("Valid price is required"); return; }
+                          addMenuItem.mutate({
+                            name: addItemName.trim(),
+                            description: addItemDescription.trim() || undefined,
+                            category: addItemCategory.trim() || undefined,
+                            price: parseFloat(addItemPrice),
+                            imageUrl: addItemImageUrl.trim() || undefined,
+                            setAsSpecial: false,
+                          });
+                        }}
+                      >
+                        <Check className="h-4 w-4 mr-2" />
+                        {addMenuItem.isPending ? "Adding…" : "Add to Menu"}
+                      </Button>
+                      <Button variant="outline" onClick={() => { setShowAddItemForm(false); setAddItemName(""); setAddItemDescription(""); setAddItemPrice(""); setAddItemCategory(""); setAddItemImageUrl(""); }}>
+                        <X className="h-4 w-4" />
+                      </Button>
+                    </div>
+                  </div>
+                )}
+
                 {/* Category groups */}
                 {menuItems && (() => {
                   const categories = Array.from(new Set(menuItems.map(i => i.category || "Uncategorised")));

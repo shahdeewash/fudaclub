@@ -607,3 +607,13 @@
 ## Square Modifier Sync Bug Fix (2026-03-27)
 - [x] Fix NaN modifierListId in Square sync (ID mapping not resolving correctly)
 - [x] Add 10:30 AM Darwin time cutoff enforcement to order creation (fulfillmentType override)
+
+## Menu Management Full Feature Set (2026-03-27)
+- [x] Admin: Edit menu item inline (name, price, description)
+- [x] Admin: Upload photo for menu item (file upload to S3)
+- [x] Admin: Hide/show toggle (fixed input mismatch: menuItemId)
+- [x] Admin: Add new menu item form (name, category, price, description, image) - inline in Menu tab
+- [x] Admin: Delete menu item with confirmation dialog
+- [x] Admin: Edit category name inline
+- [x] Customer Menu: Required modifier enforcement (block add-to-cart if required modifier not selected)
+- [x] Scheduled daily Square catalog sync at 6 AM Darwin time (UTC 20:30)

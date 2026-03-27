@@ -131,6 +131,12 @@ export async function saveSquareConnection(
   });
 }
 
+export async function getAllSquareConnections() {
+  const db = await getDb();
+  if (!db) return [];
+  return await db.select().from(squareConnections);
+}
+
 export async function getSquareConnection(userId: number) {
   const db = await getDb();
   if (!db) return null;
