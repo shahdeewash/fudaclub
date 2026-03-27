@@ -13,9 +13,10 @@ import { Label } from "@/components/ui/label";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { trpc } from "@/lib/trpc";
-import { BarChart3, DollarSign, Package, Users, Star, Plus, Building2, User, Filter, Camera, X, Check, Upload, Pencil, Trash2, Download, Bell, GripVertical } from "lucide-react";
+import { BarChart3, DollarSign, Package, Users, Star, Plus, Building2, User, Filter, Camera, X, Check, Upload, Pencil, Trash2, Download, Bell, GripVertical, RefreshCw, Link2, Link2Off } from "lucide-react";
 import { useLocation } from "wouter";
 import { toast } from "sonner";
+import { useEffect } from "react";
 
 type DateFilter = "today" | "yesterday" | "week" | "all";
 type GroupBy = "all" | "company" | "individual";
@@ -400,6 +401,47 @@ export default function Admin() {
     },
     onError: (error) => toast.error(error.message),
   });
+
+  // Square integration
+  const { data: squareConnection, refetch: refetchSquareConnection } = trpc.square.getConnection.useQuery(
+    undefined,
+    { enabled: isAuthenticated && user?.role === 'admin' }
+  );
+  const { data: squareAuthUrl } = trpc.square.getAuthUrl.useQuery(
+    { origin: typeof window !== 'undefined' ? window.location.origin : '' },
+    { enabled: isAuthenticated && user?.role === 'admin' }
+  );
+  const [isSyncing, setIsSyncing] = useState(false);
+  const syncMenu = trpc.square.syncMenu.useMutation({
+    onSuccess: (result) => {
+      toast.success(`Sync complete: ${result.imported} imported, ${result.updated} updated, ${result.skipped} skipped`);
+      utils.menu.getAllAdmin.invalidate();
+      utils.menu.getAll.invalidate();
+      refetchSquareConnection();
+    },
+    onError: (error) => toast.error(error.message),
+    onSettled: () => setIsSyncing(false),
+  });
+  const disconnectSquare = trpc.square.disconnect.useMutation({
+    onSuccess: () => {
+      toast.success('Square account disconnected');
+      refetchSquareConnection();
+    },
+    onError: (error) => toast.error(error.message),
+  });
+
+  // Handle Square OAuth callback URL params
+  useEffect(() => {
+    const params = new URLSearchParams(window.location.search);
+    if (params.get('square_connected') === '1') {
+      toast.success('Square account connected successfully!');
+      refetchSquareConnection();
+      window.history.replaceState({}, '', '/admin');
+    } else if (params.get('square_error')) {
+      toast.error('Square connection failed: ' + params.get('square_error'));
+      window.history.replaceState({}, '', '/admin');
+    }
+  }, []);
 
   const reorderItems = trpc.menu.reorderItems.useMutation({
     onError: (error) => toast.error("Reorder failed: " + error.message),
@@ -934,6 +976,61 @@ export default function Admin() {
 
           {/* Menu Management Tab */}
           <TabsContent value="menu" className="space-y-6">
+            {/* Square Connect Card */}
+            <Card className="border-amber-200 bg-amber-50/50 dark:border-amber-800 dark:bg-amber-950/20">
+              <CardHeader className="pb-3">
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-2">
+                    <div className="w-8 h-8 rounded bg-black flex items-center justify-center">
+                      <svg viewBox="0 0 24 24" className="w-5 h-5 fill-white"><path d="M17.03 5H6.97A1.97 1.97 0 0 0 5 6.97v10.06C5 18.12 5.88 19 6.97 19h10.06A1.97 1.97 0 0 0 19 17.03V6.97A1.97 1.97 0 0 0 17.03 5zm-4.53 9.5H11.5V9.5h1v5zm0-6H11.5v-1h1v1z"/></svg>
+                    </div>
+                    <div>
+                      <CardTitle className="text-base">Square Catalog</CardTitle>
+                      <CardDescription className="text-xs">
+                        {squareConnection?.connected
+                          ? `Connected: ${squareConnection.merchantName ?? squareConnection.merchantId}`
+                          : 'Connect your Square account to import menu items'}
+                      </CardDescription>
+                    </div>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    {squareConnection?.connected ? (
+                      <>
+                        <Button
+                          size="sm"
+                          onClick={() => { setIsSyncing(true); syncMenu.mutate(); }}
+                          disabled={isSyncing || syncMenu.isPending}
+                          className="bg-[#DC2626] hover:bg-[#DC2626]/90"
+                        >
+                          <RefreshCw className={`h-4 w-4 mr-2 ${isSyncing ? 'animate-spin' : ''}`} />
+                          {isSyncing ? 'Syncing...' : 'Sync from Square'}
+                        </Button>
+                        <Button
+                          size="sm"
+                          variant="outline"
+                          onClick={() => disconnectSquare.mutate()}
+                          disabled={disconnectSquare.isPending}
+                        >
+                          <Link2Off className="h-4 w-4 mr-2" />
+                          Disconnect
+                        </Button>
+                      </>
+                    ) : (
+                      <Button
+                        size="sm"
+                        onClick={() => squareAuthUrl?.url && window.open(squareAuthUrl.url, '_blank')}
+                        disabled={!squareAuthUrl?.url}
+                        className="bg-black hover:bg-black/80 text-white"
+                      >
+                        <Link2 className="h-4 w-4 mr-2" />
+                        Connect Square
+                      </Button>
+                    )}
+                  </div>
+                </div>
+              </CardHeader>
+            </Card>
+
             <Card>
               <CardHeader>
                 <div className="flex items-center justify-between">

@@ -12,6 +12,12 @@ import { storagePut } from "../storage";
 import * as db from "../db";
 import { nanoid } from "nanoid";
 import { notifyOwner } from "./notification";
+import {
+  exchangeSquareCode,
+  fetchMerchantName,
+  fetchFirstLocationId,
+  saveSquareConnection,
+} from "../square";
 
 function isPortAvailable(port: number): Promise<boolean> {
   return new Promise(resolve => {
@@ -204,6 +210,52 @@ async function startServer() {
     }
 
     return res.json({ received: true });
+  });
+
+  // Square OAuth callback — exchanges code for tokens and saves to DB
+  app.get("/api/square/callback", async (req: any, res: any) => {
+    const { code, state, error } = req.query as Record<string, string>;
+
+    if (error) {
+      console.error("[Square OAuth] Error from Square:", error);
+      return res.redirect(`/?square_error=${encodeURIComponent(error)}`);
+    }
+
+    if (!code || !state) {
+      return res.status(400).send("Missing code or state");
+    }
+
+    let parsedState: { userId: number; origin: string };
+    try {
+      parsedState = JSON.parse(Buffer.from(state, "base64url").toString());
+    } catch {
+      return res.status(400).send("Invalid state parameter");
+    }
+
+    const { userId, origin } = parsedState;
+    const redirectUri = `${origin}/api/square/callback`;
+
+    try {
+      const tokens = await exchangeSquareCode(code, redirectUri);
+      const merchantName = await fetchMerchantName(tokens.accessToken).catch(() => "Unknown");
+      const locationId = await fetchFirstLocationId(tokens.accessToken).catch(() => null);
+
+      await saveSquareConnection(userId, {
+        accessToken: tokens.accessToken,
+        refreshToken: tokens.refreshToken,
+        merchantId: tokens.merchantId,
+        merchantName,
+        locationId,
+        expiresAt: tokens.expiresAt,
+      });
+
+      console.log(`[Square OAuth] Connected merchant: ${merchantName} for user ${userId}`);
+      // Redirect back to admin page with success flag
+      return res.redirect(`${origin}/admin?square_connected=1`);
+    } catch (err: any) {
+      console.error("[Square OAuth] Token exchange failed:", err.message);
+      return res.redirect(`${origin}/admin?square_error=${encodeURIComponent(err.message)}`);
+    }
   });
 
   // Configure body parser with larger size limit for file uploads

@@ -43,6 +43,13 @@
       "when": 1774416358234,
       "tag": "0005_colorful_kree",
       "breakpoints": true
+    },
+    {
+      "idx": 6,
+      "version": "5",
+      "when": 1774578100454,
+      "tag": "0006_melted_annihilus",
+      "breakpoints": true
     }
   ]
 }

@@ -530,3 +530,27 @@
 - [x] Add toggle switch per item in Admin menu management (Visible/Hidden label)
 - [x] Menu page hides unavailable items from customers
 - [x] Hidden items shown with dashed border and reduced opacity in Admin
+
+## Square Catalog Integration (2026-03-27) ✅ COMPLETE
+
+### Square OAuth Connect ✅ DONE
+- [x] Add `squareConnections` table (userId, accessToken, refreshToken, merchantId, locationId, expiresAt)
+- [x] Apply DB migration for squareConnections table
+- [x] Add `square.getAuthUrl` procedure — returns Square OAuth authorization URL
+- [x] Add `GET /api/square/callback` Express route — exchanges code for tokens, saves to DB
+- [x] Add `square.getConnection` procedure — returns current connection status for admin
+- [x] Add `square.disconnect` procedure — removes stored tokens
+- [x] Admin UI: "Connect Square" button that opens OAuth URL in new tab
+- [x] Admin UI: Show connection status (connected merchant name / disconnect button)
+
+### Square Catalog Sync ✅ DONE
+- [x] Add `squareCatalogId` column to menuItems table and migrate
+- [x] Add `square.syncMenu` procedure — fetches ITEM + ITEM_VARIATION + CATEGORY from Square Catalog API
+- [x] Map Square CatalogItem → FÜDA menuItem (name, description, price, category, image)
+- [x] Upsert items by squareCatalogId to avoid duplicates on re-sync
+- [x] Admin UI: "Sync from Square" button with loading state and result summary (X items imported/updated)
+
+### Tests ✅ DONE
+- [x] Write vitest to validate Square credentials via lightweight API call
+- [x] Write vitest for square.syncMenu mapping logic (13 tests, all passing)
+- [x] All 58 tests passing

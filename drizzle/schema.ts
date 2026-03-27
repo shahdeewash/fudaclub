@@ -141,3 +141,22 @@ export const dailyCredits = mysqlTable("dailyCredits", {
 
 export type DailyCredit = typeof dailyCredits.$inferSelect;
 export type InsertDailyCredit = typeof dailyCredits.$inferInsert;
+
+/**
+ * Square OAuth connections — one per admin user
+ */
+export const squareConnections = mysqlTable("squareConnections", {
+  id: int("id").autoincrement().primaryKey(),
+  userId: int("userId").notNull().unique(),
+  accessToken: text("accessToken").notNull(),
+  refreshToken: text("refreshToken"),
+  merchantId: varchar("merchantId", { length: 255 }),
+  merchantName: varchar("merchantName", { length: 255 }),
+  locationId: varchar("locationId", { length: 255 }),
+  expiresAt: timestamp("expiresAt"),
+  createdAt: timestamp("createdAt").defaultNow().notNull(),
+  updatedAt: timestamp("updatedAt").defaultNow().onUpdateNow().notNull(),
+});
+
+export type SquareConnection = typeof squareConnections.$inferSelect;
+export type InsertSquareConnection = typeof squareConnections.$inferInsert;

@@ -1,0 +1,9 @@
+{
+  "query": "CREATE TABLE `squareConnections` (\n\t`id` int AUTO_INCREMENT NOT NULL,\n\t`userId` int NOT NULL,\n\t`accessToken` text NOT NULL,\n\t`refreshToken` text,\n\t`merchantId` varchar(255),\n\t`merchantName` varchar(255),\n\t`locationId` varchar(255),\n\t`expiresAt` timestamp,\n\t`createdAt` timestamp NOT NULL DEFAULT (now()),\n\t`updatedAt` timestamp NOT NULL DEFAULT (now()) ON UPDATE CURRENT_TIMESTAMP,\n\tCONSTRAINT `squareConnections_id` PRIMARY KEY(`id`),\n\tCONSTRAINT `squareConnections_userId_unique` UNIQUE(`userId`)\n);",
+  "command": "mysql --batch --raw --column-names --default-character-set=utf8mb4 --host gateway02.us-east-1.prod.aws.tidbcloud.com --port 4000 --user 26Zg4bMSKinv2hB.b060407587d5 --database Y3xsU4JPingL5a2iZMTuYr --execute CREATE TABLE `squareConnections` (\n\t`id` int AUTO_INCREMENT NOT NULL,\n\t`userId` int NOT NULL,\n\t`accessToken` text NOT NULL,\n\t`refreshToken` text,\n\t`merchantId` varchar(255),\n\t`merchantName` varchar(255),\n\t`locationId` varchar(255),\n\t`expiresAt` timestamp,\n\t`createdAt` timestamp NOT NULL DEFAULT (now()),\n\t`updatedAt` timestamp NOT NULL DEFAULT (now()) ON UPDATE CURRENT_TIMESTAMP,\n\tCONSTRAINT `squareConnections_id` PRIMARY KEY(`id`),\n\tCONSTRAINT `squareConnections_userId_unique` UNIQUE(`userId`)\n);",
+  "rows": [],
+  "messages": [],
+  "stdout": "",
+  "stderr": "",
+  "execution_time_ms": 1734
+}

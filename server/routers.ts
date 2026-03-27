@@ -9,6 +9,12 @@ import * as db from "./db";
 import { nanoid } from "nanoid";
 import { notifyOwner } from "./_core/notification";
 import { getOrCreateSubscriptionPriceId, getOrCreatePriceId, SUBSCRIPTION_PLANS } from "./products";
+import {
+  buildSquareAuthUrl,
+  getSquareConnection,
+  deleteSquareConnection,
+  syncSquareCatalog,
+} from "./square";
 
 // Helper to extract domain from email
 function extractDomain(email: string): string {
@@ -1232,6 +1238,62 @@ export const appRouter = router({
           return { paymentMethod: "stripe", receiptUrl: null, amountPaid: order.total, currency: "aud", status: "paid" };
         }
       }),
+  }),
+
+  square: router({
+    /** Returns the Square OAuth authorization URL for the admin to open */
+    getAuthUrl: protectedProcedure
+      .input(z.object({ origin: z.string() }))
+      .query(({ ctx, input }) => {
+        if (ctx.user.role !== "admin") {
+          throw new TRPCError({ code: "FORBIDDEN" });
+        }
+        const redirectUri = `${input.origin}/api/square/callback`;
+        // Use userId as state so we can match the callback back to this admin
+        const state = Buffer.from(JSON.stringify({ userId: ctx.user.id, origin: input.origin })).toString("base64url");
+        const url = buildSquareAuthUrl(redirectUri, state);
+        return { url };
+      }),
+
+    /** Returns the current Square connection status for the logged-in admin */
+    getConnection: protectedProcedure.query(async ({ ctx }) => {
+      if (ctx.user.role !== "admin") {
+        throw new TRPCError({ code: "FORBIDDEN" });
+      }
+      const conn = await getSquareConnection(ctx.user.id);
+      if (!conn) return { connected: false };
+      return {
+        connected: true,
+        merchantName: conn.merchantName,
+        merchantId: conn.merchantId,
+        expiresAt: conn.expiresAt,
+      };
+    }),
+
+    /** Disconnects the Square account */
+    disconnect: protectedProcedure.mutation(async ({ ctx }) => {
+      if (ctx.user.role !== "admin") {
+        throw new TRPCError({ code: "FORBIDDEN" });
+      }
+      await deleteSquareConnection(ctx.user.id);
+      return { success: true };
+    }),
+
+    /** Syncs menu items from Square Catalog API */
+    syncMenu: protectedProcedure.mutation(async ({ ctx }) => {
+      if (ctx.user.role !== "admin") {
+        throw new TRPCError({ code: "FORBIDDEN" });
+      }
+      const conn = await getSquareConnection(ctx.user.id);
+      if (!conn) {
+        throw new TRPCError({
+          code: "PRECONDITION_FAILED",
+          message: "No Square account connected. Please connect Square first.",
+        });
+      }
+      const result = await syncSquareCatalog(conn.accessToken);
+      return result;
+    }),
   }),
 });
 
