@@ -576,3 +576,7 @@
 - [x] Verified sync imports all 10 items into FÜDA menu
 - [x] Fixed category assignment via direct DB update (Square sandbox doesn't persist categoryId)
 - [x] Fixed syncSquareCatalog to also check categories[] array field for future compatibility
+
+## Delete All Menu & Re-sync from Square (2026-03-27) ✅ COMPLETE
+- [x] Deleted all existing menu items from DB
+- [x] Re-synced 10 items from Square catalog (Mains, Snacks, Drinks)
