@@ -468,6 +468,88 @@ export const appRouter = router({
         await db.bulkToggleCategoryAvailability(input.category, input.isAvailable);
         return { success: true };
       }),
+
+    // ─── Modifier Management ──────────────────────────────────────────────────
+
+    /** Get all modifier lists (with options) for a menu item — admin view (includes disabled) */
+    getModifiersAdmin: protectedProcedure
+      .input(z.object({ menuItemId: z.number() }))
+      .query(async ({ ctx, input }) => {
+        if (ctx.user.role !== 'admin') throw new TRPCError({ code: 'FORBIDDEN' });
+        return await db.getModifiersForItemAdmin(input.menuItemId);
+      }),
+
+    createModifierList: protectedProcedure
+      .input(z.object({
+        menuItemId: z.number(),
+        name: z.string().min(1).max(100),
+        selectionType: z.enum(['SINGLE', 'MULTIPLE']),
+      }))
+      .mutation(async ({ ctx, input }) => {
+        if (ctx.user.role !== 'admin') throw new TRPCError({ code: 'FORBIDDEN' });
+        const listId = await db.createModifierList(input.menuItemId, input.name, input.selectionType);
+        return { listId };
+      }),
+
+    updateModifierList: protectedProcedure
+      .input(z.object({
+        id: z.number(),
+        name: z.string().min(1).max(100),
+        selectionType: z.enum(['SINGLE', 'MULTIPLE']),
+      }))
+      .mutation(async ({ ctx, input }) => {
+        if (ctx.user.role !== 'admin') throw new TRPCError({ code: 'FORBIDDEN' });
+        await db.updateModifierList(input.id, input.name, input.selectionType);
+        return { success: true };
+      }),
+
+    deleteModifierList: protectedProcedure
+      .input(z.object({ id: z.number() }))
+      .mutation(async ({ ctx, input }) => {
+        if (ctx.user.role !== 'admin') throw new TRPCError({ code: 'FORBIDDEN' });
+        await db.deleteModifierList(input.id);
+        return { success: true };
+      }),
+
+    toggleModifierListEnabled: protectedProcedure
+      .input(z.object({ linkId: z.number(), isEnabled: z.boolean() }))
+      .mutation(async ({ ctx, input }) => {
+        if (ctx.user.role !== 'admin') throw new TRPCError({ code: 'FORBIDDEN' });
+        await db.toggleModifierListEnabled(input.linkId, input.isEnabled);
+        return { success: true };
+      }),
+
+    createModifierOption: protectedProcedure
+      .input(z.object({
+        modifierListId: z.number(),
+        name: z.string().min(1).max(100),
+        priceInCents: z.number().min(0).default(0),
+      }))
+      .mutation(async ({ ctx, input }) => {
+        if (ctx.user.role !== 'admin') throw new TRPCError({ code: 'FORBIDDEN' });
+        const optionId = await db.createModifierOption(input.modifierListId, input.name, input.priceInCents);
+        return { optionId };
+      }),
+
+    updateModifierOption: protectedProcedure
+      .input(z.object({
+        id: z.number(),
+        name: z.string().min(1).max(100),
+        priceInCents: z.number().min(0),
+      }))
+      .mutation(async ({ ctx, input }) => {
+        if (ctx.user.role !== 'admin') throw new TRPCError({ code: 'FORBIDDEN' });
+        await db.updateModifierOption(input.id, input.name, input.priceInCents);
+        return { success: true };
+      }),
+
+    deleteModifierOption: protectedProcedure
+      .input(z.object({ id: z.number() }))
+      .mutation(async ({ ctx, input }) => {
+        if (ctx.user.role !== 'admin') throw new TRPCError({ code: 'FORBIDDEN' });
+        await db.deleteModifierOption(input.id);
+        return { success: true };
+      }),
   }),
 
   order: router({

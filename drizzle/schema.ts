@@ -167,7 +167,7 @@ export type InsertSquareConnection = typeof squareConnections.$inferInsert;
  */
 export const modifierLists = mysqlTable("modifierLists", {
   id: int("id").autoincrement().primaryKey(),
-  squareModifierListId: varchar("squareModifierListId", { length: 255 }).notNull().unique(),
+  squareModifierListId: varchar("squareModifierListId", { length: 255 }).unique(), // nullable for manually-created lists
   name: varchar("name", { length: 255 }).notNull(),
   selectionType: mysqlEnum("selectionType", ["SINGLE", "MULTIPLE"]).default("SINGLE").notNull(),
   createdAt: timestamp("createdAt").defaultNow().notNull(),
@@ -182,7 +182,7 @@ export type InsertModifierList = typeof modifierLists.$inferInsert;
  */
 export const modifiers = mysqlTable("modifiers", {
   id: int("id").autoincrement().primaryKey(),
-  squareModifierId: varchar("squareModifierId", { length: 255 }).notNull().unique(),
+  squareModifierId: varchar("squareModifierId", { length: 255 }).unique(), // nullable for manually-created options
   modifierListId: int("modifierListId").notNull(),
   name: varchar("name", { length: 255 }).notNull(),
   priceInCents: int("priceInCents").default(0).notNull(),

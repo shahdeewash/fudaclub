@@ -635,3 +635,20 @@
 - [x] Add bulk toggle at each category header to hide/show all items in that category at once
 - [x] Show visual indicator (e.g. "All hidden" badge) when all items in a category are hidden
 - [x] Add backend procedure: menu.bulkToggleCategory(category, isAvailable)
+
+## Admin Modifier Management UI (2026-03-27)
+- [x] Backend: menu.getModifiersAdmin(menuItemId) — fetch modifier lists + options for an item (admin, includes disabled)
+- [x] Backend: menu.createModifierList(menuItemId, name, selectionType) — add a new modifier list
+- [x] Backend: menu.updateModifierList(id, name, selectionType) — edit a modifier list
+- [x] Backend: menu.deleteModifierList(id) — remove a modifier list and its options
+- [x] Backend: menu.createModifierOption(modifierListId, name, priceInCents) — add option to a list
+- [x] Backend: menu.updateModifierOption(id, name, priceInCents) — edit a modifier option
+- [x] Backend: menu.deleteModifierOption(id) — remove a modifier option
+- [x] Backend: menu.toggleModifierListEnabled(linkId, isEnabled) — enable/disable a list for a specific item
+- [x] Schema migration: squareModifierId and squareModifierListId made nullable for manual entries
+- [x] Frontend: Expandable "Modifiers" panel per menu item card in Admin (ModifierManager component)
+- [x] Frontend: Show modifier lists with selection type badge (Pick one / Multi-select)
+- [x] Frontend: Inline add/edit/delete for modifier lists and options
+- [x] Frontend: Price display for paid modifiers (free if 0)
+- [x] Frontend: Square-synced badge on Square-originated lists/options
+- [x] Frontend: Enable/disable toggle per modifier list

@@ -14,6 +14,7 @@ import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { trpc } from "@/lib/trpc";
 import { BarChart3, DollarSign, Package, Users, Star, Plus, Building2, User, Filter, Camera, X, Check, Upload, Pencil, Trash2, Download, Bell, GripVertical, RefreshCw, Link2, Link2Off, Search, ArrowUpDown, Eye, EyeOff } from "lucide-react";
+import { ModifierManager } from "@/components/ModifierManager";
 import { useLocation } from "wouter";
 import { toast } from "sonner";
 import { useEffect } from "react";
@@ -200,6 +201,7 @@ function SortableMenuItemCard({
                   <Trash2 className="h-3 w-3" />
                 </Button>
               </div>
+              <ModifierManager menuItemId={item.id} />
             </div>
           )}
         </CardContent>

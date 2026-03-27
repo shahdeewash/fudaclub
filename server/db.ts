@@ -1,4 +1,4 @@
-import { and, eq, gte, lte, sql, isNotNull } from "drizzle-orm";
+import { and, eq, gte, lte, sql, isNotNull, inArray } from "drizzle-orm";
 import { drizzle } from "drizzle-orm/mysql2";
 import { 
   InsertUser, 
@@ -20,7 +20,12 @@ import {
   InsertOrderItem,
   dailyCredits,
   DailyCredit,
-  InsertDailyCredit
+  InsertDailyCredit,
+  modifierLists,
+  ModifierList,
+  modifiers,
+  Modifier,
+  menuItemModifierLists,
 } from "../drizzle/schema";
 import { ENV } from './_core/env';
 
@@ -527,4 +532,108 @@ export async function getAllMenuItemsAdmin(): Promise<MenuItem[]> {
   return await db.select().from(menuItems)
     .where(isNotNull(menuItems.squareCatalogId))
     .orderBy(asc(menuItems.category), asc(menuItems.sortOrder), asc(menuItems.id));
+}
+
+// ─── Modifier Management Helpers ─────────────────────────────────────────────
+
+/** Returns all modifier lists linked to a menu item (including disabled ones for admin) */
+export async function getModifiersForItemAdmin(menuItemId: number) {
+  const db = await getDb();
+  if (!db) return [];
+
+  const links = await db
+    .select({ modifierListId: menuItemModifierLists.modifierListId, isEnabled: menuItemModifierLists.isEnabled, linkId: menuItemModifierLists.id })
+    .from(menuItemModifierLists)
+    .where(eq(menuItemModifierLists.menuItemId, menuItemId));
+
+  if (links.length === 0) return [];
+
+  const listIds = links.map(l => l.modifierListId);
+  const { inArray: _inArray } = await import("drizzle-orm");
+
+  const lists = await db.select().from(modifierLists).where(_inArray(modifierLists.id, listIds));
+  const mods = await db.select().from(modifiers).where(_inArray(modifiers.modifierListId, listIds));
+
+  return lists.map(list => {
+    const link = links.find(l => l.modifierListId === list.id)!;
+    return {
+      id: list.id,
+      linkId: link.linkId,
+      name: list.name,
+      selectionType: list.selectionType,
+      isEnabled: link.isEnabled,
+      isSquareSynced: !!list.squareModifierListId,
+      options: mods
+        .filter(m => m.modifierListId === list.id)
+        .sort((a, b) => a.ordinal - b.ordinal)
+        .map(m => ({
+          id: m.id,
+          name: m.name,
+          priceInCents: m.priceInCents,
+          isSquareSynced: !!m.squareModifierId,
+        })),
+    };
+  });
+}
+
+/** Create a new modifier list and link it to a menu item */
+export async function createModifierList(menuItemId: number, name: string, selectionType: 'SINGLE' | 'MULTIPLE'): Promise<number> {
+  const db = await getDb();
+  if (!db) throw new Error('DB not available');
+
+  const result = await db.insert(modifierLists).values({ name, selectionType });
+  const listId = (result as unknown as [{ insertId: number }])[0].insertId;
+
+  await db.insert(menuItemModifierLists).values({ menuItemId, modifierListId: listId, isEnabled: true });
+  return listId;
+}
+
+/** Update a modifier list's name and/or selection type */
+export async function updateModifierList(id: number, name: string, selectionType: 'SINGLE' | 'MULTIPLE'): Promise<void> {
+  const db = await getDb();
+  if (!db) return;
+  await db.update(modifierLists).set({ name, selectionType }).where(eq(modifierLists.id, id));
+}
+
+/** Delete a modifier list, its options, and its menu item links */
+export async function deleteModifierList(id: number): Promise<void> {
+  const db = await getDb();
+  if (!db) return;
+  await db.delete(modifiers).where(eq(modifiers.modifierListId, id));
+  await db.delete(menuItemModifierLists).where(eq(menuItemModifierLists.modifierListId, id));
+  await db.delete(modifierLists).where(eq(modifierLists.id, id));
+}
+
+/** Toggle whether a modifier list is enabled for a specific menu item */
+export async function toggleModifierListEnabled(linkId: number, isEnabled: boolean): Promise<void> {
+  const db = await getDb();
+  if (!db) return;
+  await db.update(menuItemModifierLists).set({ isEnabled }).where(eq(menuItemModifierLists.id, linkId));
+}
+
+/** Add a new option to a modifier list */
+export async function createModifierOption(modifierListId: number, name: string, priceInCents: number): Promise<number> {
+  const db = await getDb();
+  if (!db) throw new Error('DB not available');
+
+  // Get max ordinal for this list
+  const existing = await db.select({ ordinal: modifiers.ordinal }).from(modifiers).where(eq(modifiers.modifierListId, modifierListId));
+  const maxOrdinal = existing.length > 0 ? Math.max(...existing.map(m => m.ordinal)) + 1 : 0;
+
+  const result = await db.insert(modifiers).values({ modifierListId, name, priceInCents, ordinal: maxOrdinal });
+  return (result as unknown as [{ insertId: number }])[0].insertId;
+}
+
+/** Update a modifier option's name and price */
+export async function updateModifierOption(id: number, name: string, priceInCents: number): Promise<void> {
+  const db = await getDb();
+  if (!db) return;
+  await db.update(modifiers).set({ name, priceInCents }).where(eq(modifiers.id, id));
+}
+
+/** Delete a modifier option */
+export async function deleteModifierOption(id: number): Promise<void> {
+  const db = await getDb();
+  if (!db) return;
+  await db.delete(modifiers).where(eq(modifiers.id, id));
 }
