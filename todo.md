@@ -603,3 +603,7 @@
 - [x] Show modifier notes in kitchen display (amber text below item name)
 - [x] Include modifier prices in order total calculation
 - [x] All 58 tests passing
+
+## Square Modifier Sync Bug Fix (2026-03-27)
+- [x] Fix NaN modifierListId in Square sync (ID mapping not resolving correctly)
+- [x] Add 10:30 AM Darwin time cutoff enforcement to order creation (fulfillmentType override)

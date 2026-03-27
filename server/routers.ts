@@ -484,6 +484,14 @@ export const appRouter = router({
           });
         }
 
+        // Check 10:30 AM Darwin time cutoff (affects fulfillment type)
+        const nowUtc = new Date();
+        const darwinOffsetMs = 9.5 * 60 * 60 * 1000;
+        const darwinNow = new Date(nowUtc.getTime() + darwinOffsetMs);
+        const darwinHour = darwinNow.getUTCHours();
+        const darwinMinute = darwinNow.getUTCMinutes();
+        const isPastCutoff = darwinHour > 10 || (darwinHour === 10 && darwinMinute >= 30);
+
         // Check daily credit
         let dailyCredit = await db.getDailyCreditForToday(ctx.user.id);
         if (!dailyCredit) {
@@ -596,7 +604,7 @@ export const appRouter = router({
           orderNumber: `ORD-${nanoid(8).toUpperCase()}`,
           orderDate: new Date(),
           status: 'pending',
-          fulfillmentType: isFreeDelivery ? 'delivery' : 'pickup',
+          fulfillmentType: (isFreeDelivery && !isPastCutoff) ? 'delivery' : 'pickup',
           isFreeDelivery,
           dailyCreditUsed: canUseCredit,
           subtotal,

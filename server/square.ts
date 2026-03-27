@@ -244,7 +244,7 @@ export async function syncSquareCatalog(accessToken: string): Promise<SyncResult
         name: listData.name,
         selectionType,
       });
-      listDbId = Number((inserted as unknown as { insertId: number }).insertId);
+      listDbId = Number((inserted as unknown as [{ insertId: number }])[0].insertId);
       modifierListsSynced++;
     }
 
@@ -369,7 +369,7 @@ export async function syncSquareCatalog(accessToken: string): Promise<SyncResult
         sortOrder: 0,
         isTodaysSpecial: false,
       });
-      menuItemDbId = Number((ins as unknown as { insertId: number }).insertId);
+      menuItemDbId = Number((ins as unknown as [{ insertId: number }])[0].insertId);
       imported++;
     }
 
