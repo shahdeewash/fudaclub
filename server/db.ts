@@ -1,4 +1,4 @@
-import { and, eq, gte, lte, sql } from "drizzle-orm";
+import { and, eq, gte, lte, sql, isNotNull } from "drizzle-orm";
 import { drizzle } from "drizzle-orm/mysql2";
 import { 
   InsertUser, 
@@ -180,8 +180,10 @@ export async function createSubscription(subscription: InsertSubscription): Prom
 export async function getAllMenuItems(): Promise<MenuItem[]> {
   const db = await getDb();
   if (!db) return [];
-
-  return await db.select().from(menuItems).where(eq(menuItems.isAvailable, true));
+  // Only show Square-synced items to customers
+  return await db.select().from(menuItems).where(
+    and(eq(menuItems.isAvailable, true), isNotNull(menuItems.squareCatalogId))
+  );
 }
 
 export async function getTodaysSpecial(): Promise<MenuItem | undefined> {
@@ -514,7 +516,9 @@ export async function toggleMenuItemAvailability(id: number, isAvailable: boolea
 export async function getAllMenuItemsAdmin(): Promise<MenuItem[]> {
   const db = await getDb();
   if (!db) return [];
-  // Return ALL items (including unavailable) for admin, sorted by category then sortOrder
+  // Return only Square-synced items (squareCatalogId IS NOT NULL) for admin
   const { asc } = await import("drizzle-orm");
-  return await db.select().from(menuItems).orderBy(asc(menuItems.category), asc(menuItems.sortOrder), asc(menuItems.id));
+  return await db.select().from(menuItems)
+    .where(isNotNull(menuItems.squareCatalogId))
+    .orderBy(asc(menuItems.category), asc(menuItems.sortOrder), asc(menuItems.id));
 }

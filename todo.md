@@ -617,3 +617,10 @@
 - [x] Admin: Edit category name inline
 - [x] Customer Menu: Required modifier enforcement (block add-to-cart if required modifier not selected)
 - [x] Scheduled daily Square catalog sync at 6 AM Darwin time (UTC 20:30)
+
+## Square-Only Menu Management (2026-03-27)
+- [x] Remove inline "Add New Item" form from Admin menu tab
+- [x] Filter menu display to show only Square-synced items (squareCatalogId IS NOT NULL)
+- [x] Remove "Create New Dish" / manual item creation from Admin
+- [x] Keep edit (name, price, description, image, hide/show) for Square items only
+- [x] Customer menu also shows only Square-synced items
