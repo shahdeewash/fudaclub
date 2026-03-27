@@ -212,12 +212,13 @@ export async function syncSquareCatalog(accessToken: string): Promise<SyncResult
       name?: string;
       description?: string;
       categoryId?: string;
+      categories?: Array<{ id: string; ordinal?: number }>;
       imageIds?: string[];
       variations?: Array<{
         id: string;
         itemVariationData?: {
           name?: string;
-          priceMoney?: { amount?: bigint | number; currency?: string };
+          priceMoney?: { amount?: bigint | number | string; currency?: string };
         };
       }>;
     } | undefined;
@@ -231,10 +232,14 @@ export async function syncSquareCatalog(accessToken: string): Promise<SyncResult
 
     if (priceInCents === 0) { skipped++; continue; }
 
-    // Resolve category name
-    const categoryName = itemData.categoryId
-      ? (categoryMap.get(itemData.categoryId) ?? "Other")
-      : "Other";
+    // Resolve category name — Square may use categoryId (legacy) or categories[] (newer)
+    let categoryName = "Other";
+    if (itemData.categoryId) {
+      categoryName = categoryMap.get(itemData.categoryId) ?? "Other";
+    } else if (itemData.categories && itemData.categories.length > 0) {
+      // Use first category in the array
+      categoryName = categoryMap.get(itemData.categories[0].id) ?? "Other";
+    }
     seenCategories.add(categoryName);
 
     // Resolve image URL

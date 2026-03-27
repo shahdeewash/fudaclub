@@ -1,0 +1,70 @@
+{
+  "query": "\nUPDATE menuItems SET category = 'Mains' WHERE squareCatalogId IS NOT NULL AND name IN ('Pad Thai', 'Butter Chicken', 'Beef Rendang', 'Pho Bo');\nUPDATE menuItems SET category = 'Snacks' WHERE squareCatalogId IS NOT NULL AND name IN ('Chicken Momo', 'Samosa (2 pcs)', 'Spring Rolls (3 pcs)');\nUPDATE menuItems SET category = 'Drinks' WHERE squareCatalogId IS NOT NULL AND name IN ('Mango Lassi', 'Thai Iced Tea', 'Coconut Water');\nSELECT id, name, category, price FROM menuItems WHERE squareCatalogId IS NOT NULL ORDER BY category, name;\n",
+  "command": "mysql --batch --raw --column-names --default-character-set=utf8mb4 --host gateway02.us-east-1.prod.aws.tidbcloud.com --port 4000 --user 26Zg4bMSKinv2hB.b060407587d5 --database Y3xsU4JPingL5a2iZMTuYr --execute \nUPDATE menuItems SET category = 'Mains' WHERE squareCatalogId IS NOT NULL AND name IN ('Pad Thai', 'Butter Chicken', 'Beef Rendang', 'Pho Bo');\nUPDATE menuItems SET category = 'Snacks' WHERE squareCatalogId IS NOT NULL AND name IN ('Chicken Momo', 'Samosa (2 pcs)', 'Spring Rolls (3 pcs)');\nUPDATE menuItems SET category = 'Drinks' WHERE squareCatalogId IS NOT NULL AND name IN ('Mango Lassi', 'Thai Iced Tea', 'Coconut Water');\nSELECT id, name, category, price FROM menuItems WHERE squareCatalogId IS NOT NULL ORDER BY category, name;\n",
+  "rows": [
+    {
+      "id": "210028",
+      "name": "Coconut Water",
+      "category": "Drinks",
+      "price": "500"
+    },
+    {
+      "id": "210026",
+      "name": "Mango Lassi",
+      "category": "Drinks",
+      "price": "700"
+    },
+    {
+      "id": "210027",
+      "name": "Thai Iced Tea",
+      "category": "Drinks",
+      "price": "650"
+    },
+    {
+      "id": "210021",
+      "name": "Beef Rendang",
+      "category": "Mains",
+      "price": "1750"
+    },
+    {
+      "id": "210020",
+      "name": "Butter Chicken",
+      "category": "Mains",
+      "price": "1600"
+    },
+    {
+      "id": "210019",
+      "name": "Pad Thai",
+      "category": "Mains",
+      "price": "1450"
+    },
+    {
+      "id": "210022",
+      "name": "Pho Bo",
+      "category": "Mains",
+      "price": "1550"
+    },
+    {
+      "id": "210023",
+      "name": "Chicken Momo",
+      "category": "Snacks",
+      "price": "1200"
+    },
+    {
+      "id": "210024",
+      "name": "Samosa (2 pcs)",
+      "category": "Snacks",
+      "price": "900"
+    },
+    {
+      "id": "210025",
+      "name": "Spring Rolls (3 pcs)",
+      "category": "Snacks",
+      "price": "1000"
+    }
+  ],
+  "messages": [],
+  "stdout": "id\tname\tcategory\tprice\n210028\tCoconut Water\tDrinks\t500\n210026\tMango Lassi\tDrinks\t700\n210027\tThai Iced Tea\tDrinks\t650\n210021\tBeef Rendang\tMains\t1750\n210020\tButter Chicken\tMains\t1600\n210019\tPad Thai\tMains\t1450\n210022\tPho Bo\tMains\t1550\n210023\tChicken Momo\tSnacks\t1200\n210024\tSamosa (2 pcs)\tSnacks\t900\n210025\tSpring Rolls (3 pcs)\tSnacks\t1000\n",
+  "stderr": "",
+  "execution_time_ms": 2237
+}

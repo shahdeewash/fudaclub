@@ -1,0 +1,8 @@
+{
+  "query": "SELECT id, user_id, merchant_id, merchant_name, location_id, LEFT(access_token, 20) as token_prefix, expires_at FROM squareConnections LIMIT 5;",
+  "command": "mysql --batch --raw --column-names --default-character-set=utf8mb4 --host gateway02.us-east-1.prod.aws.tidbcloud.com --port 4000 --user 26Zg4bMSKinv2hB.b060407587d5 --database Y3xsU4JPingL5a2iZMTuYr --execute SELECT id, user_id, merchant_id, merchant_name, location_id, LEFT(access_token, 20) as token_prefix, expires_at FROM squareConnections LIMIT 5;",
+  "returncode": 1,
+  "logs": [
+    "ERROR 1054 (42S22) at line 1: Unknown column 'user_id' in 'field list'"
+  ]
+}

@@ -1,0 +1,106 @@
+{
+  "query": "DESCRIBE squareConnections; SELECT id, userId, merchantId, merchantName, locationId, LEFT(accessToken, 20) as token_prefix FROM squareConnections LIMIT 5;",
+  "command": "mysql --batch --raw --column-names --default-character-set=utf8mb4 --host gateway02.us-east-1.prod.aws.tidbcloud.com --port 4000 --user 26Zg4bMSKinv2hB.b060407587d5 --database Y3xsU4JPingL5a2iZMTuYr --execute DESCRIBE squareConnections; SELECT id, userId, merchantId, merchantName, locationId, LEFT(accessToken, 20) as token_prefix FROM squareConnections LIMIT 5;",
+  "rows": [
+    {
+      "Field": "id",
+      "Type": "int",
+      "Null": "NO",
+      "Key": "PRI",
+      "Default": "NULL",
+      "Extra": "auto_increment"
+    },
+    {
+      "Field": "userId",
+      "Type": "int",
+      "Null": "NO",
+      "Key": "UNI",
+      "Default": "NULL",
+      "Extra": ""
+    },
+    {
+      "Field": "accessToken",
+      "Type": "text",
+      "Null": "NO",
+      "Key": "",
+      "Default": "NULL",
+      "Extra": ""
+    },
+    {
+      "Field": "refreshToken",
+      "Type": "text",
+      "Null": "YES",
+      "Key": "",
+      "Default": "NULL",
+      "Extra": ""
+    },
+    {
+      "Field": "merchantId",
+      "Type": "varchar(255)",
+      "Null": "YES",
+      "Key": "",
+      "Default": "NULL",
+      "Extra": ""
+    },
+    {
+      "Field": "merchantName",
+      "Type": "varchar(255)",
+      "Null": "YES",
+      "Key": "",
+      "Default": "NULL",
+      "Extra": ""
+    },
+    {
+      "Field": "locationId",
+      "Type": "varchar(255)",
+      "Null": "YES",
+      "Key": "",
+      "Default": "NULL",
+      "Extra": ""
+    },
+    {
+      "Field": "expiresAt",
+      "Type": "timestamp",
+      "Null": "YES",
+      "Key": "",
+      "Default": "NULL",
+      "Extra": ""
+    },
+    {
+      "Field": "createdAt",
+      "Type": "timestamp",
+      "Null": "NO",
+      "Key": "",
+      "Default": "CURRENT_TIMESTAMP",
+      "Extra": ""
+    },
+    {
+      "Field": "updatedAt",
+      "Type": "timestamp",
+      "Null": "NO",
+      "Key": "",
+      "Default": "CURRENT_TIMESTAMP",
+      "Extra": "DEFAULT_GENERATED on update CURRENT_TIMESTAMP"
+    },
+    {
+      "Field": "id",
+      "Type": "userId",
+      "Null": "merchantId",
+      "Key": "merchantName",
+      "Default": "locationId",
+      "Extra": "token_prefix"
+    },
+    {
+      "Field": "1",
+      "Type": "1",
+      "Null": "MLYZAFYNR687A",
+      "Key": "Default Test Account",
+      "Default": "LWRWVBB081GDS",
+      "Extra": "EAAAl7W7tC0a4ppapA1D"
+    }
+  ],
+  "messages": [],
+  "stdout": "Field\tType\tNull\tKey\tDefault\tExtra\nid\tint\tNO\tPRI\tNULL\tauto_increment\nuserId\tint\tNO\tUNI\tNULL\t\naccessToken\ttext\tNO\t\tNULL\t\nrefreshToken\ttext\tYES\t\tNULL\t\nmerchantId\tvarchar(255)\tYES\t\tNULL\t\nmerchantName\tvarchar(255)\tYES\t\tNULL\t\nlocationId\tvarchar(255)\tYES\t\tNULL\t\nexpiresAt\ttimestamp\tYES\t\tNULL\t\ncreatedAt\ttimestamp\tNO\t\tCURRENT_TIMESTAMP\t\nupdatedAt\ttimestamp\tNO\t\tCURRENT_TIMESTAMP\tDEFAULT_GENERATED on update CURRENT_TIMESTAMP\nid\tuserId\tmerchantId\tmerchantName\tlocationId\ttoken_prefix\n1\t1\tMLYZAFYNR687A\tDefault Test Account\tLWRWVBB081GDS\tEAAAl7W7tC0a4ppapA1D\n",
+  "stderr": "",
+  "execution_time_ms": 1785
+}

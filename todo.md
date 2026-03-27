@@ -564,3 +564,15 @@
 - [x] Test token exchange with actual credentials
 - [x] Fix root cause: was using sandbox personal access token instead of OAuth Application Secret (sq0csb-)
 - [x] Updated SQUARE_APPLICATION_SECRET to correct sq0csb- format value
+
+## Square OAuth Debug Round 3 (2026-03-27) ✅ COMPLETE
+- [x] Added verbose console logging to callback route
+- [x] Traced failure: Square sandbox requires launching test seller account first
+- [x] User launched test account, OAuth flow now works end-to-end
+- [x] Seeded catalog with 10 items, sync confirmed working
+
+## Square Catalog Seed (2026-03-27) ✅ COMPLETE
+- [x] Seed Square sandbox catalog with FÜDA test menu items via API (10 items, 3 categories)
+- [x] Verified sync imports all 10 items into FÜDA menu
+- [x] Fixed category assignment via direct DB update (Square sandbox doesn't persist categoryId)
+- [x] Fixed syncSquareCatalog to also check categories[] array field for future compatibility

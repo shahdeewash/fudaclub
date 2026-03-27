@@ -215,6 +215,10 @@ async function startServer() {
   // Square OAuth callback — exchanges code for tokens and saves to DB
   app.get("/api/square/callback", async (req: any, res: any) => {
     const { code, state, error } = req.query as Record<string, string>;
+    console.log("[Square OAuth] Callback received:", { code: code ? code.substring(0, 10) + "..." : "MISSING", state: state ? "present" : "MISSING", error });
+    console.log("[Square OAuth] APP_ID:", process.env.SQUARE_APPLICATION_ID);
+    console.log("[Square OAuth] APP_SECRET prefix:", (process.env.SQUARE_APPLICATION_SECRET || "").substring(0, 15));
+    console.log("[Square OAuth] ENV:", process.env.SQUARE_ENVIRONMENT);
 
     if (error) {
       console.error("[Square OAuth] Error from Square:", error);
@@ -228,15 +232,18 @@ async function startServer() {
     let parsedState: { userId: number; origin: string };
     try {
       parsedState = JSON.parse(Buffer.from(state, "base64url").toString());
+      console.log("[Square OAuth] Parsed state:", parsedState);
     } catch {
       return res.status(400).send("Invalid state parameter");
     }
 
     const { userId, origin } = parsedState;
     const redirectUri = `${origin}/api/square/callback`;
+    console.log("[Square OAuth] Attempting token exchange with redirectUri:", redirectUri);
 
     try {
       const tokens = await exchangeSquareCode(code, redirectUri);
+      console.log("[Square OAuth] Token exchange successful, merchantId:", tokens.merchantId);
       const merchantName = await fetchMerchantName(tokens.accessToken).catch(() => "Unknown");
       const locationId = await fetchFirstLocationId(tokens.accessToken).catch(() => null);
 
