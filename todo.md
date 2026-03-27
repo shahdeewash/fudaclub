@@ -558,3 +558,9 @@
 ## Square OAuth Fix (2026-03-27)
 - [ ] Debug Square OAuth callback route not working
 - [ ] Fix token exchange and redirect logic
+
+## Square OAuth Debug Round 2 (2026-03-27) ✅ COMPLETE
+- [x] Add detailed error logging to Square callback route
+- [x] Test token exchange with actual credentials
+- [x] Fix root cause: was using sandbox personal access token instead of OAuth Application Secret (sq0csb-)
+- [x] Updated SQUARE_APPLICATION_SECRET to correct sq0csb- format value
