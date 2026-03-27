@@ -322,6 +322,9 @@ async function startServer() {
 
   // Daily cron job: auto-sync Square catalog at 6:00 AM Darwin time (UTC+9:30 = 20:30 UTC previous day)
   scheduleDailySquareSync();
+
+  // Daily cron job: issue FÜDA Coins to active Club members at 6:00 AM Darwin time
+  scheduleDailyFudaCoins();
 }
 
 function scheduleDailyExpiryReminders() {
@@ -419,6 +422,138 @@ function scheduleDailySquareSync() {
   setTimeout(() => {
     runSync();
     setInterval(runSync, INTERVAL_MS);
+  }, initialDelay);
+}
+
+/**
+ * FÜDA Club: issue 1 coin per active (non-frozen) Club member each Mon–Sat at 6:00 AM Darwin time.
+ * Rolls over if FÜDA is closed that day (checks fudaClosureDates table).
+ * Also checks for monthly streak bonus at end of each calendar month.
+ */
+function scheduleDailyFudaCoins() {
+  const INTERVAL_MS = 24 * 60 * 60 * 1000;
+
+  async function runDailyCoins() {
+    try {
+      const dbInstance = await db.getDb();
+      if (!dbInstance) { console.warn("[Cron-Coins] DB unavailable, skipping."); return; }
+
+      const { fudaClubSubscriptions, fudaCoins, fudaClosureDates, users } = await import("../../drizzle/schema");
+      const { eq, and, gte, lte, isNull, count } = await import("drizzle-orm");
+      const { issueFudaCoin } = await import("../routers/fudaClub");
+
+      // Get Darwin today
+      const nowDarwin = new Date().toLocaleDateString("en-CA", { timeZone: "Australia/Darwin" });
+      const dayOfWeek = new Date().toLocaleDateString("en-US", { timeZone: "Australia/Darwin", weekday: "short" });
+      const isWeekday = !["Sun"].includes(dayOfWeek); // Mon–Sat valid
+
+      if (!isWeekday) {
+        console.log(`[Cron-Coins] Today is ${dayOfWeek} — no coins issued (Sun only).`);
+        return;
+      }
+
+      // Check if FÜDA is closed today
+      const [closure] = await dbInstance
+        .select()
+        .from(fudaClosureDates)
+        .where(eq(fudaClosureDates.closureDate, nowDarwin as any))
+        .limit(1);
+
+      if (closure) {
+        console.log(`[Cron-Coins] FÜDA closed today (${closure.reason ?? "no reason given"}) — coins will roll over.`);
+        // Rollover: extend any unissued coins from yesterday that haven't been issued yet
+        // (In practice, we just don't issue today — the previous day's coin already expired.
+        //  Rollover means we issue today's coin with tomorrow's expiry instead.)
+        // Issue rollover coins with +1 day expiry
+        const rolloverExpiry = new Date();
+        rolloverExpiry.setDate(rolloverExpiry.getDate() + 1);
+        rolloverExpiry.setUTCHours(14, 30, 0, 0); // midnight Darwin next day
+
+        const activeSubs = await dbInstance
+          .select({ userId: fudaClubSubscriptions.userId })
+          .from(fudaClubSubscriptions)
+          .where(eq(fudaClubSubscriptions.status, "active"));
+
+        for (const sub of activeSubs) {
+          await issueFudaCoin(sub.userId, "rollover", rolloverExpiry);
+        }
+        console.log(`[Cron-Coins] Issued ${activeSubs.length} rollover coin(s).`);
+        return;
+      }
+
+      // Issue daily coins — expires at midnight Darwin today
+      const [y, m, d] = nowDarwin.split("-").map(Number);
+      const expiresAt = new Date(Date.UTC(y, m - 1, d, 14, 30, 0)); // 00:00 Darwin = 14:30 UTC
+
+      const activeSubs = await dbInstance
+        .select({ userId: fudaClubSubscriptions.userId })
+        .from(fudaClubSubscriptions)
+        .where(eq(fudaClubSubscriptions.status, "active"));
+
+      let issued = 0;
+      for (const sub of activeSubs) {
+        await issueFudaCoin(sub.userId, "daily", expiresAt);
+        issued++;
+      }
+      console.log(`[Cron-Coins] Issued ${issued} daily FÜDA Coin(s) for ${nowDarwin}.`);
+
+      // Monthly streak bonus: check if today is the last working day of the month
+      const tomorrow = new Date();
+      tomorrow.setDate(tomorrow.getDate() + 1);
+      const tomorrowDarwin = tomorrow.toLocaleDateString("en-CA", { timeZone: "Australia/Darwin" });
+      const tomorrowMonth = tomorrowDarwin.substring(0, 7);
+      const todayMonth = nowDarwin.substring(0, 7);
+      if (tomorrowMonth !== todayMonth) {
+        // Last day of the month — check streak for each active member
+        console.log("[Cron-Coins] End of month — checking streak bonuses...");
+        const monthStart = `${todayMonth}-01`;
+        for (const sub of activeSubs) {
+          try {
+            // Count coins issued this month
+            const monthCoins = await dbInstance
+              .select({ id: fudaCoins.id, isUsed: fudaCoins.isUsed })
+              .from(fudaCoins)
+              .where(
+                and(
+                  eq(fudaCoins.userId, sub.userId),
+                  eq(fudaCoins.reason, "daily"),
+                  gte(fudaCoins.issuedAt, new Date(monthStart + "T00:00:00Z")),
+                  lte(fudaCoins.issuedAt, new Date())
+                )
+              );
+            const totalIssued = monthCoins.length;
+            const usedCount = monthCoins.filter(c => c.isUsed).length;
+            // Streak = all issued coins were used (no wastage)
+            if (totalIssued > 0 && usedCount === totalIssued) {
+              const bonusExpiry = new Date();
+              bonusExpiry.setDate(bonusExpiry.getDate() + 7); // 1 week to use bonus coin
+              await issueFudaCoin(sub.userId, "streak_bonus", bonusExpiry);
+              console.log(`[Cron-Coins] Streak bonus issued to user ${sub.userId} (${usedCount}/${totalIssued} coins used).`);
+            }
+          } catch (err: any) {
+            console.error(`[Cron-Coins] Streak check failed for user ${sub.userId}:`, err.message);
+          }
+        }
+      }
+    } catch (err: any) {
+      console.error("[Cron-Coins] Daily coin job failed:", err.message);
+    }
+  }
+
+  // Run at 6:00 AM Darwin = 20:30 UTC (same time as Square sync)
+  function msUntilNext2030UTC(): number {
+    const now = new Date();
+    const next = new Date(now);
+    next.setUTCHours(20, 30, 0, 0);
+    if (next <= now) next.setUTCDate(next.getUTCDate() + 1);
+    return next.getTime() - now.getTime();
+  }
+
+  const initialDelay = msUntilNext2030UTC();
+  console.log(`[Cron-Coins] FÜDA Club daily coin issuance scheduled in ${Math.round(initialDelay / 60000)} minutes (next 6:00 AM Darwin time).`);
+  setTimeout(() => {
+    runDailyCoins();
+    setInterval(runDailyCoins, INTERVAL_MS);
   }, initialDelay);
 }
 

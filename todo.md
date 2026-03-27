@@ -652,3 +652,47 @@
 - [x] Frontend: Price display for paid modifiers (free if 0)
 - [x] Frontend: Square-synced badge on Square-originated lists/options
 - [x] Frontend: Enable/disable toggle per modifier list
+
+## The FÜDA Club — Personal Subscription Plan (2026-03-27)
+
+### Schema
+- [x] Add `fudaClubSubscriptions` table (userId, stripeSubscriptionId, status, frozenUntil, introUsed)
+- [x] Add `fudaCoins` table (userId, amount, expiresAt, reason, usedAt, usedOnOrderId)
+- [x] Add `venue` field to users table (workplaceVenue, venueAddress)
+- [x] Add `referralCode` and `referredBy` fields to users table
+- [x] Add `fudaClosureDates` table (date, reason) for rollover logic
+- [x] Run drizzle-kit generate and apply migration
+
+### Stripe
+- [x] Create FÜDA Club Stripe product with $80 intro price + $180 fortnightly recurring price
+- [x] Wire Stripe checkout for FÜDA Club subscription
+- [x] Handle webhook: subscription created → issue first coin batch, set introUsed
+- [x] Handle webhook: subscription renewed → issue next fortnight coin batch
+
+### Backend — Coin System
+- [x] Daily coin issuance cron at 6 AM Darwin time (Mon–Sat, skip if frozen, rollover if closure date)
+- [x] Coin expiry: expires at midnight same day (unless rollover)
+- [x] Freeze/pause: admin or user can freeze up to 2 weeks, no coins issued during freeze
+- [x] Referral bonus: when referred user subscribes, issue 1 coin to referrer + 1 coin to new member
+- [x] Monthly streak bonus: if member ordered every available day in calendar month (no wasted coins), issue 1 bonus coin
+
+### Checkout Logic
+- [x] Detect active FÜDA Club subscription at checkout
+- [x] Apply 1 coin to first non-Mix-Grill item (covers full price)
+- [x] Mix Grill: coin cannot be applied, 10% discount applied instead
+- [x] 10% discount on all additional items beyond coin-redeemed item
+- [x] $10 minimum order to qualify for free delivery
+- [x] Venue-based delivery pooling: 5+ orders from same venue by 10:30 AM → 12:30 PM delivery
+
+### Frontend
+- [x] FÜDA Club subscription page (/fuda-club) with plan details, pricing, and subscribe CTA
+- [x] Coin wallet UI in user profile (balance, history, expiry countdown)
+- [x] Venue registration field in user profile (My Venue)
+- [x] Referral link in profile (share to earn 1 coin)
+- [x] Freeze subscription UI (pause for up to 2 weeks)
+- [x] Checkout: show coin applied, discount breakdown, Mix Grill note
+
+### Homepage
+- [x] Add FÜDA Club section to homepage alongside corporate plan
+- [x] Dual CTA: "For your team" (corporate) and "Join The FÜDA Club" (personal)
+- [x] Highlight: 1 free lunch/day, 10% off extras, Mon–Sat, from $80/fortnight

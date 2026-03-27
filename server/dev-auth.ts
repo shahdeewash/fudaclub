@@ -14,7 +14,11 @@ export const DEV_USERS: Record<string, Omit<User, "id" | "createdAt" | "updatedA
     email: "user@testcompany.com",
     loginMethod: "dev",
     role: "user",
-    companyId: 1, // Set to testcompany for testing
+    companyId: 1,
+    venueName: null,
+    venueAddress: null,
+    referralCode: null,
+    referredBy: null,
   },
   admin: {
     openId: "dev-admin-001",
@@ -23,6 +27,10 @@ export const DEV_USERS: Record<string, Omit<User, "id" | "createdAt" | "updatedA
     loginMethod: "dev",
     role: "admin",
     companyId: null,
+    venueName: null,
+    venueAddress: null,
+    referralCode: null,
+    referredBy: null,
   },
   kitchen: {
     openId: "dev-kitchen-001",
@@ -31,6 +39,10 @@ export const DEV_USERS: Record<string, Omit<User, "id" | "createdAt" | "updatedA
     loginMethod: "dev",
     role: "kitchen",
     companyId: null,
+    venueName: null,
+    venueAddress: null,
+    referralCode: null,
+    referredBy: null,
   },
 };
 

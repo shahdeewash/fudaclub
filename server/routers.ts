@@ -9,6 +9,7 @@ import * as db from "./db";
 import { nanoid } from "nanoid";
 import { notifyOwner } from "./_core/notification";
 import { getOrCreateSubscriptionPriceId, getOrCreatePriceId, SUBSCRIPTION_PLANS } from "./products";
+import { fudaClubRouter } from "./routers/fudaClub";
 import {
   buildSquareAuthUrl,
   getSquareConnection,
@@ -38,7 +39,8 @@ function capitalizeCompanyName(domain: string): string {
 export const appRouter = router({
   system: systemRouter,
   dev: devRouter,
-  
+  fudaClub: fudaClubRouter,
+
   auth: router({
     me: publicProcedure.query(opts => opts.ctx.user),
     logout: publicProcedure.mutation(({ ctx }) => {

@@ -1,4 +1,4 @@
-import { int, mysqlEnum, mysqlTable, text, timestamp, varchar, decimal, boolean, unique } from "drizzle-orm/mysql-core";
+import { int, mysqlEnum, mysqlTable, text, timestamp, varchar, decimal, boolean, unique, date } from "drizzle-orm/mysql-core";
 
 /**
  * Core user table backing auth flow.
@@ -11,6 +11,11 @@ export const users = mysqlTable("users", {
   loginMethod: varchar("loginMethod", { length: 64 }),
   role: mysqlEnum("role", ["user", "admin", "kitchen"]).default("user").notNull(),
   companyId: int("companyId"),
+  // FÜDA Club fields
+  venueName: varchar("venueName", { length: 255 }),       // e.g. "Darwin CBD Office"
+  venueAddress: text("venueAddress"),                      // full address for delivery pooling
+  referralCode: varchar("referralCode", { length: 32 }).unique(), // unique code to share
+  referredBy: int("referredBy"),                          // userId of referrer
   createdAt: timestamp("createdAt").defaultNow().notNull(),
   updatedAt: timestamp("updatedAt").defaultNow().onUpdateNow().notNull(),
   lastSignedIn: timestamp("lastSignedIn").defaultNow().notNull(),
@@ -205,3 +210,57 @@ export const menuItemModifierLists = mysqlTable("menuItemModifierLists", {
 
 export type MenuItemModifierList = typeof menuItemModifierLists.$inferSelect;
 export type InsertMenuItemModifierList = typeof menuItemModifierLists.$inferInsert;
+
+/**
+ * FÜDA Club personal subscriptions
+ */
+export const fudaClubSubscriptions = mysqlTable("fudaClubSubscriptions", {
+  id: int("id").autoincrement().primaryKey(),
+  userId: int("userId").notNull().unique(),
+  stripeSubscriptionId: varchar("stripeSubscriptionId", { length: 255 }),
+  stripeCustomerId: varchar("stripeCustomerId", { length: 255 }),
+  status: mysqlEnum("status", ["active", "canceled", "past_due", "trialing", "frozen"]).default("active").notNull(),
+  introUsed: boolean("introUsed").default(false).notNull(),   // true after first $80 period
+  frozenUntil: timestamp("frozenUntil"),                       // null = not frozen
+  frozenAt: timestamp("frozenAt"),
+  currentPeriodStart: timestamp("currentPeriodStart"),
+  currentPeriodEnd: timestamp("currentPeriodEnd"),
+  cancelAtPeriodEnd: boolean("cancelAtPeriodEnd").default(false).notNull(),
+  createdAt: timestamp("createdAt").defaultNow().notNull(),
+  updatedAt: timestamp("updatedAt").defaultNow().onUpdateNow().notNull(),
+});
+
+export type FudaClubSubscription = typeof fudaClubSubscriptions.$inferSelect;
+export type InsertFudaClubSubscription = typeof fudaClubSubscriptions.$inferInsert;
+
+/**
+ * FÜDA Coins — daily credits for FÜDA Club members
+ * 1 coin = 1 free non-Mix-Grill item; Mix Grill gets 10% off instead
+ */
+export const fudaCoins = mysqlTable("fudaCoins", {
+  id: int("id").autoincrement().primaryKey(),
+  userId: int("userId").notNull(),
+  reason: mysqlEnum("reason", ["daily", "referral", "streak_bonus", "rollover", "admin"]).default("daily").notNull(),
+  issuedAt: timestamp("issuedAt").defaultNow().notNull(),
+  expiresAt: timestamp("expiresAt").notNull(),              // midnight same day (or next open day for rollover)
+  usedAt: timestamp("usedAt"),
+  usedOnOrderId: int("usedOnOrderId"),
+  isUsed: boolean("isUsed").default(false).notNull(),
+  createdAt: timestamp("createdAt").defaultNow().notNull(),
+});
+
+export type FudaCoin = typeof fudaCoins.$inferSelect;
+export type InsertFudaCoin = typeof fudaCoins.$inferInsert;
+
+/**
+ * FÜDA closure dates — coins roll over when FÜDA is closed
+ */
+export const fudaClosureDates = mysqlTable("fudaClosureDates", {
+  id: int("id").autoincrement().primaryKey(),
+  closureDate: date("closureDate").notNull().unique(),
+  reason: varchar("reason", { length: 255 }),
+  createdAt: timestamp("createdAt").defaultNow().notNull(),
+});
+
+export type FudaClosureDate = typeof fudaClosureDates.$inferSelect;
+export type InsertFudaClosureDate = typeof fudaClosureDates.$inferInsert;

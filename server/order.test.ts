@@ -2,6 +2,8 @@ import { describe, expect, it } from "vitest";
 import { appRouter } from "./routers";
 import type { TrpcContext } from "./_core/context";
 import * as db from "./db";
+import { getDb } from "./db";
+import { menuItems } from "../drizzle/schema";
 
 type AuthenticatedUser = NonNullable<TrpcContext["user"]>;
 
@@ -29,6 +31,20 @@ function createAuthContext(user?: Partial<AuthenticatedUser>): TrpcContext {
   };
 }
 
+/** Seed a Square-synced menu item so order tests pass regardless of DB state */
+async function seedTestMenuItem(): Promise<number> {
+  const drizzle = await getDb();
+  const squareCatalogId = `test_item_${Date.now()}_${Math.random().toString(36).slice(2)}`;
+  const [result] = await drizzle.insert(menuItems).values({
+    name: "Test Dish",
+    squareCatalogId,
+    price: 1500,
+    category: "Test",
+    isAvailable: true,
+  });
+  return (result as unknown as { insertId: number }).insertId;
+}
+
 /** Seed an active subscription directly via db helper (bypasses Stripe) */
 async function seedSubscription(userId: number, companyId: number) {
   const periodStart = new Date();
@@ -51,6 +67,7 @@ describe("Order Creation", () => {
   it("should create order with daily credit applied", { timeout: 15000 }, async () => {
     // Use unique IDs to avoid cross-test contamination
     const userId = 900000 + RUN_ID;
+    const menuItemId = await seedTestMenuItem();
     const setupCaller = appRouter.createCaller(createAuthContext({ id: userId }));
     const companyResult = await setupCaller.company.detectFromEmail({ email: `user${userId}@ordertest.com` });
     await seedSubscription(userId, companyResult.company.id);
@@ -59,7 +76,7 @@ describe("Order Creation", () => {
     const caller = appRouter.createCaller(ctx);
 
     const result = await caller.order.create({
-      items: [{ menuItemId: 210062, quantity: 1 }],
+      items: [{ menuItemId, quantity: 1 }],
     });
 
     expect(result.order.dailyCreditUsed).toBe(true);
@@ -68,6 +85,7 @@ describe("Order Creation", () => {
 
   it("should calculate delivery eligibility based on company orders", { timeout: 15000 }, async () => {
     const userId = 900001 + RUN_ID;
+    const menuItemId = await seedTestMenuItem();
     // Use full timestamp in domain to guarantee uniqueness across runs
     const uniqueDomain = `deliverytest${Date.now()}.com`;
     const setupCaller = appRouter.createCaller(createAuthContext({ id: userId }));
@@ -78,7 +96,7 @@ describe("Order Creation", () => {
     const caller = appRouter.createCaller(ctx);
 
     const result = await caller.order.create({
-      items: [{ menuItemId: 210062, quantity: 1 }],
+      items: [{ menuItemId, quantity: 1 }],
     });
 
     // First order for this brand-new company should not have free delivery (need 5+ orders)
@@ -87,6 +105,7 @@ describe("Order Creation", () => {
 
   it("should enforce 10:30 AM cutoff for delivery", { timeout: 15000 }, async () => {
     const userId = 900002 + RUN_ID;
+    const menuItemId = await seedTestMenuItem();
     const setupCaller = appRouter.createCaller(createAuthContext({ id: userId }));
     const companyResult = await setupCaller.company.detectFromEmail({ email: `user${userId}@cutofftest.com` });
     await seedSubscription(userId, companyResult.company.id);
@@ -95,7 +114,7 @@ describe("Order Creation", () => {
     const caller = appRouter.createCaller(ctx);
 
     const result = await caller.order.create({
-      items: [{ menuItemId: 210062, quantity: 1 }],
+      items: [{ menuItemId, quantity: 1 }],
     });
 
     // Check fulfillment type based on current Darwin time (UTC+9:30)
@@ -124,8 +143,9 @@ describe("Order Retrieval", () => {
     const ctx = createAuthContext({ id: userId, companyId: companyResult.company.id });
     const caller = appRouter.createCaller(ctx);
 
+    const menuItemId = await seedTestMenuItem();
     await caller.order.create({
-      items: [{ menuItemId: 210062, quantity: 1 }],
+      items: [{ menuItemId, quantity: 1 }],
     });
 
     const orders = await caller.order.getMyOrders();
@@ -155,8 +175,9 @@ describe("Order Status Management", () => {
     const adminCtx = createAuthContext({ id: userId, role: "admin", companyId: companyResult.company.id });
     const adminCaller = appRouter.createCaller(adminCtx);
 
+    const menuItemId = await seedTestMenuItem();
     const createResult = await adminCaller.order.create({
-      items: [{ menuItemId: 210062, quantity: 1 }],
+      items: [{ menuItemId, quantity: 1 }],
     });
 
     // updateStatus returns { success: true }

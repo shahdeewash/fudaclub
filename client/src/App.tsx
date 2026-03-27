@@ -16,6 +16,7 @@ import Payment from "./pages/Payment";
 import PaymentSuccess from "./pages/PaymentSuccess";
 import SubscriptionSuccess from "./pages/SubscriptionSuccess";
 import DevLogin from "./pages/DevLogin";
+import FudaClub from "./pages/FudaClub";
 
 function Router() {
   return (
@@ -27,6 +28,7 @@ function Router() {
       <Route path={"/payment-success"} component={PaymentSuccess} />
       <Route path={"/subscription-success"} component={SubscriptionSuccess} />
       <Route path={"/dev-login"} component={DevLogin} />
+      <Route path={"/fuda-club"} component={FudaClub} />
       <Route path={"/orders"} component={Orders} />
       <Route path={"/admin"} component={Admin} />
       <Route path={"/admin/dish/new"} component={AdminDishForm} />
