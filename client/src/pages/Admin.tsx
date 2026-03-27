@@ -13,7 +13,7 @@ import { Label } from "@/components/ui/label";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { trpc } from "@/lib/trpc";
-import { BarChart3, DollarSign, Package, Users, Star, Plus, Building2, User, Filter, Camera, X, Check, Upload, Pencil, Trash2, Download, Bell, GripVertical, RefreshCw, Link2, Link2Off } from "lucide-react";
+import { BarChart3, DollarSign, Package, Users, Star, Plus, Building2, User, Filter, Camera, X, Check, Upload, Pencil, Trash2, Download, Bell, GripVertical, RefreshCw, Link2, Link2Off, Search, ArrowUpDown } from "lucide-react";
 import { useLocation } from "wouter";
 import { toast } from "sonner";
 import { useEffect } from "react";
@@ -208,6 +208,160 @@ function SortableMenuItemCard({
   );
 }
 
+function FlatMenuItemRow({
+  item,
+  editingItemId, editingImageId, editingImageUrl,
+  editName, editDescription, editPrice, editCategory,
+  setEditingItemId, setDeletingItemId, setEditingImageId, setEditingImageUrl,
+  setEditName, setEditDescription, setEditPrice, setEditCategory,
+  uploadingImage, deletingItemId,
+}: {
+  item: MenuItemType;
+  editingItemId: number | null;
+  editingImageId: number | null;
+  editingImageUrl: string;
+  editName: string;
+  editDescription: string;
+  editPrice: string;
+  editCategory: string;
+  uploadingImage: boolean;
+  deletingItemId: number | null;
+  setEditingItemId: (id: number | null) => void;
+  setDeletingItemId: (id: number | null) => void;
+  setEditingImageId: (id: number | null) => void;
+  setEditingImageUrl: (url: string) => void;
+  setEditName: (v: string) => void;
+  setEditDescription: (v: string) => void;
+  setEditPrice: (v: string) => void;
+  setEditCategory: (v: string) => void;
+}) {
+  const utils = trpc.useUtils();
+  const isAvailable = item.isAvailable !== false;
+
+  const updateMenuItem = trpc.menu.update.useMutation({
+    onSuccess: () => { toast.success("Item updated"); setEditingItemId(null); utils.menu.getAllAdmin.invalidate(); utils.menu.getAll.invalidate(); },
+    onError: (e) => toast.error(e.message),
+  });
+  const deleteMenuItem = trpc.menu.delete.useMutation({
+    onSuccess: () => { toast.success("Item removed"); setDeletingItemId(null); utils.menu.getAllAdmin.invalidate(); utils.menu.getAll.invalidate(); },
+    onError: (e) => toast.error(e.message),
+  });
+  const updateImage = trpc.menu.updateImage.useMutation({
+    onSuccess: () => { toast.success("Image updated"); setEditingImageId(null); setEditingImageUrl(""); utils.menu.getAllAdmin.invalidate(); },
+    onError: (e) => toast.error(e.message),
+  });
+  const toggleAvailability = trpc.menu.toggleAvailability.useMutation({
+    onSuccess: () => { utils.menu.getAllAdmin.invalidate(); utils.menu.getAll.invalidate(); },
+    onError: (e) => toast.error(e.message),
+  });
+
+  const handleFileUpload = async (file: File) => {
+    try {
+      const formData = new FormData();
+      formData.append("file", file);
+      const response = await fetch("/api/upload-image", { method: "POST", body: formData });
+      if (!response.ok) throw new Error("Upload failed");
+      const { url } = await response.json();
+      setEditingImageUrl(url);
+      updateImage.mutate({ menuItemId: item.id, imageUrl: url });
+    } catch { toast.error("Failed to upload image"); }
+  };
+
+  return (
+    <div className={`flex items-center gap-3 p-3 rounded-lg border ${!isAvailable ? 'opacity-60 border-dashed' : 'bg-card'}`}>
+      {/* Thumbnail */}
+      <div className="shrink-0 w-14 h-14 rounded-md overflow-hidden bg-muted flex items-center justify-center">
+        {item.imageUrl
+          ? <img src={item.imageUrl} alt={item.name} className="w-full h-full object-cover" />
+          : <Camera className="h-5 w-5 text-muted-foreground" />}
+      </div>
+
+      {/* Main content */}
+      {editingItemId === item.id ? (
+        <div className="flex-1 grid grid-cols-2 gap-1.5">
+          <Input placeholder="Name" value={editName} onChange={e => setEditName(e.target.value)} className="h-7 text-xs col-span-2" />
+          <Input placeholder="Price (AUD)" type="number" step="0.01" value={editPrice} onChange={e => setEditPrice(e.target.value)} className="h-7 text-xs" />
+          <Input placeholder="Category" value={editCategory} onChange={e => setEditCategory(e.target.value)} className="h-7 text-xs" />
+          <div className="col-span-2 flex gap-1.5">
+            <Button size="sm" className="h-7 text-xs flex-1 bg-[#DC2626] hover:bg-[#DC2626]/90"
+              onClick={() => updateMenuItem.mutate({ menuItemId: item.id, name: editName || undefined, price: editPrice ? parseFloat(editPrice) : undefined, category: editCategory || undefined })}
+              disabled={updateMenuItem.isPending}>
+              <Check className="h-3 w-3 mr-1" />Save
+            </Button>
+            <Button size="sm" variant="outline" className="h-7 text-xs" onClick={() => setEditingItemId(null)}><X className="h-3 w-3" /></Button>
+          </div>
+        </div>
+      ) : deletingItemId === item.id ? (
+        <div className="flex-1 space-y-1">
+          <p className="text-xs font-medium text-destructive">Remove "{item.name}"?</p>
+          <div className="flex gap-1.5">
+            <Button size="sm" variant="destructive" className="h-7 text-xs"
+              onClick={() => deleteMenuItem.mutate({ menuItemId: item.id })} disabled={deleteMenuItem.isPending}>
+              <Trash2 className="h-3 w-3 mr-1" />Remove
+            </Button>
+            <Button size="sm" variant="outline" className="h-7 text-xs" onClick={() => setDeletingItemId(null)}><X className="h-3 w-3" /></Button>
+          </div>
+        </div>
+      ) : (
+        <div className="flex-1 min-w-0">
+          <div className="flex items-start justify-between gap-2">
+            <div className="min-w-0">
+              <p className="font-semibold text-sm truncate">{item.name}</p>
+              <p className="text-xs text-muted-foreground truncate">{item.category}</p>
+            </div>
+            <span className="font-semibold text-sm shrink-0">${(item.price / 100).toFixed(2)}</span>
+          </div>
+          {!isAvailable && <Badge variant="outline" className="mt-1 text-xs text-muted-foreground">Hidden</Badge>}
+          {item.isTodaysSpecial && <Badge variant="secondary" className="mt-1 text-xs ml-1"><Star className="h-3 w-3 mr-1" />Special</Badge>}
+        </div>
+      )}
+
+      {/* Actions */}
+      {editingItemId !== item.id && deletingItemId !== item.id && (
+        <div className="flex items-center gap-1 shrink-0">
+          {editingImageId === item.id ? (
+            <div className="flex flex-col gap-1 w-36">
+              <Input placeholder="Image URL" value={editingImageUrl} onChange={e => setEditingImageUrl(e.target.value)} className="h-7 text-xs" />
+              <div className="flex gap-1">
+                <Button size="sm" className="h-6 text-xs flex-1 bg-[#DC2626] hover:bg-[#DC2626]/90"
+                  onClick={() => updateImage.mutate({ menuItemId: item.id, imageUrl: editingImageUrl })}
+                  disabled={updateImage.isPending || !editingImageUrl.trim()}>
+                  <Check className="h-3 w-3" />
+                </Button>
+                <label className="cursor-pointer">
+                  <Button type="button" variant="outline" size="sm" className="h-6 text-xs pointer-events-none" disabled={uploadingImage}>
+                    <Upload className="h-3 w-3" />
+                  </Button>
+                  <input type="file" accept="image/*" className="hidden" onChange={e => { const f = e.target.files?.[0]; if (f) handleFileUpload(f); }} />
+                </label>
+                <Button size="sm" variant="outline" className="h-6 text-xs" onClick={() => { setEditingImageId(null); setEditingImageUrl(""); }}><X className="h-3 w-3" /></Button>
+              </div>
+            </div>
+          ) : (
+            <button onClick={() => { setEditingImageId(item.id); setEditingImageUrl(item.imageUrl || ""); }}
+              className="p-1.5 rounded text-muted-foreground hover:text-foreground hover:bg-muted transition-colors" title="Change photo">
+              <Camera className="h-3.5 w-3.5" />
+            </button>
+          )}
+          <Switch
+            checked={isAvailable}
+            onCheckedChange={checked => toggleAvailability.mutate({ menuItemId: item.id, isAvailable: checked })}
+            className="scale-75"
+          />
+          <button onClick={() => { setEditingItemId(item.id); setEditName(item.name); setEditDescription(item.description || ""); setEditPrice((item.price / 100).toFixed(2)); setEditCategory(item.category || ""); }}
+            className="p-1.5 rounded text-muted-foreground hover:text-foreground hover:bg-muted transition-colors" title="Edit">
+            <Pencil className="h-3.5 w-3.5" />
+          </button>
+          <button onClick={() => setDeletingItemId(item.id)}
+            className="p-1.5 rounded text-muted-foreground hover:text-destructive hover:bg-destructive/10 transition-colors" title="Remove">
+            <Trash2 className="h-3.5 w-3.5" />
+          </button>
+        </div>
+      )}
+    </div>
+  );
+}
+
 export default function Admin() {
   const { user, isAuthenticated } = useAuth();
   const [, setLocation] = useLocation();
@@ -241,6 +395,11 @@ export default function Admin() {
   const [newCategoryName, setNewCategoryName] = useState("");
   const [deletingCategory, setDeletingCategory] = useState<string | null>(null);
   const [uploadingSpecialImage, setUploadingSpecialImage] = useState(false);
+
+  // Menu search & sort state
+  const [menuSearch, setMenuSearch] = useState("");
+  type MenuSortKey = "default" | "name-asc" | "name-desc" | "price-asc" | "price-desc" | "category" | "available-first" | "hidden-first";
+  const [menuSort, setMenuSort] = useState<MenuSortKey>("default");
 
   const { data: stats } = trpc.stats.getToday.useQuery(undefined, {
     enabled: isAuthenticated && user?.role === "admin",
@@ -1036,23 +1195,138 @@ export default function Admin() {
 
             <Card>
               <CardHeader>
-                <div className="flex items-center justify-between">
-                  <div>
-                    <CardTitle>Menu Items</CardTitle>
-                    <CardDescription>
-                      Square-synced items only — use Square POS to add or remove dishes
-                    </CardDescription>
+                <div className="flex flex-col gap-3">
+                  <div className="flex items-center justify-between">
+                    <div>
+                      <CardTitle>Menu Items</CardTitle>
+                      <CardDescription>
+                        Square-synced items only — use Square POS to add or remove dishes
+                      </CardDescription>
+                    </div>
+                    {menuItems && (
+                      <span className="text-xs text-muted-foreground">
+                        {(() => {
+                          const q = menuSearch.trim().toLowerCase();
+                          const filtered = q ? menuItems.filter(i =>
+                            i.name.toLowerCase().includes(q) ||
+                            (i.category || "").toLowerCase().includes(q) ||
+                            (i.description || "").toLowerCase().includes(q)
+                          ) : menuItems;
+                          return `${filtered.length} of ${menuItems.length} items`;
+                        })()}
+                      </span>
+                    )}
+                  </div>
+                  {/* Search + Sort toolbar */}
+                  <div className="flex flex-col sm:flex-row gap-2">
+                    <div className="relative flex-1">
+                      <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground pointer-events-none" />
+                      <Input
+                        placeholder="Search by name, category, or description…"
+                        value={menuSearch}
+                        onChange={e => setMenuSearch(e.target.value)}
+                        className="pl-8 h-9 text-sm"
+                      />
+                      {menuSearch && (
+                        <button
+                          onClick={() => setMenuSearch("")}
+                          className="absolute right-2.5 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground"
+                        >
+                          <X className="h-3.5 w-3.5" />
+                        </button>
+                      )}
+                    </div>
+                    <Select value={menuSort} onValueChange={v => setMenuSort(v as MenuSortKey)}>
+                      <SelectTrigger className="h-9 w-full sm:w-52 text-sm">
+                        <ArrowUpDown className="h-3.5 w-3.5 mr-1.5 text-muted-foreground" />
+                        <SelectValue placeholder="Sort by…" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="default">Default (Square order)</SelectItem>
+                        <SelectItem value="name-asc">Name A → Z</SelectItem>
+                        <SelectItem value="name-desc">Name Z → A</SelectItem>
+                        <SelectItem value="price-asc">Price: Low → High</SelectItem>
+                        <SelectItem value="price-desc">Price: High → Low</SelectItem>
+                        <SelectItem value="category">Category A → Z</SelectItem>
+                        <SelectItem value="available-first">Available first</SelectItem>
+                        <SelectItem value="hidden-first">Hidden first</SelectItem>
+                      </SelectContent>
+                    </Select>
                   </div>
                 </div>
               </CardHeader>
               <CardContent className="space-y-8">
                 {/* Category groups */}
                 {menuItems && (() => {
-                  const categories = Array.from(new Set(menuItems.map(i => i.category || "Uncategorised")));
+                  // 1. Filter by search query
+                  const q = menuSearch.trim().toLowerCase();
+                  const filtered = q
+                    ? menuItems.filter(i =>
+                        i.name.toLowerCase().includes(q) ||
+                        (i.category || "").toLowerCase().includes(q) ||
+                        (i.description || "").toLowerCase().includes(q)
+                      )
+                    : menuItems;
+
+                  // 2. Sort
+                  const sorted = [...filtered].sort((a, b) => {
+                    switch (menuSort) {
+                      case "name-asc": return a.name.localeCompare(b.name);
+                      case "name-desc": return b.name.localeCompare(a.name);
+                      case "price-asc": return a.price - b.price;
+                      case "price-desc": return b.price - a.price;
+                      case "category": return (a.category || "").localeCompare(b.category || "");
+                      case "available-first": return (b.isAvailable ? 1 : 0) - (a.isAvailable ? 1 : 0);
+                      case "hidden-first": return (a.isAvailable ? 1 : 0) - (b.isAvailable ? 1 : 0);
+                      default: return 0;
+                    }
+                  });
+
+                  // 3. When sorting is active or search is active, show flat list (no category grouping)
+                  if (menuSort !== "default" || q) {
+                    if (sorted.length === 0) {
+                      return (
+                        <div className="py-12 text-center text-muted-foreground">
+                          <Search className="h-8 w-8 mx-auto mb-2 opacity-40" />
+                          <p className="text-sm">No items match your search</p>
+                        </div>
+                      );
+                    }
+                    return (
+                      <div className="space-y-2">
+                        {sorted.map(item => (
+                          <FlatMenuItemRow
+                            key={item.id}
+                            item={item}
+                            editingItemId={editingItemId}
+                            setEditingItemId={setEditingItemId}
+                            editName={editName}
+                            setEditName={setEditName}
+                            editDescription={editDescription}
+                            setEditDescription={setEditDescription}
+                            editPrice={editPrice}
+                            setEditPrice={setEditPrice}
+                            editCategory={editCategory}
+                            setEditCategory={setEditCategory}
+                            editingImageId={editingImageId}
+                            setEditingImageId={setEditingImageId}
+                            editingImageUrl={editingImageUrl}
+                            setEditingImageUrl={setEditingImageUrl}
+                            uploadingImage={uploadingImage}
+                            deletingItemId={deletingItemId}
+                            setDeletingItemId={setDeletingItemId}
+                          />
+                        ))}
+                      </div>
+                    );
+                  }
+
+                  // 4. Default: category-grouped view (existing drag-and-drop logic)
+                  const categories = Array.from(new Set(sorted.map(i => i.category || "Uncategorised")));
                   return categories.map(cat => {
                     // Apply local drag order if present
                     const localOrder = localItemOrder[cat];
-                    const rawItems = menuItems.filter(i => (i.category || "Uncategorised") === cat);
+                    const rawItems = sorted.filter(i => (i.category || "Uncategorised") === cat);
                     const catItems = localOrder
                       ? localOrder.map(id => rawItems.find(i => i.id === id)!).filter(Boolean)
                       : rawItems;

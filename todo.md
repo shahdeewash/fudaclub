@@ -624,3 +624,9 @@
 - [x] Remove "Create New Dish" / manual item creation from Admin
 - [x] Keep edit (name, price, description, image, hide/show) for Square items only
 - [x] Customer menu also shows only Square-synced items
+
+## Admin Menu Management: Search & Sort (2026-03-27)
+- [x] Add search bar to filter items by name, category, or description
+- [x] Add sort controls: by name (A-Z / Z-A), price (low-high / high-low), category, availability
+- [x] Search and sort work together (search filters first, then sort applies)
+- [x] Clear search button when search has text
