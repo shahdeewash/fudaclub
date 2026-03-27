@@ -17,6 +17,7 @@ interface CartItem {
   price: number;
   quantity: number;
   imageUrl?: string;
+  modifierNote?: string;
 }
 
 export default function Payment() {
@@ -158,6 +159,7 @@ export default function Payment() {
     const items = cartItems.map(item => ({
       menuItemId: item.id,
       quantity: item.quantity,
+      modifierNote: item.modifierNote,
     }));
     createOrder.mutate({
       items,
@@ -217,6 +219,7 @@ export default function Payment() {
         menuItemId: item.id,
         quantity: item.quantity,
         price: item.price,
+        modifierNote: item.modifierNote,
       })),
       deliveryFee,
       tax,
@@ -401,9 +404,14 @@ export default function Payment() {
                 {/* Items */}
                 <div className="space-y-2">
                   {cartItems.map((item) => (
-                    <div key={item.id} className="flex justify-between text-sm">
-                      <span>{item.quantity}x {item.name}</span>
-                      <span>${(item.price * item.quantity / 100).toFixed(2)}</span>
+                    <div key={item.id} className="flex flex-col gap-0.5">
+                      <div className="flex justify-between text-sm">
+                        <span>{item.quantity}x {item.name}</span>
+                        <span>${(item.price * item.quantity / 100).toFixed(2)}</span>
+                      </div>
+                      {item.modifierNote && (
+                        <p className="text-xs text-muted-foreground pl-3">{item.modifierNote}</p>
+                      )}
                     </div>
                   ))}
                 </div>

@@ -14,6 +14,7 @@ import {
   getSquareConnection,
   deleteSquareConnection,
   syncSquareCatalog,
+  getMenuItemModifiers,
 } from "./square";
 
 // Helper to extract domain from email
@@ -283,6 +284,13 @@ export const appRouter = router({
       return await db.getAllMenuItems();
     }),
 
+    /** Returns modifier lists (with options) for a given menu item */
+    getModifiers: publicProcedure
+      .input(z.object({ menuItemId: z.number() }))
+      .query(async ({ input }) => {
+        return await getMenuItemModifiers(input.menuItemId);
+      }),
+
     getAllAdmin: protectedProcedure.query(async ({ ctx }) => {
       if (ctx.user.role !== 'admin') {
         throw new TRPCError({ code: 'FORBIDDEN' });
@@ -455,6 +463,7 @@ export const appRouter = router({
         items: z.array(z.object({
           menuItemId: z.number(),
           quantity: z.number().min(1),
+          modifierNote: z.string().optional(),
         })),
         specialInstructions: z.string().optional(),
       }))
@@ -503,6 +512,7 @@ export const appRouter = router({
           unitPrice: number;
           totalPrice: number;
           isFree: boolean;
+          modifierNote?: string;
         }> = [];
 
 
@@ -527,6 +537,7 @@ export const appRouter = router({
               unitPrice: 0, // Free!
               totalPrice: 0,
               isFree: true,
+              modifierNote: item.modifierNote,
             });
             creditApplied = true;
 
@@ -541,6 +552,7 @@ export const appRouter = router({
                 unitPrice: menuItem.price,
                 totalPrice: remainingTotal,
                 isFree: false,
+                modifierNote: item.modifierNote,
               });
               subtotal += remainingTotal;
 
@@ -556,6 +568,7 @@ export const appRouter = router({
               unitPrice: menuItem.price,
               totalPrice,
               isFree: false,
+              modifierNote: item.modifierNote,
             });
             subtotal += totalPrice;
 
@@ -1099,6 +1112,7 @@ export const appRouter = router({
           unitPrice: number;
           totalPrice: number;
           isFree: boolean;
+          modifierNote?: string;
         }> = [];
 
         let subtotal = 0;

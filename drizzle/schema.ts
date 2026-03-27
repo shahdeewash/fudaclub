@@ -118,6 +118,7 @@ export const orderItems = mysqlTable("orderItems", {
   unitPrice: int("unitPrice").notNull(), // in cents
   totalPrice: int("totalPrice").notNull(), // in cents
   isFree: boolean("isFree").default(false).notNull(),
+  modifierNote: text("modifierNote"), // e.g. "Spice Level: Hot, Extras: Extra Protein"
   createdAt: timestamp("createdAt").defaultNow().notNull(),
 });
 
@@ -160,3 +161,47 @@ export const squareConnections = mysqlTable("squareConnections", {
 
 export type SquareConnection = typeof squareConnections.$inferSelect;
 export type InsertSquareConnection = typeof squareConnections.$inferInsert;
+
+/**
+ * Modifier lists synced from Square (e.g. "Spice Level", "Extras")
+ */
+export const modifierLists = mysqlTable("modifierLists", {
+  id: int("id").autoincrement().primaryKey(),
+  squareModifierListId: varchar("squareModifierListId", { length: 255 }).notNull().unique(),
+  name: varchar("name", { length: 255 }).notNull(),
+  selectionType: mysqlEnum("selectionType", ["SINGLE", "MULTIPLE"]).default("SINGLE").notNull(),
+  createdAt: timestamp("createdAt").defaultNow().notNull(),
+  updatedAt: timestamp("updatedAt").defaultNow().onUpdateNow().notNull(),
+});
+
+export type ModifierList = typeof modifierLists.$inferSelect;
+export type InsertModifierList = typeof modifierLists.$inferInsert;
+
+/**
+ * Individual modifiers within a list (e.g. "Mild", "Hot", "Extra Hot")
+ */
+export const modifiers = mysqlTable("modifiers", {
+  id: int("id").autoincrement().primaryKey(),
+  squareModifierId: varchar("squareModifierId", { length: 255 }).notNull().unique(),
+  modifierListId: int("modifierListId").notNull(),
+  name: varchar("name", { length: 255 }).notNull(),
+  priceInCents: int("priceInCents").default(0).notNull(),
+  ordinal: int("ordinal").default(0).notNull(),
+  createdAt: timestamp("createdAt").defaultNow().notNull(),
+});
+
+export type Modifier = typeof modifiers.$inferSelect;
+export type InsertModifier = typeof modifiers.$inferInsert;
+
+/**
+ * Links modifier lists to menu items (many-to-many)
+ */
+export const menuItemModifierLists = mysqlTable("menuItemModifierLists", {
+  id: int("id").autoincrement().primaryKey(),
+  menuItemId: int("menuItemId").notNull(),
+  modifierListId: int("modifierListId").notNull(),
+  isEnabled: boolean("isEnabled").default(true).notNull(),
+});
+
+export type MenuItemModifierList = typeof menuItemModifierLists.$inferSelect;
+export type InsertMenuItemModifierList = typeof menuItemModifierLists.$inferInsert;

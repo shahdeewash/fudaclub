@@ -59,7 +59,7 @@ describe("Order Creation", () => {
     const caller = appRouter.createCaller(ctx);
 
     const result = await caller.order.create({
-      items: [{ menuItemId: 90001, quantity: 1 }],
+      items: [{ menuItemId: 210062, quantity: 1 }],
     });
 
     expect(result.order.dailyCreditUsed).toBe(true);
@@ -78,7 +78,7 @@ describe("Order Creation", () => {
     const caller = appRouter.createCaller(ctx);
 
     const result = await caller.order.create({
-      items: [{ menuItemId: 90001, quantity: 1 }],
+      items: [{ menuItemId: 210062, quantity: 1 }],
     });
 
     // First order for this brand-new company should not have free delivery (need 5+ orders)
@@ -95,15 +95,18 @@ describe("Order Creation", () => {
     const caller = appRouter.createCaller(ctx);
 
     const result = await caller.order.create({
-      items: [{ menuItemId: 90001, quantity: 1 }],
+      items: [{ menuItemId: 210062, quantity: 1 }],
     });
 
-    // Check fulfillment type based on current time
-    const now = new Date();
-    const cutoffTime = new Date(now);
-    cutoffTime.setHours(10, 30, 0, 0);
+    // Check fulfillment type based on current Darwin time (UTC+9:30)
+    const nowUtc = new Date();
+    const darwinOffsetMs = 9.5 * 60 * 60 * 1000;
+    const darwinNow = new Date(nowUtc.getTime() + darwinOffsetMs);
+    const darwinHour = darwinNow.getUTCHours();
+    const darwinMinute = darwinNow.getUTCMinutes();
+    const isPastCutoff = darwinHour > 10 || (darwinHour === 10 && darwinMinute >= 30);
 
-    if (now > cutoffTime) {
+    if (isPastCutoff) {
       expect(result.order.fulfillmentType).toBe("pickup");
     } else {
       expect(result.order.fulfillmentType).toBe("delivery");
@@ -122,7 +125,7 @@ describe("Order Retrieval", () => {
     const caller = appRouter.createCaller(ctx);
 
     await caller.order.create({
-      items: [{ menuItemId: 90001, quantity: 1 }],
+      items: [{ menuItemId: 210062, quantity: 1 }],
     });
 
     const orders = await caller.order.getMyOrders();
@@ -153,7 +156,7 @@ describe("Order Status Management", () => {
     const adminCaller = appRouter.createCaller(adminCtx);
 
     const createResult = await adminCaller.order.create({
-      items: [{ menuItemId: 90001, quantity: 1 }],
+      items: [{ menuItemId: 210062, quantity: 1 }],
     });
 
     // updateStatus returns { success: true }

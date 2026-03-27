@@ -148,12 +148,17 @@ export default function Kitchen() {
             <div className="space-y-1">
               <div className="text-xs font-semibold text-muted-foreground mb-1">Items:</div>
               {(order as any).items.map((item: any, idx: number) => (
-                <div key={idx} className="flex items-center justify-between text-sm">
-                  <span>
-                    <span className="font-semibold">{item.quantity}x</span> {item.itemName}
-                    {item.isFree && <Badge variant="secondary" className="ml-2 text-xs">Free</Badge>}
-                  </span>
-                  <span className="text-muted-foreground">${(item.totalPrice / 100).toFixed(2)}</span>
+                <div key={idx} className="flex flex-col gap-0.5">
+                  <div className="flex items-center justify-between text-sm">
+                    <span>
+                      <span className="font-semibold">{item.quantity}x</span> {item.itemName}
+                      {item.isFree && <Badge variant="secondary" className="ml-2 text-xs">Free</Badge>}
+                    </span>
+                    <span className="text-muted-foreground">${(item.totalPrice / 100).toFixed(2)}</span>
+                  </div>
+                  {item.modifierNote && (
+                    <p className="text-xs text-amber-600 dark:text-amber-400 pl-4 font-medium">→ {item.modifierNote}</p>
+                  )}
                 </div>
               ))}
             </div>

@@ -580,3 +580,26 @@
 ## Delete All Menu & Re-sync from Square (2026-03-27) ✅ COMPLETE
 - [x] Deleted all existing menu items from DB
 - [x] Re-synced 10 items from Square catalog (Mains, Snacks, Drinks)
+
+## Square Modifier Sync (2026-03-27) ✅ COMPLETE
+
+### Schema & Backend ✅ DONE
+- [x] Add `modifierLists` table (squareModifierListId, name, selectionType)
+- [x] Add `modifiers` table (squareModifierId, modifierListId, name, priceInCents)
+- [x] Add `menuItemModifierLists` join table
+- [x] Apply DB migration (migration 0007)
+- [x] Extend `square.syncMenu` to also fetch MODIFIER_LIST objects and upsert into DB
+- [x] Add `menu.getModifiers` tRPC procedure
+
+### Frontend ✅ DONE
+- [x] Created `ModifierDialog` component with radio (SINGLE) and checkbox (MULTIPLE) selection
+- [x] Show modifier dialog when adding items with modifiers to cart
+- [x] Extra modifier prices added to cart item total
+- [x] `modifierNote` stored in cart and passed to order creation
+
+### Orders ✅ DONE
+- [x] Add `modifierNote` column to orderItems table (migration 0008)
+- [x] Store selected modifiers as text note on each order item
+- [x] Show modifier notes in kitchen display (amber text below item name)
+- [x] Include modifier prices in order total calculation
+- [x] All 58 tests passing

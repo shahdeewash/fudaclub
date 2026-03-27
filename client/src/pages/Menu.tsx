@@ -9,13 +9,16 @@ import { Progress } from "@/components/ui/progress";
 import { trpc } from "@/lib/trpc";
 import { ShoppingCart, Users, Star, Truck, Clock, LogOut } from "lucide-react";
 import { CartIndicator } from "@/components/CartIndicator";
+import { ModifierDialog, type ModifierSelection } from "@/components/ModifierDialog";
 import { toast } from "sonner";
 
 export default function Menu() {
   const { user, isAuthenticated } = useAuth();
   const [, setLocation] = useLocation();
   const [cart, setCart] = useState<Map<number, number>>(new Map());
+  const [cartModifiers, setCartModifiers] = useState<Map<number, { selections: ModifierSelection; extraCents: number }>>(new Map());
   const [selectedCategory, setSelectedCategory] = useState<string>("All");
+  const [modifierDialogItem, setModifierDialogItem] = useState<{ id: number; name: string; price: number } | null>(null);
 
   const { data: menuItems, isLoading: menuLoading } = trpc.menu.getAll.useQuery();
   const { data: todaysSpecial } = trpc.menu.getTodaysSpecial.useQuery();
@@ -85,15 +88,21 @@ export default function Menu() {
     );
   }
 
-  const saveCartToLocalStorage = (cartMap: Map<number, number>) => {
+  const saveCartToLocalStorage = (cartMap: Map<number, number>, modMap?: Map<number, { selections: ModifierSelection; extraCents: number }>) => {
+    const modsToUse = modMap ?? cartModifiers;
     const cartItems = Array.from(cartMap.entries()).map(([id, quantity]) => {
       const item = menuItems?.find(m => m.id === id) || todaysSpecial;
+      const modInfo = modsToUse.get(id);
+      const selectedMods = modInfo ? Object.values(modInfo.selections).flat() : [];
+      const modNote = selectedMods.length > 0 ? selectedMods.map(m => m.name).join(", ") : undefined;
       return item ? {
         id: item.id,
         name: item.name,
-        price: item.price,
+        price: item.price + (modInfo?.extraCents ?? 0),
         quantity,
         imageUrl: item.imageUrl,
+        modNote,
+        selectedModifiers: selectedMods,
       } : null;
     }).filter(Boolean);
     
@@ -101,10 +110,27 @@ export default function Menu() {
     window.dispatchEvent(new Event("cartUpdated"));
   };
 
-  const addToCart = (itemId: number) => {
-    const newCart = new Map(cart.set(itemId, (cart.get(itemId) || 0) + 1));
+  const addToCartDirect = (itemId: number) => {
+    const newCart = new Map(cart);
+    newCart.set(itemId, (newCart.get(itemId) || 0) + 1);
     setCart(newCart);
     saveCartToLocalStorage(newCart);
+  };
+
+  const handleAddToCart = (item: { id: number; name: string; price: number }) => {
+    // Open modifier dialog — it will call addToCartWithModifiers on confirm
+    setModifierDialogItem(item);
+  };
+
+  const addToCartWithModifiers = (itemId: number, selections: ModifierSelection, extraCents: number) => {
+    const newCart = new Map(cart);
+    newCart.set(itemId, (newCart.get(itemId) || 0) + 1);
+    const newMods = new Map(cartModifiers);
+    newMods.set(itemId, { selections, extraCents });
+    setCart(newCart);
+    setCartModifiers(newMods);
+    saveCartToLocalStorage(newCart, newMods);
+    toast.success("Added to cart");
   };
 
   const removeFromCart = (itemId: number) => {
@@ -112,6 +138,9 @@ export default function Menu() {
     const current = newCart.get(itemId) || 0;
     if (current <= 1) {
       newCart.delete(itemId);
+      const newMods = new Map(cartModifiers);
+      newMods.delete(itemId);
+      setCartModifiers(newMods);
     } else {
       newCart.set(itemId, current - 1);
     }
@@ -125,15 +154,19 @@ export default function Menu() {
       return;
     }
 
-    // Save cart to localStorage for checkout page
+    // Save cart to localStorage for checkout page (with modifier notes)
     const cartItems = Array.from(cart.entries()).map(([id, quantity]) => {
       const item = menuItems?.find(m => m.id === id) || todaysSpecial;
+      const modInfo = cartModifiers.get(id);
+      const selectedMods = modInfo ? Object.values(modInfo.selections).flat() : [];
+      const modifierNote = selectedMods.length > 0 ? selectedMods.map(m => m.name).join(", ") : undefined;
       return item ? {
         id: item.id,
         name: item.name,
-        price: item.price,
+        price: item.price + (modInfo?.extraCents ?? 0),
         quantity,
         imageUrl: item.imageUrl,
+        modifierNote,
       } : null;
     }).filter(Boolean);
 
@@ -243,7 +276,7 @@ export default function Menu() {
                     <span className="text-2xl font-bold">
                       ${(todaysSpecial.price / 100).toFixed(2)}
                     </span>
-                    <Button onClick={() => addToCart(todaysSpecial.id)} variant="secondary">
+                    <Button onClick={() => handleAddToCart({ id: todaysSpecial.id, name: todaysSpecial.name, price: todaysSpecial.price })} variant="secondary">
                       Add to Cart
                     </Button>
                   </div>
@@ -325,14 +358,14 @@ export default function Menu() {
                           <Button
                             variant="outline"
                             size="sm"
-                            onClick={() => addToCart(item.id)}
+                            onClick={() => handleAddToCart({ id: item.id, name: item.name, price: item.price })}
                             className="flex-1"
                           >
                             +
                           </Button>
                         </>
                       ) : (
-                        <Button onClick={() => addToCart(item.id)} className="w-full">
+                        <Button onClick={() => handleAddToCart({ id: item.id, name: item.name, price: item.price })} className="w-full">
                           Add to Cart
                         </Button>
                       )}
@@ -359,6 +392,20 @@ export default function Menu() {
           </div>
         )}
       </main>
+
+      {/* Modifier Selection Dialog */}
+      {modifierDialogItem && (
+        <ModifierDialog
+          open={!!modifierDialogItem}
+          onClose={() => setModifierDialogItem(null)}
+          menuItemId={modifierDialogItem.id}
+          menuItemName={modifierDialogItem.name}
+          menuItemPrice={modifierDialogItem.price}
+          onConfirm={(selections, extraCents) =>
+            addToCartWithModifiers(modifierDialogItem.id, selections, extraCents)
+          }
+        />
+      )}
     </div>
   );
 }
