@@ -729,7 +729,8 @@ export async function fetchAndStoreTerminalDeviceId(
   const client = new SquareClient({ token: accessToken, environment: SQ_ENV });
   try {
     // List devices — returns Square Terminal devices paired to this account
-    const res = await (client.devices as any).listDevices({});
+    // SDK v44: client.devices.list() (not listDevices)
+    const res = await (client.devices as any).list({});
     const devices: Array<{ id?: string; name?: string; status?: { category?: string } }> =
       res?.devices ?? [];
 

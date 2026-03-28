@@ -1,4 +1,35 @@
 import { useState } from "react";
+
+// ─── Inline sub-component: manual terminal device ID input ───────────────────
+function TerminalDeviceInput({
+  currentDeviceId,
+  onSave,
+  isSaving,
+}: {
+  currentDeviceId: string;
+  onSave: (id: string) => void;
+  isSaving: boolean;
+}) {
+  const [value, setValue] = useState(currentDeviceId);
+  return (
+    <div className="flex gap-2 items-center">
+      <Input
+        placeholder="Paste Square Terminal device ID (e.g. device:ABC123)"
+        value={value}
+        onChange={e => setValue(e.target.value)}
+        className="text-xs font-mono"
+      />
+      <Button
+        size="sm"
+        onClick={() => value.trim() && onSave(value.trim())}
+        disabled={isSaving || !value.trim() || value.trim() === currentDeviceId}
+      >
+        {isSaving ? 'Saving...' : 'Save'}
+      </Button>
+    </div>
+  );
+}
+// ─────────────────────────────────────────────────────────────────────────────
 import { useAuth } from "@/_core/hooks/useAuth";
 import { DndContext, closestCenter, KeyboardSensor, PointerSensor, useSensor, useSensors, DragEndEvent } from '@dnd-kit/core';
 import { SortableContext, sortableKeyboardCoordinates, useSortable, verticalListSortingStrategy, arrayMove } from '@dnd-kit/sortable';
@@ -599,6 +630,13 @@ export default function Admin() {
       } else {
         toast.error('No paired Square Terminal found. Make sure your terminal is paired and online.');
       }
+      refetchSquareConnection();
+    },
+    onError: (error) => toast.error(error.message),
+  });
+  const setTerminalDeviceId = trpc.square.setTerminalDeviceId.useMutation({
+    onSuccess: (result) => {
+      toast.success(`Terminal device ID saved: ${result.deviceId}`);
       refetchSquareConnection();
     },
     onError: (error) => toast.error(error.message),
@@ -1241,32 +1279,47 @@ export default function Admin() {
             {squareConnection?.connected && (
               <Card>
                 <CardHeader>
-                  <div className="flex items-center justify-between">
-                    <div>
-                      <CardTitle className="flex items-center gap-2">
-                        <span className="text-base">🖨️</span> Receipt Printer
-                      </CardTitle>
-                      <CardDescription>
-                        {squareConnection.terminalDeviceId
-                          ? `Terminal linked: ${squareConnection.terminalDeviceId}`
-                          : 'No Square Terminal detected — receipts will not print automatically'}
-                      </CardDescription>
+                  <div className="flex flex-col gap-3">
+                    <div className="flex items-center justify-between">
+                      <div>
+                        <CardTitle className="flex items-center gap-2">
+                          <span className="text-base">🖨️</span> Receipt Printer
+                        </CardTitle>
+                        <CardDescription>
+                          {squareConnection.terminalDeviceId
+                            ? `Terminal linked: ${squareConnection.terminalDeviceId}`
+                            : 'No Square Terminal linked — enter your device ID below or click Detect'}
+                        </CardDescription>
+                      </div>
+                      <Button
+                        size="sm"
+                        variant="outline"
+                        onClick={() => refreshTerminalDevice.mutate()}
+                        disabled={refreshTerminalDevice.isPending}
+                      >
+                        <RefreshCw className={`h-4 w-4 mr-2 ${refreshTerminalDevice.isPending ? 'animate-spin' : ''}`} />
+                        {refreshTerminalDevice.isPending ? 'Detecting...' : 'Auto-Detect'}
+                      </Button>
                     </div>
-                    <Button
-                      size="sm"
-                      variant="outline"
-                      onClick={() => refreshTerminalDevice.mutate()}
-                      disabled={refreshTerminalDevice.isPending}
-                    >
-                      <RefreshCw className={`h-4 w-4 mr-2 ${refreshTerminalDevice.isPending ? 'animate-spin' : ''}`} />
-                      {refreshTerminalDevice.isPending ? 'Detecting...' : 'Detect Terminal'}
-                    </Button>
-                  </div>
-                  {squareConnection.terminalDeviceId && (
-                    <p className="text-xs text-muted-foreground mt-1">
-                      A receipt will be sent to this terminal automatically when each order is placed.
+
+                    {/* Manual device ID input */}
+                    <TerminalDeviceInput
+                      currentDeviceId={squareConnection.terminalDeviceId ?? ''}
+                      onSave={(id) => setTerminalDeviceId.mutate({ deviceId: id })}
+                      isSaving={setTerminalDeviceId.isPending}
+                    />
+
+                    {squareConnection.terminalDeviceId && (
+                      <p className="text-xs text-muted-foreground">
+                        A receipt will be sent to this terminal automatically when each order is placed.
+                      </p>
+                    )}
+
+                    <p className="text-xs text-amber-600 bg-amber-50 rounded p-2">
+                      <strong>Note:</strong> Auto-Detect requires reconnecting Square to grant device permissions.
+                      You can find your device ID in <strong>Square Dashboard → Devices</strong> and paste it below.
                     </p>
-                  )}
+                  </div>
                 </CardHeader>
               </Card>
             )}

@@ -753,3 +753,11 @@
 - [x] Add refreshTerminalDevice tRPC mutation for admin to trigger device auto-discovery
 - [x] Add Receipt Printer card to Admin → Square tab with device ID display and Detect Terminal button
 - [x] All 58 tests passing after changes
+
+## Terminal Device Detection Fix (2026-03-28)
+- [x] Diagnosed: existing token lacks DEVICES_READ scope (connected before scope update)
+- [x] Fixed SDK method name: devices.list() not devices.listDevices()
+- [x] Added setTerminalDeviceId tRPC mutation for manual device ID entry
+- [x] Added TerminalDeviceInput component in Admin → Receipt Printer card
+- [x] Added amber notice: Auto-Detect needs Square reconnect; manual ID from Square Dashboard → Devices
+- [x] All 58 tests passing

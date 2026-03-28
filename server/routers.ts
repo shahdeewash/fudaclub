@@ -19,7 +19,11 @@ import {
   createSquareOrderForPrinting,
   printReceiptOnTerminal,
   fetchAndStoreTerminalDeviceId,
+  getAllSquareConnections,
 } from "./square";
+import { squareConnections } from "../drizzle/schema";
+import { eq } from "drizzle-orm";
+import { getDb } from "./db";
 
 // Helper to extract domain from email
 function extractDomain(email: string): string {
@@ -1434,6 +1438,29 @@ export const appRouter = router({
         terminalDeviceId: conn.terminalDeviceId ?? null,
       };
     }),
+
+    /** Manually set a Square Terminal device ID */
+    setTerminalDeviceId: protectedProcedure
+      .input(z.object({ deviceId: z.string().min(1) }))
+      .mutation(async ({ ctx, input }) => {
+        if (ctx.user.role !== "admin") {
+          throw new TRPCError({ code: "FORBIDDEN" });
+        }
+        const conn = await getSquareConnection(ctx.user.id);
+        if (!conn) {
+          throw new TRPCError({
+            code: "PRECONDITION_FAILED",
+            message: "No Square account connected.",
+          });
+        }
+        const dbInstance = await getDb();
+        if (!dbInstance) throw new TRPCError({ code: "INTERNAL_SERVER_ERROR" });
+        await dbInstance
+          .update(squareConnections)
+          .set({ terminalDeviceId: input.deviceId })
+          .where(eq(squareConnections.id, conn.id));
+        return { deviceId: input.deviceId };
+      }),
 
     /** Auto-discovers and stores the paired Square Terminal device ID */
     refreshTerminalDevice: protectedProcedure.mutation(async ({ ctx }) => {
