@@ -17,6 +17,8 @@ import {
   syncSquareCatalog,
   getMenuItemModifiers,
   createSquareOrderForPrinting,
+  printReceiptOnTerminal,
+  fetchAndStoreTerminalDeviceId,
 } from "./square";
 
 // Helper to extract domain from email
@@ -725,7 +727,7 @@ export const appRouter = router({
           await db.markDailyCreditAsUsed(dailyCredit.id, order.id);
         }
 
-        // Push order to Square for kitchen printing (fire-and-forget)
+        // Push order to Square for kitchen printing + receipt (fire-and-forget)
         createSquareOrderForPrinting(
           order.id,
           order.orderNumber,
@@ -738,7 +740,13 @@ export const appRouter = router({
             modifierNote: i.modifierNote ?? null,
           })),
           input.specialInstructions ?? null
-        ).catch(err => console.error("[Square Orders] Print failed:", err));
+        ).then(squareOrderId => {
+          if (squareOrderId) {
+            // Trigger receipt print on the connected Square Terminal
+            printReceiptOnTerminal(order.id, squareOrderId, total)
+              .catch(err => console.error("[Square Terminal] Receipt print failed:", err));
+          }
+        }).catch(err => console.error("[Square Orders] Print failed:", err));
 
         // Notify owner of new order
         const freeItemsSummary = orderItemsData
@@ -1321,7 +1329,7 @@ export const appRouter = router({
           await db.markDailyCreditAsUsed(dailyCreditRecord.id, order.id);
         }
 
-        // Push order to Square for kitchen printing (fire-and-forget)
+        // Push order to Square for kitchen printing + receipt (fire-and-forget)
         createSquareOrderForPrinting(
           order.id,
           order.orderNumber,
@@ -1334,7 +1342,13 @@ export const appRouter = router({
             modifierNote: (i as any).modifierNote ?? null,
           })),
           specialInstructions ?? null
-        ).catch(err => console.error("[Square Orders] Print failed:", err));
+        ).then(squareOrderId => {
+          if (squareOrderId) {
+            // Trigger receipt print on the connected Square Terminal
+            printReceiptOnTerminal(order.id, squareOrderId, total)
+              .catch(err => console.error("[Square Terminal] Receipt print failed:", err));
+          }
+        }).catch(err => console.error("[Square Orders] Print failed:", err));
 
         // Notify owner of new paid order
         const itemsSummary = orderItemsData
@@ -1411,13 +1425,30 @@ export const appRouter = router({
         throw new TRPCError({ code: "FORBIDDEN" });
       }
       const conn = await getSquareConnection(ctx.user.id);
-      if (!conn) return { connected: false };
+      if (!conn) return { connected: false as const };
       return {
-        connected: true,
+        connected: true as const,
         merchantName: conn.merchantName,
         merchantId: conn.merchantId,
         expiresAt: conn.expiresAt,
+        terminalDeviceId: conn.terminalDeviceId ?? null,
       };
+    }),
+
+    /** Auto-discovers and stores the paired Square Terminal device ID */
+    refreshTerminalDevice: protectedProcedure.mutation(async ({ ctx }) => {
+      if (ctx.user.role !== "admin") {
+        throw new TRPCError({ code: "FORBIDDEN" });
+      }
+      const conn = await getSquareConnection(ctx.user.id);
+      if (!conn) {
+        throw new TRPCError({
+          code: "PRECONDITION_FAILED",
+          message: "No Square account connected.",
+        });
+      }
+      const deviceId = await fetchAndStoreTerminalDeviceId(conn.accessToken, conn.id);
+      return { deviceId };
     }),
 
     /** Disconnects the Square account */

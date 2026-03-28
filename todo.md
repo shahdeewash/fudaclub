@@ -741,3 +741,15 @@
 - [x] Update Admin syncMenu tRPC procedure to sync by parent "Eatfuda"
 - [x] Verified: Eatfuda sync completes successfully — 2 imported, 56 updated, 0 skipped
 - [x] Categories synced: Fuda Combo, COMBO MEAL, Bubble Tea, Momo, 6 MOMO Entree, Special Momo, Entrees, Kebab Wraps, Kebab Mains, Lunch Special, Specials
+
+## Receipt Printing via Square POS (2026-03-28)
+- [x] Audit existing createSquareOrderForPrinting function in square.ts
+- [x] Add terminalDeviceId column to squareConnections table (migration applied)
+- [x] Add fetchAndStoreTerminalDeviceId: auto-discovers paired terminal via Devices API
+- [x] Add printReceiptOnTerminal: creates Square Terminal Checkout linked to Square Order ID
+- [x] Wire receipt print into both daily-credit and Stripe-paid order paths (fire-and-forget)
+- [x] Handle print errors gracefully (non-blocking, logged only)
+- [x] Update Square OAuth scopes to include ORDERS_WRITE, PAYMENTS_WRITE, DEVICE_CREDENTIAL_MANAGEMENT
+- [x] Add refreshTerminalDevice tRPC mutation for admin to trigger device auto-discovery
+- [x] Add Receipt Printer card to Admin → Square tab with device ID display and Detect Terminal button
+- [x] All 58 tests passing after changes

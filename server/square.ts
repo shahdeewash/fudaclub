@@ -32,7 +32,15 @@ const OAUTH_BASE =
 
 /** Build the Square OAuth authorization URL */
 export function buildSquareAuthUrl(redirectUri: string, state: string): string {
-  const scopes = ["ITEMS_READ", "MERCHANT_PROFILE_READ"].join("+");
+  const scopes = [
+    "ITEMS_READ",
+    "MERCHANT_PROFILE_READ",
+    "ORDERS_WRITE",
+    "ORDERS_READ",
+    "PAYMENTS_WRITE",
+    "PAYMENTS_READ",
+    "DEVICE_CREDENTIAL_MANAGEMENT",
+  ].join("+");
   return (
     `${OAUTH_BASE}/oauth2/authorize` +
     `?client_id=${APP_ID}` +
@@ -701,6 +709,127 @@ export async function createSquareOrderForPrinting(
     return squareOrderId;
   } catch (err) {
     console.error("[Square Orders] Failed to create Square order:", err);
+    return null;
+  }
+}
+
+// ─── Square Terminal helpers ─────────────────────────────────────────────────
+
+/**
+ * Fetch the first paired Square Terminal device for this account and store
+ * its device ID in the squareConnections row. Called automatically after
+ * OAuth connect and before each receipt print if no device ID is stored.
+ *
+ * Returns the device ID string, or null if no terminal is paired.
+ */
+export async function fetchAndStoreTerminalDeviceId(
+  accessToken: string,
+  connectionId: number
+): Promise<string | null> {
+  const client = new SquareClient({ token: accessToken, environment: SQ_ENV });
+  try {
+    // List devices — returns Square Terminal devices paired to this account
+    const res = await (client.devices as any).listDevices({});
+    const devices: Array<{ id?: string; name?: string; status?: { category?: string } }> =
+      res?.devices ?? [];
+
+    // Prefer a device whose category is TERMINAL
+    const terminal = devices.find(
+      d => d.status?.category === "TERMINAL" || d.id?.startsWith("device:")
+    ) ?? devices[0];
+
+    if (!terminal?.id) {
+      console.warn("[Square Terminal] No paired terminal device found.");
+      return null;
+    }
+
+    const deviceId = terminal.id;
+    const db = await getDb();
+    if (db) {
+      await db
+        .update(squareConnections)
+        .set({ terminalDeviceId: deviceId })
+        .where(eq(squareConnections.id, connectionId));
+    }
+
+    console.log(`[Square Terminal] Stored device ID: ${deviceId} (${terminal.name ?? "unnamed"})`);
+    return deviceId;
+  } catch (err) {
+    console.error("[Square Terminal] Failed to fetch terminal devices:", err);
+    return null;
+  }
+}
+
+/**
+ * Trigger a receipt print on the connected Square Terminal for a given
+ * Square Order ID. Uses CreateTerminalCheckout with the order_id so the
+ * terminal prints a fully itemised receipt.
+ *
+ * - Non-blocking: errors are logged but never thrown.
+ * - If no terminal device is configured, attempts to auto-discover one first.
+ *
+ * @returns The Square Terminal checkout ID on success, or null on failure.
+ */
+export async function printReceiptOnTerminal(
+  fudaOrderId: number,
+  squareOrderId: string,
+  totalAmountInCents: number
+): Promise<string | null> {
+  const connections = await getAllSquareConnections();
+  if (connections.length === 0) {
+    console.warn("[Square Terminal] No Square connection — skipping receipt print.");
+    return null;
+  }
+
+  const conn = connections[0];
+  if (!conn.accessToken || !conn.locationId) {
+    console.warn("[Square Terminal] Missing accessToken or locationId — skipping receipt print.");
+    return null;
+  }
+
+  // Auto-discover device ID if not stored yet
+  let deviceId = conn.terminalDeviceId ?? null;
+  if (!deviceId) {
+    deviceId = await fetchAndStoreTerminalDeviceId(conn.accessToken, conn.id);
+    if (!deviceId) {
+      console.warn("[Square Terminal] No terminal device ID available — skipping receipt print.");
+      return null;
+    }
+  }
+
+  const client = new SquareClient({ token: conn.accessToken, environment: SQ_ENV });
+  const idempotencyKey = `fuda-receipt-${fudaOrderId}-${Date.now()}`;
+
+  try {
+    const res = await (client.terminal as any).createTerminalCheckout({
+      idempotencyKey,
+      checkout: {
+        amountMoney: {
+          amount: BigInt(totalAmountInCents),
+          currency: "AUD",
+        },
+        orderId: squareOrderId,
+        deviceOptions: {
+          deviceId,
+          showItemizedCart: true,
+          skipReceiptScreen: false, // show receipt options to buyer
+        },
+        note: `FÜDA Order #${fudaOrderId}`,
+        paymentType: "CARD_PRESENT",
+      },
+    });
+
+    const checkoutId = res?.checkout?.id as string | undefined;
+    if (!checkoutId) {
+      console.warn("[Square Terminal] Checkout created but no ID returned:", res);
+      return null;
+    }
+
+    console.log(`[Square Terminal] Receipt checkout ${checkoutId} sent to device ${deviceId} for order ${fudaOrderId}`);
+    return checkoutId;
+  } catch (err: any) {
+    // Log but never throw — receipt printing is best-effort
+    console.error(`[Square Terminal] Failed to create terminal checkout for order ${fudaOrderId}:`, err?.message ?? err);
     return null;
   }
 }

@@ -160,6 +160,7 @@ export const squareConnections = mysqlTable("squareConnections", {
   merchantId: varchar("merchantId", { length: 255 }),
   merchantName: varchar("merchantName", { length: 255 }),
   locationId: varchar("locationId", { length: 255 }),
+  terminalDeviceId: varchar("terminalDeviceId", { length: 255 }), // Square Terminal device ID for receipt printing
   expiresAt: timestamp("expiresAt"),
   createdAt: timestamp("createdAt").defaultNow().notNull(),
   updatedAt: timestamp("updatedAt").defaultNow().onUpdateNow().notNull(),

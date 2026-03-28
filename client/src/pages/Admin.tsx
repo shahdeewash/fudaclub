@@ -592,6 +592,17 @@ export default function Admin() {
     },
     onError: (error) => toast.error(error.message),
   });
+  const refreshTerminalDevice = trpc.square.refreshTerminalDevice.useMutation({
+    onSuccess: (result) => {
+      if (result.deviceId) {
+        toast.success(`Terminal device found: ${result.deviceId}`);
+      } else {
+        toast.error('No paired Square Terminal found. Make sure your terminal is paired and online.');
+      }
+      refetchSquareConnection();
+    },
+    onError: (error) => toast.error(error.message),
+  });
 
   // Closure date management
   const [newClosureDate, setNewClosureDate] = useState("");
@@ -1225,6 +1236,40 @@ export default function Admin() {
                 </div>
               </CardHeader>
             </Card>
+
+            {/* Square Terminal Device */}
+            {squareConnection?.connected && (
+              <Card>
+                <CardHeader>
+                  <div className="flex items-center justify-between">
+                    <div>
+                      <CardTitle className="flex items-center gap-2">
+                        <span className="text-base">🖨️</span> Receipt Printer
+                      </CardTitle>
+                      <CardDescription>
+                        {squareConnection.terminalDeviceId
+                          ? `Terminal linked: ${squareConnection.terminalDeviceId}`
+                          : 'No Square Terminal detected — receipts will not print automatically'}
+                      </CardDescription>
+                    </div>
+                    <Button
+                      size="sm"
+                      variant="outline"
+                      onClick={() => refreshTerminalDevice.mutate()}
+                      disabled={refreshTerminalDevice.isPending}
+                    >
+                      <RefreshCw className={`h-4 w-4 mr-2 ${refreshTerminalDevice.isPending ? 'animate-spin' : ''}`} />
+                      {refreshTerminalDevice.isPending ? 'Detecting...' : 'Detect Terminal'}
+                    </Button>
+                  </div>
+                  {squareConnection.terminalDeviceId && (
+                    <p className="text-xs text-muted-foreground mt-1">
+                      A receipt will be sent to this terminal automatically when each order is placed.
+                    </p>
+                  )}
+                </CardHeader>
+              </Card>
+            )}
 
             <Card>
               <CardHeader>

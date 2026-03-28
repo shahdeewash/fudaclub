@@ -1,0 +1,1 @@
+ALTER TABLE `squareConnections` ADD `terminalDeviceId` varchar(255);

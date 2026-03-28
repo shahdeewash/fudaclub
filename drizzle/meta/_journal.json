@@ -85,6 +85,13 @@
       "when": 1774664609610,
       "tag": "0011_unusual_starbolt",
       "breakpoints": true
+    },
+    {
+      "idx": 12,
+      "version": "5",
+      "when": 1774673125034,
+      "tag": "0012_blue_groot",
+      "breakpoints": true
     }
   ]
 }
