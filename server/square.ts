@@ -173,12 +173,14 @@ type RawCatalogObject = Record<string, unknown>;
  * menuItemModifierLists tables.
  *
  * @param accessToken  Square OAuth access token
- * @param menuName  Name of the Square menu (MENU_CATEGORY) to filter by.
- *                  Default: "FUDA Lunch". Pass null to sync ALL items.
+ * @param menuName  Name(s) of the Square menu(s) (MENU_CATEGORY) to filter by.
+ *                  Pass a string, array of strings, or null to sync ALL items.
+ *                  If a menu is a parent (e.g. "Eatfuda"), all child menus are
+ *                  automatically included. Default: "Eatfuda".
  */
 export async function syncSquareCatalog(
   accessToken: string,
-  menuName: string | null = "FUDA Lunch"
+  menuName: string | string[] | null = "Eatfuda"
 ): Promise<SyncResult> {
   const client = new SquareClient({ token: accessToken, environment: SQ_ENV });
 
@@ -207,61 +209,67 @@ export async function syncSquareCatalog(
     });
   }
 
-  // ── Step 2: Find the FUDA Lunch menu root category ───────────────────────
-  // Square menus are CATEGORY objects with categoryType = "MENU_CATEGORY"
+  // ── Step 2: Resolve menu filter category IDs ─────────────────────────────
+  // Supports: null (all), single string, or array of strings.
+  // For each name, recursively collects the root + ALL descendants so that
+  // adding a new sub-menu under Eatfuda in Square is picked up automatically.
   let filterCategoryIds: string[] = [];
   const catEntries = Array.from(categoryInfoMap.entries());
 
-  if (menuName) {
-    // Find root menu category named menuName (case-insensitive)
-    let rootMenuCategoryId: string | null = null;
+  /** Recursively collect a category ID and all its descendants */
+  function collectDescendants(rootId: string): string[] {
+    const result: string[] = [rootId];
+    for (const [id, info] of catEntries) {
+      if (info.parentId === rootId) {
+        result.push(...collectDescendants(id));
+      }
+    }
+    return result;
+  }
+
+  /** Resolve a single menu name to its category IDs (root + all descendants) */
+  function resolveMenuName(name: string): string[] {
+    const nameLower = name.toLowerCase();
+    // Prefer MENU_CATEGORY match first
     for (const [id, info] of catEntries) {
       if (
-        info.name.toLowerCase() === menuName.toLowerCase() &&
+        info.name.toLowerCase() === nameLower &&
         (info.categoryType === "MENU_CATEGORY" || info.categoryType === "2")
       ) {
-        rootMenuCategoryId = id;
-        break;
+        const ids = collectDescendants(id);
+        console.log(`[Square Sync] Found menu "${name}" (MENU_CATEGORY) with ${ids.length} category IDs`);
+        return ids;
       }
     }
+    // Fallback: any category with that name
+    for (const [id, info] of catEntries) {
+      if (info.name.toLowerCase() === nameLower) {
+        const ids = collectDescendants(id);
+        console.log(`[Square Sync] Matched "${name}" as regular category with ${ids.length} IDs`);
+        return ids;
+      }
+    }
+    console.warn(`[Square Sync] No category named "${name}" found, skipping.`);
+    return [];
+  }
 
-    if (rootMenuCategoryId) {
-      console.log(`[Square Sync] Found menu "${menuName}" with ID: ${rootMenuCategoryId}`);
-      // Collect the root + all child categories under this menu
-      filterCategoryIds = [rootMenuCategoryId];
-      for (const [id, info] of catEntries) {
-        if (info.parentId === rootMenuCategoryId) {
-          filterCategoryIds.push(id);
-        }
+  if (menuName !== null) {
+    const names = Array.isArray(menuName) ? menuName : [menuName];
+    const idSet = new Set<string>();
+    for (const name of names) {
+      for (const id of resolveMenuName(name)) {
+        idSet.add(id);
       }
-      console.log(`[Square Sync] Filtering by ${filterCategoryIds.length} category IDs under "${menuName}"`);
-    } else {
-      // Menu not found — try matching by name against ALL categories (regular or menu)
-      console.warn(`[Square Sync] Menu "${menuName}" not found as MENU_CATEGORY. Trying regular category match...`);
-      for (const [id, info] of catEntries) {
-        if (info.name.toLowerCase() === menuName.toLowerCase()) {
-          filterCategoryIds = [id];
-          // Also include child categories
-          for (const [cid, cinfo] of catEntries) {
-            if (cinfo.parentId === id) filterCategoryIds.push(cid);
-          }
-          console.log(`[Square Sync] Matched "${menuName}" as regular category, using ${filterCategoryIds.length} IDs`);
-          break;
-        }
-      }
-      if (filterCategoryIds.length === 0) {
-        console.warn(`[Square Sync] No category named "${menuName}" found. Syncing all items.`);
-      }
+    }
+    filterCategoryIds = Array.from(idSet);
+    console.log(`[Square Sync] Total filter: ${filterCategoryIds.length} category IDs across ${names.length} menu(s): ${names.join(", ")}`);
+    if (filterCategoryIds.length === 0) {
+      console.warn(`[Square Sync] No matching categories found. Syncing all items.`);
     }
   }
 
-  // ── Step 3: Fetch MODIFIER_LIST and IMAGE objects ────────────────────────
-  const supportingPage = await client.catalog.list({ types: "MODIFIER_LIST,IMAGE" });
-  for await (const obj of supportingPage) {
-    allObjects.push(obj as unknown as RawCatalogObject);
-  }
-
-  // ── Step 4: Fetch ITEM objects — filtered by menu category IDs if found ──
+  // ── Step 3: Fetch ITEM objects — filtered by menu category IDs if found ────
+  const filteredItems: RawCatalogObject[] = [];
   if (filterCategoryIds.length > 0) {
     // Use SearchCatalogItems with category_ids filter
     let cursor: string | undefined;
@@ -273,6 +281,7 @@ export async function syncSquareCatalog(
       });
       const items: RawCatalogObject[] = searchRes.items ?? [];
       for (const item of items) {
+        filteredItems.push(item as RawCatalogObject);
         allObjects.push(item as RawCatalogObject);
       }
       cursor = searchRes.cursor;
@@ -281,7 +290,44 @@ export async function syncSquareCatalog(
     // No filter — fetch all ITEM objects
     const itemPage = await client.catalog.list({ types: "ITEM" });
     for await (const obj of itemPage) {
+      filteredItems.push(obj as unknown as RawCatalogObject);
       allObjects.push(obj as unknown as RawCatalogObject);
+    }
+  }
+
+  // ── Step 4: Fetch only MODIFIER_LISTs referenced by filtered items + IMAGEs ──
+  // Collect the modifier list IDs referenced by our filtered items
+  const neededModifierListIds = new Set<string>();
+  const neededImageIds = new Set<string>();
+  for (const obj of filteredItems) {
+    const itemData = obj.itemData as any;
+    if (itemData?.modifierListInfo) {
+      for (const m of itemData.modifierListInfo) {
+        if (m.modifierListId) neededModifierListIds.add(m.modifierListId);
+      }
+    }
+    if (itemData?.imageIds) {
+      for (const imgId of itemData.imageIds) {
+        neededImageIds.add(imgId);
+      }
+    }
+  }
+
+  // Batch-fetch only the needed modifier lists and images via batchRetrieve
+  const idsToFetch = [...Array.from(neededModifierListIds), ...Array.from(neededImageIds)];
+  if (idsToFetch.length > 0) {
+    const batchSize = 100;
+    for (let i = 0; i < idsToFetch.length; i += batchSize) {
+      const batch = idsToFetch.slice(i, i + batchSize);
+      try {
+        const batchRes = await (client.catalog as any).batchGet({ objectIds: batch });
+        const objs: RawCatalogObject[] = batchRes.objects ?? [];
+        for (const obj of objs) {
+          allObjects.push(obj as RawCatalogObject);
+        }
+      } catch {
+        // If batch fetch fails, skip modifier lists for this sync
+      }
     }
   }
 

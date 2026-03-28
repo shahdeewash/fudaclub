@@ -392,7 +392,8 @@ function scheduleDailySquareSync() {
       let totalUpdated = 0;
       for (const conn of connections) {
         try {
-          const result = await syncSquareCatalog(conn.accessToken);
+          // Sync all menus under "Eatfuda" parent (auto-includes all child menus)
+          const result = await syncSquareCatalog(conn.accessToken, "Eatfuda");
           totalImported += result.imported;
           totalUpdated += result.updated;
           console.log(`[Cron] Square sync for merchant ${conn.merchantId}: ${result.imported} imported, ${result.updated} updated, ${result.skipped} skipped`);

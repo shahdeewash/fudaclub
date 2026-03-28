@@ -1441,7 +1441,8 @@ export const appRouter = router({
           message: "No Square account connected. Please connect Square first.",
         });
       }
-      const result = await syncSquareCatalog(conn.accessToken);
+      // Sync all menus under "Eatfuda" parent (auto-includes all child menus)
+      const result = await syncSquareCatalog(conn.accessToken, "Eatfuda");
       return result;
     }),
   }),

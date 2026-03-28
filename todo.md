@@ -729,3 +729,15 @@
 - [x] Fix Square sync to allow $0-priced items (Bubble Tea has $0 base price in Square)
 - [x] Trigger Square catalog sync targeting "Bubble Tea" menu — 1 item imported (id: 300016)
 - [x] Verify Bubble Tea appears in DB: category "Bubble Tea", isAvailable=true, squareCatalogId=47HW3IFJMDCAGDAHQWFGLIQW
+
+## Samosa Sync (2026-03-28)
+- [x] Samosa is under "Online Menu" → Specials in Square (not under Eatfuda)
+- [x] Covered by Eatfuda parent sync via Specials child category (11 category IDs total)
+
+## Auto-Sync All Eatfuda Menus (2026-03-28)
+- [x] Update syncSquareCatalog to accept parent menu name + recursive child traversal
+- [x] Optimise sync: batch-fetch only modifier lists referenced by filtered items (not all catalog)
+- [x] Update daily cron to sync by parent "Eatfuda" (11 category IDs, all child menus auto-included)
+- [x] Update Admin syncMenu tRPC procedure to sync by parent "Eatfuda"
+- [x] Verified: Eatfuda sync completes successfully — 2 imported, 56 updated, 0 skipped
+- [x] Categories synced: Fuda Combo, COMBO MEAL, Bubble Tea, Momo, 6 MOMO Entree, Special Momo, Entrees, Kebab Wraps, Kebab Mains, Lunch Special, Specials
