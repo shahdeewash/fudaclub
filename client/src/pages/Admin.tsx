@@ -593,6 +593,27 @@ export default function Admin() {
     onError: (error) => toast.error(error.message),
   });
 
+  // Closure date management
+  const [newClosureDate, setNewClosureDate] = useState("");
+  const [newClosureReason, setNewClosureReason] = useState("");
+  const { data: closureDates, refetch: refetchClosures } = trpc.fudaClub.listClosureDates.useQuery(
+    undefined,
+    { enabled: isAuthenticated && user?.role === "admin" }
+  );
+  const addClosure = trpc.fudaClub.addClosureDate.useMutation({
+    onSuccess: () => {
+      toast.success("Closure date added — coins will roll over on this day.");
+      refetchClosures();
+      setNewClosureDate("");
+      setNewClosureReason("");
+    },
+    onError: (err) => toast.error(err.message),
+  });
+  const removeClosure = trpc.fudaClub.removeClosureDate.useMutation({
+    onSuccess: () => { toast.success("Closure date removed."); refetchClosures(); },
+    onError: (err) => toast.error(err.message),
+  });
+
   // Handle Square OAuth callback URL params
   useEffect(() => {
     const params = new URLSearchParams(window.location.search);
@@ -784,6 +805,7 @@ export default function Admin() {
             <TabsTrigger value="orders">All Orders</TabsTrigger>
             <TabsTrigger value="menu">Menu Management</TabsTrigger>
             <TabsTrigger value="specials">Today's Special</TabsTrigger>
+            <TabsTrigger value="closures">Closure Dates</TabsTrigger>
           </TabsList>
 
           {/* Overview Tab */}
@@ -1673,6 +1695,71 @@ export default function Admin() {
                     {setSpecial.isPending ? "Updating..." : "Set Special"}
                   </Button>
                 </div>
+              </CardContent>
+            </Card>
+          </TabsContent>
+
+          {/* Closure Dates Tab */}
+          <TabsContent value="closures" className="space-y-6">
+            <Card>
+              <CardHeader>
+                <CardTitle>FÜDA Closure Dates</CardTitle>
+                <CardDescription>
+                  Mark days when FÜDA is closed. Members' coins will automatically roll over to the next open day instead of expiring.
+                </CardDescription>
+              </CardHeader>
+              <CardContent className="space-y-4">
+                {/* Add new closure date */}
+                <div className="flex flex-col sm:flex-row gap-2">
+                  <Input
+                    type="date"
+                    value={newClosureDate}
+                    onChange={e => setNewClosureDate(e.target.value)}
+                    className="flex-1"
+                    placeholder="YYYY-MM-DD"
+                  />
+                  <Input
+                    value={newClosureReason}
+                    onChange={e => setNewClosureReason(e.target.value)}
+                    placeholder="Reason (optional, e.g. Public Holiday)"
+                    className="flex-1"
+                  />
+                  <Button
+                    onClick={() => addClosure.mutate({ date: newClosureDate, reason: newClosureReason || undefined })}
+                    disabled={!newClosureDate || addClosure.isPending}
+                    className="bg-[#DC2626] hover:bg-[#DC2626]/90 shrink-0"
+                  >
+                    <Plus className="h-4 w-4 mr-1" />
+                    Add Closure
+                  </Button>
+                </div>
+
+                {/* Existing closure dates */}
+                {!closureDates || closureDates.length === 0 ? (
+                  <p className="text-sm text-muted-foreground text-center py-6">No closure dates set. Add dates above to enable coin rollover.</p>
+                ) : (
+                  <div className="space-y-2">
+                    {closureDates.map(c => (
+                      <div key={c.id} className="flex items-center justify-between p-3 rounded-lg border bg-card">
+                        <div>
+                          <span className="font-medium text-sm">
+                            {new Date(c.closureDate).toLocaleDateString("en-AU", { weekday: "long", year: "numeric", month: "long", day: "numeric", timeZone: "UTC" })}
+                          </span>
+                          {c.reason && <p className="text-xs text-muted-foreground mt-0.5">{c.reason}</p>}
+                        </div>
+                        <Button
+                          size="sm"
+                          variant="ghost"
+                          onClick={() => removeClosure.mutate({ id: c.id })}
+                          disabled={removeClosure.isPending}
+                          className="text-destructive hover:text-destructive hover:bg-destructive/10"
+                        >
+                          <Trash2 className="h-4 w-4" />
+                        </Button>
+                      </div>
+                    ))}
+                  </div>
+                )}
               </CardContent>
             </Card>
           </TabsContent>

@@ -78,6 +78,13 @@
       "when": 1774602028636,
       "tag": "0010_classy_ben_grimm",
       "breakpoints": true
+    },
+    {
+      "idx": 11,
+      "version": "5",
+      "when": 1774664609610,
+      "tag": "0011_unusual_starbolt",
+      "breakpoints": true
     }
   ]
 }

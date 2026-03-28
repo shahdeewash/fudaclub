@@ -10,7 +10,7 @@
 
 import { SquareClient, SquareEnvironment } from "square";
 import { getDb } from "./db";
-import { squareConnections, menuItems, modifierLists, modifiers, menuItemModifierLists } from "../drizzle/schema";
+import { squareConnections, menuItems, modifierLists, modifiers, menuItemModifierLists, orders } from "../drizzle/schema";
 import { eq, inArray } from "drizzle-orm";
 
 // ─── Environment ────────────────────────────────────────────────────────────
@@ -171,28 +171,129 @@ type RawCatalogObject = Record<string, unknown>;
  * Pull ITEM + ITEM_VARIATION + CATEGORY + MODIFIER_LIST from Square Catalog API
  * and upsert into the FÜDA menuItems, modifierLists, modifiers, and
  * menuItemModifierLists tables.
+ *
+ * @param accessToken  Square OAuth access token
+ * @param menuName  Name of the Square menu (MENU_CATEGORY) to filter by.
+ *                  Default: "FUDA Lunch". Pass null to sync ALL items.
  */
-export async function syncSquareCatalog(accessToken: string): Promise<SyncResult> {
+export async function syncSquareCatalog(
+  accessToken: string,
+  menuName: string | null = "FUDA Lunch"
+): Promise<SyncResult> {
   const client = new SquareClient({ token: accessToken, environment: SQ_ENV });
 
-  // 1. Fetch all catalog objects (auto-paginates)
+  // ── Step 1: Fetch all CATEGORY objects (includes MENU_CATEGORY) ──────────
   const allObjects: RawCatalogObject[] = [];
-  const page = await client.catalog.list({
-    types: "ITEM,ITEM_VARIATION,CATEGORY,IMAGE,MODIFIER_LIST",
-  });
-  for await (const obj of page) {
+
+  const categoryPage = await client.catalog.list({ types: "CATEGORY" });
+  for await (const obj of categoryPage) {
     allObjects.push(obj as unknown as RawCatalogObject);
   }
 
-  // 2. Build lookup maps
-  const categoryMap = new Map<string, string>(); // squareId → name
-  const imageMap = new Map<string, string>();     // squareId → url
-
+  // Build full category map: squareId → { name, categoryType, parentId }
+  type CatInfo = { name: string; categoryType: string; parentId: string | null };
+  const categoryInfoMap = new Map<string, CatInfo>();
   for (const obj of allObjects) {
-    if (obj.type === "CATEGORY" && obj.id) {
-      const catData = obj.categoryData as { name?: string } | undefined;
-      categoryMap.set(obj.id as string, catData?.name ?? "Other");
+    if (obj.type !== "CATEGORY" || !obj.id) continue;
+    const catData = obj.categoryData as {
+      name?: string;
+      categoryType?: string;
+      parentCategory?: { id?: string };
+    } | undefined;
+    categoryInfoMap.set(obj.id as string, {
+      name: catData?.name ?? "Other",
+      categoryType: catData?.categoryType ?? "REGULAR_CATEGORY",
+      parentId: catData?.parentCategory?.id ?? null,
+    });
+  }
+
+  // ── Step 2: Find the FUDA Lunch menu root category ───────────────────────
+  // Square menus are CATEGORY objects with categoryType = "MENU_CATEGORY"
+  let filterCategoryIds: string[] = [];
+  const catEntries = Array.from(categoryInfoMap.entries());
+
+  if (menuName) {
+    // Find root menu category named menuName (case-insensitive)
+    let rootMenuCategoryId: string | null = null;
+    for (const [id, info] of catEntries) {
+      if (
+        info.name.toLowerCase() === menuName.toLowerCase() &&
+        (info.categoryType === "MENU_CATEGORY" || info.categoryType === "2")
+      ) {
+        rootMenuCategoryId = id;
+        break;
+      }
     }
+
+    if (rootMenuCategoryId) {
+      console.log(`[Square Sync] Found menu "${menuName}" with ID: ${rootMenuCategoryId}`);
+      // Collect the root + all child categories under this menu
+      filterCategoryIds = [rootMenuCategoryId];
+      for (const [id, info] of catEntries) {
+        if (info.parentId === rootMenuCategoryId) {
+          filterCategoryIds.push(id);
+        }
+      }
+      console.log(`[Square Sync] Filtering by ${filterCategoryIds.length} category IDs under "${menuName}"`);
+    } else {
+      // Menu not found — try matching by name against ALL categories (regular or menu)
+      console.warn(`[Square Sync] Menu "${menuName}" not found as MENU_CATEGORY. Trying regular category match...`);
+      for (const [id, info] of catEntries) {
+        if (info.name.toLowerCase() === menuName.toLowerCase()) {
+          filterCategoryIds = [id];
+          // Also include child categories
+          for (const [cid, cinfo] of catEntries) {
+            if (cinfo.parentId === id) filterCategoryIds.push(cid);
+          }
+          console.log(`[Square Sync] Matched "${menuName}" as regular category, using ${filterCategoryIds.length} IDs`);
+          break;
+        }
+      }
+      if (filterCategoryIds.length === 0) {
+        console.warn(`[Square Sync] No category named "${menuName}" found. Syncing all items.`);
+      }
+    }
+  }
+
+  // ── Step 3: Fetch MODIFIER_LIST and IMAGE objects ────────────────────────
+  const supportingPage = await client.catalog.list({ types: "MODIFIER_LIST,IMAGE" });
+  for await (const obj of supportingPage) {
+    allObjects.push(obj as unknown as RawCatalogObject);
+  }
+
+  // ── Step 4: Fetch ITEM objects — filtered by menu category IDs if found ──
+  if (filterCategoryIds.length > 0) {
+    // Use SearchCatalogItems with category_ids filter
+    let cursor: string | undefined;
+    do {
+      const searchRes = await (client.catalog as any).searchItems({
+        categoryIds: filterCategoryIds,
+        limit: 100,
+        cursor,
+      });
+      const items: RawCatalogObject[] = searchRes.items ?? [];
+      for (const item of items) {
+        allObjects.push(item as RawCatalogObject);
+      }
+      cursor = searchRes.cursor;
+    } while (cursor);
+  } else {
+    // No filter — fetch all ITEM objects
+    const itemPage = await client.catalog.list({ types: "ITEM" });
+    for await (const obj of itemPage) {
+      allObjects.push(obj as unknown as RawCatalogObject);
+    }
+  }
+
+  // ── Step 5: Build lookup maps ─────────────────────────────────────────────
+  // Simple name map for item category resolution
+  const categoryMap = new Map<string, string>(); // squareId → name
+  for (const [id, info] of catEntries) {
+    categoryMap.set(id, info.name);
+  }
+
+  const imageMap = new Map<string, string>();     // squareId → url
+  for (const obj of allObjects) {
     if (obj.type === "IMAGE" && obj.id) {
       const imgData = obj.imageData as { url?: string } | undefined;
       if (imgData?.url) imageMap.set(obj.id as string, imgData.url);
@@ -321,6 +422,7 @@ export async function syncSquareCatalog(accessToken: string): Promise<SyncResult
     if (!itemData?.name) { skipped++; continue; }
 
     const firstVariation = itemData.variations?.[0];
+    const squareVariationId = firstVariation?.id as string | undefined;
     const priceMoney = firstVariation?.itemVariationData?.priceMoney;
     const priceInCents = priceMoney?.amount ? Number(priceMoney.amount) : 0;
 
@@ -359,6 +461,7 @@ export async function syncSquareCatalog(accessToken: string): Promise<SyncResult
           category: categoryName,
           price: priceInCents,
           imageUrl: imageUrl ?? undefined,
+          squareVariationId: squareVariationId ?? undefined,
         })
         .where(eq(menuItems.squareCatalogId, squareCatalogId));
       menuItemDbId = existing[0].id;
@@ -366,6 +469,7 @@ export async function syncSquareCatalog(accessToken: string): Promise<SyncResult
     } else {
       const ins = await db.insert(menuItems).values({
         squareCatalogId,
+        squareVariationId: squareVariationId ?? undefined,
         name: itemData.name,
         description: itemData.description ?? null,
         category: categoryName,
@@ -453,4 +557,104 @@ export async function getMenuItemModifiers(menuItemDbId: number) {
         priceInCents: m.priceInCents,
       })),
   }));
+}
+
+// ─── Square Orders API ───────────────────────────────────────────────────────
+
+export interface SquareOrderLineItem {
+  menuItemId: number;
+  itemName: string;
+  quantity: number;
+  unitPriceInCents: number;
+  variationId?: string | null;
+  modifierNote?: string | null;
+}
+
+/**
+ * Push a FÜDA order to Square Orders API so it prints to the kitchen printer.
+ *
+ * - Uses the first Square connection found (admin's connected account).
+ * - Requires `squareVariationId` on menu items (populated by syncSquareCatalog).
+ * - Items without a variationId are sent as ad-hoc line items with a custom name.
+ * - Returns the Square Order ID on success, or null if no Square connection exists.
+ */
+export async function createSquareOrderForPrinting(
+  fudaOrderId: number,
+  fudaOrderNumber: string,
+  lineItems: SquareOrderLineItem[],
+  specialInstructions?: string | null
+): Promise<string | null> {
+  const db = await getDb();
+  if (!db) return null;
+
+  // Get any active Square connection
+  const connections = await getAllSquareConnections();
+  if (connections.length === 0) {
+    console.warn("[Square Orders] No Square connection found — skipping kitchen print.");
+    return null;
+  }
+
+  const conn = connections[0];
+  if (!conn.accessToken || !conn.locationId) {
+    console.warn("[Square Orders] Missing accessToken or locationId — skipping kitchen print.");
+    return null;
+  }
+
+  const client = new SquareClient({ token: conn.accessToken, environment: SQ_ENV });
+
+  // Build Square line items
+  const squareLineItems = lineItems.map(item => {
+    const baseItem: Record<string, unknown> = {
+      quantity: item.quantity.toString(),
+      basePriceMoney: {
+        amount: BigInt(item.unitPriceInCents),
+        currency: "AUD",
+      },
+      note: item.modifierNote ?? undefined,
+    };
+
+    if (item.variationId) {
+      // Catalog-linked item — Square will look up the name from the catalog
+      baseItem.catalogObjectId = item.variationId;
+    } else {
+      // Ad-hoc item — provide name manually
+      baseItem.name = item.itemName;
+    }
+
+    return baseItem;
+  });
+
+  const idempotencyKey = `fuda-${fudaOrderId}-${Date.now()}`;
+
+  try {
+    const response = await (client.orders as any).create({
+      order: {
+        locationId: conn.locationId,
+        referenceId: fudaOrderNumber,
+        lineItems: squareLineItems,
+        ...(specialInstructions
+          ? { metadata: { specialInstructions } }
+          : {}),
+      },
+      idempotencyKey,
+    });
+
+    const squareOrderId = response?.order?.id as string | undefined;
+    if (!squareOrderId) {
+      console.warn("[Square Orders] Order created but no ID returned:", response);
+      return null;
+    }
+
+    // Persist the Square Order ID on the FÜDA order record
+    await db
+      .update(orders)
+      .set({ squareOrderId })
+      .where(eq(orders.id, fudaOrderId));
+
+    console.log(`[Square Orders] Order ${fudaOrderNumber} pushed to Square as ${squareOrderId}`);
+    return squareOrderId;
+  } catch (err) {
+    console.error("[Square Orders] Failed to create Square order:", err);
+    return null;
+  }
 }

@@ -715,3 +715,12 @@
 - [x] Update Admin.tsx header to remove corporate references (FÜDA Admin Panel)
 - [x] Update SubscriptionSuccess.tsx to remove corporate references
 - [x] Remove all "Corporate Lunch" and "$270" strings from UI
+
+## Square Sync Fix & Order Printing (2026-03-28)
+- [x] Fix Square sync to filter by "FUDA Lunch" catalog name only (menuName param already supported)
+- [x] Implement order printing via Square after order placement (Square Orders API createSquareOrderForPrinting)
+- [x] Wire Square order printing into both daily-credit and Stripe-paid order creation paths
+- [x] Admin: Closure Dates tab — add/remove FÜDA closure dates with reason
+- [x] FÜDA Club dashboard: show upcoming closure dates notice (coins roll over on these days)
+- [x] Fix closure date comparison in daily coin cron to use Date objects (not strings)
+- [x] All 58 tests passing after changes

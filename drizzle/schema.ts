@@ -67,6 +67,7 @@ export type InsertSubscription = typeof subscriptions.$inferInsert;
 export const menuItems = mysqlTable("menuItems", {
   id: int("id").autoincrement().primaryKey(),
   squareCatalogId: varchar("squareCatalogId", { length: 255 }).unique(),
+  squareVariationId: varchar("squareVariationId", { length: 255 }),  // Square ITEM_VARIATION ID for Orders API
   name: varchar("name", { length: 255 }).notNull(),
   description: text("description"),
   category: varchar("category", { length: 100 }),

@@ -1,0 +1,1 @@
+ALTER TABLE `menuItems` ADD `squareVariationId` varchar(255);

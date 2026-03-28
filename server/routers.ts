@@ -16,6 +16,7 @@ import {
   deleteSquareConnection,
   syncSquareCatalog,
   getMenuItemModifiers,
+  createSquareOrderForPrinting,
 } from "./square";
 
 // Helper to extract domain from email
@@ -724,6 +725,21 @@ export const appRouter = router({
           await db.markDailyCreditAsUsed(dailyCredit.id, order.id);
         }
 
+        // Push order to Square for kitchen printing (fire-and-forget)
+        createSquareOrderForPrinting(
+          order.id,
+          order.orderNumber,
+          orderItemsData.map(i => ({
+            menuItemId: i.menuItemId,
+            itemName: i.itemName,
+            quantity: i.quantity,
+            unitPriceInCents: i.unitPrice,
+            variationId: menuItemMap.get(i.menuItemId)?.squareVariationId ?? null,
+            modifierNote: i.modifierNote ?? null,
+          })),
+          input.specialInstructions ?? null
+        ).catch(err => console.error("[Square Orders] Print failed:", err));
+
         // Notify owner of new order
         const freeItemsSummary = orderItemsData
           .map(i => `${i.quantity}x ${i.itemName}${i.isFree ? " (free credit)" : ""}`)
@@ -1304,6 +1320,21 @@ export const appRouter = router({
         if (canUseCredit) {
           await db.markDailyCreditAsUsed(dailyCreditRecord.id, order.id);
         }
+
+        // Push order to Square for kitchen printing (fire-and-forget)
+        createSquareOrderForPrinting(
+          order.id,
+          order.orderNumber,
+          orderItemsData.map(i => ({
+            menuItemId: i.menuItemId,
+            itemName: i.itemName,
+            quantity: i.quantity,
+            unitPriceInCents: i.unitPrice,
+            variationId: menuItemMap.get(i.menuItemId)?.squareVariationId ?? null,
+            modifierNote: (i as any).modifierNote ?? null,
+          })),
+          specialInstructions ?? null
+        ).catch(err => console.error("[Square Orders] Print failed:", err));
 
         // Notify owner of new paid order
         const itemsSummary = orderItemsData

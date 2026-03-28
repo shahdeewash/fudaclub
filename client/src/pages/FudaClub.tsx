@@ -166,6 +166,7 @@ function ClubDashboard() {
 
   const { data: status, isLoading } = trpc.fudaClub.getStatus.useQuery();
   const { data: coinHistory } = trpc.fudaClub.getCoinHistory.useQuery();
+  const { data: upcomingClosures } = trpc.fudaClub.getUpcomingClosures.useQuery();
 
   const [venueName, setVenueName] = useState("");
   const [venueAddress, setVenueAddress] = useState("");
@@ -257,6 +258,31 @@ function ClubDashboard() {
         </div>
         <CoinBadge count={availableCoins} />
       </div>
+
+      {/* Upcoming closure notice */}
+      {upcomingClosures && upcomingClosures.length > 0 && (
+        <Card className="border-blue-200 bg-blue-50">
+          <CardContent className="pt-4 pb-4">
+            <div className="flex items-start gap-3">
+              <div className="p-2 rounded-full bg-blue-100 shrink-0">
+                <Calendar className="h-4 w-4 text-blue-600" />
+              </div>
+              <div>
+                <p className="font-medium text-sm text-blue-800">Upcoming FÜDA Closures</p>
+                <p className="text-xs text-blue-600 mt-0.5">Your coins will roll over on these days.</p>
+                <ul className="mt-2 space-y-0.5">
+                  {upcomingClosures.map(c => (
+                    <li key={c.id} className="text-xs text-blue-700">
+                      {new Date(c.closureDate).toLocaleDateString("en-AU", { weekday: "short", month: "short", day: "numeric", timeZone: "UTC" })}
+                      {c.reason ? ` — ${c.reason}` : ""}
+                    </li>
+                  ))}
+                </ul>
+              </div>
+            </div>
+          </CardContent>
+        </Card>
+      )}
 
       {/* Today's coin status */}
       <Card className={availableCoins > 0 ? "border-amber-300 bg-amber-50" : "border-muted"}>

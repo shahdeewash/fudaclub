@@ -9,9 +9,10 @@ import { getDb } from "../db";
 import {
   fudaClubSubscriptions,
   fudaCoins,
+  fudaClosureDates,
   users,
 } from "../../drizzle/schema";
-import { eq, and, gt, desc } from "drizzle-orm";
+import { eq, and, gt, desc, gte, lte } from "drizzle-orm";
 import Stripe from "stripe";
 import { FUDA_CLUB } from "../stripe-products";
 import { nanoid } from "nanoid";
@@ -596,6 +597,62 @@ export const fudaClubRouter = router({
 
       return { orderId: null, orderNumber: null, requiresPayment: true, checkoutUrl: session.url };
     }),
+
+  // ─── Closure Date Management (admin only) ────────────────────────────────
+
+  /** List all FÜDA closure dates */
+  listClosureDates: protectedProcedure.query(async ({ ctx }) => {
+    if (ctx.user.role !== "admin") throw new TRPCError({ code: "FORBIDDEN" });
+    const db = await getDb();
+    if (!db) return [];
+    return db
+      .select()
+      .from(fudaClosureDates)
+      .orderBy(desc(fudaClosureDates.closureDate));
+  }),
+
+  /** Add a closure date (YYYY-MM-DD in Darwin time) */
+  addClosureDate: protectedProcedure
+    .input(z.object({ date: z.string().regex(/^\d{4}-\d{2}-\d{2}$/), reason: z.string().max(255).optional() }))
+    .mutation(async ({ ctx, input }) => {
+      if (ctx.user.role !== "admin") throw new TRPCError({ code: "FORBIDDEN" });
+      const db = await getDb();
+      if (!db) throw new TRPCError({ code: "INTERNAL_SERVER_ERROR" });
+      // Parse YYYY-MM-DD string into a Date (midnight UTC)
+      const [y, m, d] = input.date.split("-").map(Number);
+      const dateObj = new Date(Date.UTC(y, m - 1, d));
+      await db
+        .insert(fudaClosureDates)
+        .values({ closureDate: dateObj, reason: input.reason ?? null })
+        .onDuplicateKeyUpdate({ set: { reason: input.reason ?? null } });
+      return { success: true };
+    }),
+
+  /** Remove a closure date */
+  removeClosureDate: protectedProcedure
+    .input(z.object({ id: z.number() }))
+    .mutation(async ({ ctx, input }) => {
+      if (ctx.user.role !== "admin") throw new TRPCError({ code: "FORBIDDEN" });
+      const db = await getDb();
+      if (!db) throw new TRPCError({ code: "INTERNAL_SERVER_ERROR" });
+      await db.delete(fudaClosureDates).where(eq(fudaClosureDates.id, input.id));
+      return { success: true };
+    }),
+
+  /** Get upcoming closure dates (next 30 days) — public so customers can see */
+  getUpcomingClosures: protectedProcedure.query(async () => {
+    const db = await getDb();
+    if (!db) return [];
+    const todayStr = new Date().toLocaleDateString("en-CA", { timeZone: "Australia/Darwin" });
+    const [ty, tm, td] = todayStr.split("-").map(Number);
+    const todayDate = new Date(Date.UTC(ty, tm - 1, td));
+    const in30DaysDate = new Date(todayDate.getTime() + 30 * 86400000);
+    return db
+      .select()
+      .from(fudaClosureDates)
+      .where(and(gte(fudaClosureDates.closureDate, todayDate), lte(fudaClosureDates.closureDate, in30DaysDate)))
+      .orderBy(fudaClosureDates.closureDate);
+  }),
 });
 
 // ─── checkout helpers ─────────────────────────────────────────────────────────

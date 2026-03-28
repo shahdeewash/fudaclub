@@ -453,10 +453,12 @@ function scheduleDailyFudaCoins() {
       }
 
       // Check if FÜDA is closed today
+      const [ty, tm, td] = nowDarwin.split("-").map(Number);
+      const todayDateUTC = new Date(Date.UTC(ty, tm - 1, td));
       const [closure] = await dbInstance
         .select()
         .from(fudaClosureDates)
-        .where(eq(fudaClosureDates.closureDate, nowDarwin as any))
+        .where(eq(fudaClosureDates.closureDate, todayDateUTC))
         .limit(1);
 
       if (closure) {
