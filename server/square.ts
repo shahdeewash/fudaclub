@@ -426,7 +426,7 @@ export async function syncSquareCatalog(
     const priceMoney = firstVariation?.itemVariationData?.priceMoney;
     const priceInCents = priceMoney?.amount ? Number(priceMoney.amount) : 0;
 
-    if (priceInCents === 0) { skipped++; continue; }
+    // Allow $0 items (e.g. Bubble Tea with price set in Square modifiers/add-ons)
 
     // Resolve category
     let categoryName = "Other";

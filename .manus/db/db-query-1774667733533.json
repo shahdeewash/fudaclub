@@ -1,0 +1,110 @@
+{
+  "query": "SELECT id, name, category, price, isAvailable, squareCatalogId, squareVariationId, imageUrl FROM menuItems WHERE category = 'Bubble Tea' OR name LIKE '%Bubble%' OR name LIKE '%Tea%' ORDER BY id DESC LIMIT 10;",
+  "command": "mysql --batch --raw --column-names --default-character-set=utf8mb4 --host gateway02.us-east-1.prod.aws.tidbcloud.com --port 4000 --user 26Zg4bMSKinv2hB.b060407587d5 --database Y3xsU4JPingL5a2iZMTuYr --execute SELECT id, name, category, price, isAvailable, squareCatalogId, squareVariationId, imageUrl FROM menuItems WHERE category = 'Bubble Tea' OR name LIKE '%Bubble%' OR name LIKE '%Tea%' ORDER BY id DESC LIMIT 10;",
+  "rows": [
+    {
+      "id": "300016",
+      "name": "Bubble Tea",
+      "category": "Bubble Tea",
+      "price": "0",
+      "isAvailable": "1",
+      "squareCatalogId": "47HW3IFJMDCAGDAHQWFGLIQW",
+      "squareVariationId": "4XJ2VTOORHQYLD2VQF2JX4OU",
+      "imageUrl": "NULL"
+    },
+    {
+      "id": "210453",
+      "name": "#4 Mixed Grill Bubble",
+      "category": "Fuda Combo",
+      "price": "3490",
+      "isAvailable": "1",
+      "squareCatalogId": "HXGK6BIJOP7DPQCEM677R5V7",
+      "squareVariationId": "5VOPFRQW7JPNWS4XK66HU376",
+      "imageUrl": "NULL"
+    },
+    {
+      "id": "210452",
+      "name": "#3 Kebab Plate Bubble",
+      "category": "Fuda Combo",
+      "price": "2790",
+      "isAvailable": "1",
+      "squareCatalogId": "TFJ5C5VYDQ2QUBGS2HM2WRHH",
+      "squareVariationId": "TWJ43Q4WM35EJHF5HUHEVQZP",
+      "imageUrl": "NULL"
+    },
+    {
+      "id": "210451",
+      "name": "#2 Wrap Bubble Meal",
+      "category": "Fuda Combo",
+      "price": "2490",
+      "isAvailable": "1",
+      "squareCatalogId": "D4AWFVLNW7MNNI3OW2YLXLKR",
+      "squareVariationId": "UFTWAIGFXMYYIFHWUESNVUIR",
+      "imageUrl": "NULL"
+    },
+    {
+      "id": "210450",
+      "name": "#1 Momo Bubble Meal",
+      "category": "Fuda Combo",
+      "price": "2590",
+      "isAvailable": "1",
+      "squareCatalogId": "UAEABN22PATBCVNWFBL4CGCU",
+      "squareVariationId": "4PU7XMYWZU3L4MIFNZUFXBZN",
+      "imageUrl": "NULL"
+    },
+    {
+      "id": "210419",
+      "name": "ANY $22.99 KEBAB MAIN + BUBBLE TEA",
+      "category": "COMBO MEAL",
+      "price": "2990",
+      "isAvailable": "0",
+      "squareCatalogId": "VDP4VZLCJEB2FRM5LCTUF4L6",
+      "squareVariationId": "HYDSYFQXDAADBHXXDSWCIT37",
+      "imageUrl": "NULL"
+    },
+    {
+      "id": "210417",
+      "name": "ANY 21.99 KEBAB MAIN + BUBBLE TEA",
+      "category": "COMBO MEAL",
+      "price": "2890",
+      "isAvailable": "0",
+      "squareCatalogId": "SCALOB5RSXEADBQG7JERWAX3",
+      "squareVariationId": "7VFP55VUCDF5A4F5Y5K5HPWQ",
+      "imageUrl": "NULL"
+    },
+    {
+      "id": "210416",
+      "name": "ANY WRAP + BUBBLE TEA",
+      "category": "COMBO MEAL",
+      "price": "2590",
+      "isAvailable": "0",
+      "squareCatalogId": "7VXSUXEKEIN7CQSLUGNPKBJE",
+      "squareVariationId": "7CPQ66XRLZ23RZ4SUFNPHKIF",
+      "imageUrl": "NULL"
+    },
+    {
+      "id": "210415",
+      "name": "CHICKEN DONER WRAP + BUBBLE TEA",
+      "category": "COMBO MEAL",
+      "price": "2499",
+      "isAvailable": "0",
+      "squareCatalogId": "EG7ZUHMQB3X2YQDQLHNXHSHU",
+      "squareVariationId": "FJBI3IMU2K4VAPS6MFCSWGIY",
+      "imageUrl": "NULL"
+    },
+    {
+      "id": "210414",
+      "name": "BUFF MOMO + BUBBLE TEA",
+      "category": "COMBO MEAL",
+      "price": "2690",
+      "isAvailable": "0",
+      "squareCatalogId": "L2Y6IXMJWCHZJHJ4W3AYY4UR",
+      "squareVariationId": "RO7RDKDGRDUUW3FQJ25IJ2MA",
+      "imageUrl": "NULL"
+    }
+  ],
+  "messages": [],
+  "stdout": "id\tname\tcategory\tprice\tisAvailable\tsquareCatalogId\tsquareVariationId\timageUrl\n300016\tBubble Tea\tBubble Tea\t0\t1\t47HW3IFJMDCAGDAHQWFGLIQW\t4XJ2VTOORHQYLD2VQF2JX4OU\tNULL\n210453\t#4 Mixed Grill Bubble\tFuda Combo\t3490\t1\tHXGK6BIJOP7DPQCEM677R5V7\t5VOPFRQW7JPNWS4XK66HU376\tNULL\n210452\t#3 Kebab Plate Bubble\tFuda Combo\t2790\t1\tTFJ5C5VYDQ2QUBGS2HM2WRHH\tTWJ43Q4WM35EJHF5HUHEVQZP\tNULL\n210451\t#2 Wrap Bubble Meal\tFuda Combo\t2490\t1\tD4AWFVLNW7MNNI3OW2YLXLKR\tUFTWAIGFXMYYIFHWUESNVUIR\tNULL\n210450\t#1 Momo Bubble Meal\tFuda Combo\t2590\t1\tUAEABN22PATBCVNWFBL4CGCU\t4PU7XMYWZU3L4MIFNZUFXBZN\tNULL\n210419\tANY $22.99 KEBAB MAIN + BUBBLE TEA\tCOMBO MEAL\t2990\t0\tVDP4VZLCJEB2FRM5LCTUF4L6\tHYDSYFQXDAADBHXXDSWCIT37\tNULL\n210417\tANY 21.99 KEBAB MAIN + BUBBLE TEA\tCOMBO MEAL\t2890\t0\tSCALOB5RSXEADBQG7JERWAX3\t7VFP55VUCDF5A4F5Y5K5HPWQ\tNULL\n210416\tANY WRAP + BUBBLE TEA\tCOMBO MEAL\t2590\t0\t7VXSUXEKEIN7CQSLUGNPKBJE\t7CPQ66XRLZ23RZ4SUFNPHKIF\tNULL\n210415\tCHICKEN DONER WRAP + BUBBLE TEA\tCOMBO MEAL\t2499\t0\tEG7ZUHMQB3X2YQDQLHNXHSHU\tFJBI3IMU2K4VAPS6MFCSWGIY\tNULL\n210414\tBUFF MOMO + BUBBLE TEA\tCOMBO MEAL\t2690\t0\tL2Y6IXMJWCHZJHJ4W3AYY4UR\tRO7RDKDGRDUUW3FQJ25IJ2MA\tNULL\n",
+  "stderr": "",
+  "execution_time_ms": 1742
+}

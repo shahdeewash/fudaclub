@@ -724,3 +724,8 @@
 - [x] FÜDA Club dashboard: show upcoming closure dates notice (coins roll over on these days)
 - [x] Fix closure date comparison in daily coin cron to use Date objects (not strings)
 - [x] All 58 tests passing after changes
+
+## Bubble Tea Sync (2026-03-28)
+- [x] Fix Square sync to allow $0-priced items (Bubble Tea has $0 base price in Square)
+- [x] Trigger Square catalog sync targeting "Bubble Tea" menu — 1 item imported (id: 300016)
+- [x] Verify Bubble Tea appears in DB: category "Bubble Tea", isAvailable=true, squareCatalogId=47HW3IFJMDCAGDAHQWFGLIQW
