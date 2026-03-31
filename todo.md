@@ -777,3 +777,6 @@
 - [x] Upload 49 dish photos to CDN (webdev-static-assets/fuda-menu)
 - [x] Match all 49 photos to menu items by filename and update imageUrl in DB
 - [ ] Missing 7 photos not provided: salted-caramel-machhiato-boba, spanish-latte-boba, tiramisu-cream-coffee-boba, samosa, snack-pack, sprite-can, piccolo
+
+## Homepage Hero Tagline Fix (2026-03-31)
+- [x] Updated all 3 occurrences of "first fortnight" → "first week" in Home.tsx (hero tagline, plan card, how-it-works step)
