@@ -761,3 +761,19 @@
 - [x] Added TerminalDeviceInput component in Admin → Receipt Printer card
 - [x] Added amber notice: Auto-Detect needs Square reconnect; manual ID from Square Dashboard → Devices
 - [x] All 58 tests passing
+
+## Square Printer Profile Wiring (2026-03-29)
+- [ ] Fetch "FUDA Lunch" printer profile ID from Square API
+- [ ] Store printer profile ID in squareConnections table
+- [ ] Wire printer profile ID into createSquareOrderForPrinting so orders route to correct printer
+- [ ] Test end-to-end: place order → Square Order created → auto-prints on Epson TM-T82
+
+## Subscription Pricing Update (2026-03-31)
+- [x] Update FudaClub.tsx pricing label from "first fortnight" → "first week"
+- [x] Update stripe-products.ts trialDays from 14 → 7 (first week, then $180/fortnight)
+- [x] Pricing confirmed: $80 first week, then $180 per fortnight
+
+## Dish Photo Upload (2026-03-31)
+- [x] Upload 49 dish photos to CDN (webdev-static-assets/fuda-menu)
+- [x] Match all 49 photos to menu items by filename and update imageUrl in DB
+- [ ] Missing 7 photos not provided: salted-caramel-machhiato-boba, spanish-latte-boba, tiramisu-cream-coffee-boba, samosa, snack-pack, sprite-can, piccolo

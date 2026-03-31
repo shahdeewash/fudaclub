@@ -1,0 +1,300 @@
+{
+  "query": "SELECT id, name, category FROM menuItems ORDER BY category, name LIMIT 100 OFFSET 60;",
+  "command": "mysql --batch --raw --column-names --default-character-set=utf8mb4 --host gateway02.us-east-1.prod.aws.tidbcloud.com --port 4000 --user 26Zg4bMSKinv2hB.b060407587d5 --database Y3xsU4JPingL5a2iZMTuYr --execute SELECT id, name, category FROM menuItems ORDER BY category, name LIMIT 100 OFFSET 60;",
+  "rows": [
+    {
+      "id": "210452",
+      "name": "#3 Kebab Plate Bubble",
+      "category": "Fuda Combo"
+    },
+    {
+      "id": "210453",
+      "name": "#4 Mixed Grill Bubble",
+      "category": "Fuda Combo"
+    },
+    {
+      "id": "210454",
+      "name": "#5 Dinner For two",
+      "category": "Fuda Combo"
+    },
+    {
+      "id": "210455",
+      "name": "#6 Family Feast",
+      "category": "Fuda Combo"
+    },
+    {
+      "id": "210458",
+      "name": "Momo Monday",
+      "category": "FÜDA Week Day Deal"
+    },
+    {
+      "id": "210461",
+      "name": "THU (MOMO) — STAFF & STUDENT FAVES (ID)",
+      "category": "FÜDA Week Day Deal"
+    },
+    {
+      "id": "210462",
+      "name": "THU (WRAP) — STAFF & STUDENT FAVES (ID) REQUIRED",
+      "category": "FÜDA Week Day Deal"
+    },
+    {
+      "id": "210459",
+      "name": "Tuesday Turiksh Kebab day",
+      "category": "FÜDA Week Day Deal"
+    },
+    {
+      "id": "210460",
+      "name": "WED- WRAP WEDNESDAY",
+      "category": "FÜDA Week Day Deal"
+    },
+    {
+      "id": "210475",
+      "name": "Ice Chocolate",
+      "category": "Ice Coffee"
+    },
+    {
+      "id": "210473",
+      "name": "Ice Latte",
+      "category": "Ice Coffee"
+    },
+    {
+      "id": "210474",
+      "name": "Ice Long Black",
+      "category": "Ice Coffee"
+    },
+    {
+      "id": "210373",
+      "name": "Chicken Kebab",
+      "category": "Kebab Mains"
+    },
+    {
+      "id": "210403",
+      "name": "chicken Shish Kebab",
+      "category": "Kebab Mains"
+    },
+    {
+      "id": "210439",
+      "name": "Doner main",
+      "category": "Kebab Mains"
+    },
+    {
+      "id": "210438",
+      "name": "Iskender kebab",
+      "category": "Kebab Mains"
+    },
+    {
+      "id": "210441",
+      "name": "Kofta main",
+      "category": "Kebab Mains"
+    },
+    {
+      "id": "210375",
+      "name": "Lamb Kebab",
+      "category": "Kebab Mains"
+    },
+    {
+      "id": "210422",
+      "name": "Lamb Kofta",
+      "category": "Kebab Mains"
+    },
+    {
+      "id": "210440",
+      "name": "Lamb Meatball with Rice",
+      "category": "Kebab Mains"
+    },
+    {
+      "id": "210423",
+      "name": "Lamb meatball with rice Bowl",
+      "category": "Kebab Mains"
+    },
+    {
+      "id": "210376",
+      "name": "Lamb Shish Kebab",
+      "category": "Kebab Mains"
+    },
+    {
+      "id": "210430",
+      "name": "Lamb Sish",
+      "category": "Kebab Mains"
+    },
+    {
+      "id": "210407",
+      "name": "Mixed Grill Kebab",
+      "category": "Kebab Mains"
+    },
+    {
+      "id": "210368",
+      "name": "Chicken Doner Wrap",
+      "category": "Kebab Wraps"
+    },
+    {
+      "id": "210367",
+      "name": "Chicken Shish Wrap",
+      "category": "Kebab Wraps"
+    },
+    {
+      "id": "210437",
+      "name": "Falafel and Haloumi Wrap",
+      "category": "Kebab Wraps"
+    },
+    {
+      "id": "210402",
+      "name": "Kofta Wrap",
+      "category": "Kebab Wraps"
+    },
+    {
+      "id": "210371",
+      "name": "Lamb Doner Wrap",
+      "category": "Kebab Wraps"
+    },
+    {
+      "id": "210424",
+      "name": "Lamb Shish Wrap",
+      "category": "Kebab Wraps"
+    },
+    {
+      "id": "210433",
+      "name": "Lunch Special",
+      "category": "Lunch Special"
+    },
+    {
+      "id": "210334",
+      "name": "Buff Momo",
+      "category": "Momo"
+    },
+    {
+      "id": "210480",
+      "name": "Chicken Momo",
+      "category": "Momo"
+    },
+    {
+      "id": "210333",
+      "name": "Chicken Momo",
+      "category": "Momo"
+    },
+    {
+      "id": "210335",
+      "name": "Paneer Momo",
+      "category": "Momo"
+    },
+    {
+      "id": "210444",
+      "name": "Vegan Momo",
+      "category": "Momo"
+    },
+    {
+      "id": "210481",
+      "name": "vegetable momo",
+      "category": "Momo"
+    },
+    {
+      "id": "210434",
+      "name": "vegetarian Momo",
+      "category": "Momo"
+    },
+    {
+      "id": "210476",
+      "name": "Snack Pack",
+      "category": "Snack Pack"
+    },
+    {
+      "id": "210384",
+      "name": "Buff Momo Platter",
+      "category": "Special Momo"
+    },
+    {
+      "id": "210380",
+      "name": "Cabbage Momo (6pcs)",
+      "category": "Special Momo"
+    },
+    {
+      "id": "210382",
+      "name": "Chicken Momo Platter",
+      "category": "Special Momo"
+    },
+    {
+      "id": "210381",
+      "name": "Chocolate Momo (2pcs)",
+      "category": "Special Momo"
+    },
+    {
+      "id": "330001",
+      "name": "Lhaphing",
+      "category": "Special Momo"
+    },
+    {
+      "id": "210383",
+      "name": "Paneer Momo Platter",
+      "category": "Special Momo"
+    },
+    {
+      "id": "210477",
+      "name": "Kids Nuggets Meal",
+      "category": "Specials"
+    },
+    {
+      "id": "210491",
+      "name": "Lhaphing",
+      "category": "Specials"
+    },
+    {
+      "id": "330002",
+      "name": "Momo Lunch Special",
+      "category": "Specials"
+    },
+    {
+      "id": "360003",
+      "name": "Test Dish",
+      "category": "Test"
+    },
+    {
+      "id": "360008",
+      "name": "Test Dish",
+      "category": "Test"
+    },
+    {
+      "id": "360007",
+      "name": "Test Dish",
+      "category": "Test"
+    },
+    {
+      "id": "330010",
+      "name": "Test Dish",
+      "category": "Test"
+    },
+    {
+      "id": "330003",
+      "name": "Test Dish",
+      "category": "Test"
+    },
+    {
+      "id": "360001",
+      "name": "Test Dish",
+      "category": "Test"
+    },
+    {
+      "id": "330009",
+      "name": "Test Dish",
+      "category": "Test"
+    },
+    {
+      "id": "330008",
+      "name": "Test Dish",
+      "category": "Test"
+    },
+    {
+      "id": "360006",
+      "name": "Test Dish",
+      "category": "Test"
+    },
+    {
+      "id": "330005",
+      "name": "Test Dish",
+      "category": "Test"
+    }
+  ],
+  "messages": [],
+  "stdout": "id\tname\tcategory\n210452\t#3 Kebab Plate Bubble\tFuda Combo\n210453\t#4 Mixed Grill Bubble\tFuda Combo\n210454\t#5 Dinner For two\tFuda Combo\n210455\t#6 Family Feast\tFuda Combo\n210458\tMomo Monday\tFÜDA Week Day Deal\n210461\tTHU (MOMO) — STAFF & STUDENT FAVES (ID)\tFÜDA Week Day Deal\n210462\tTHU (WRAP) — STAFF & STUDENT FAVES (ID) REQUIRED\tFÜDA Week Day Deal\n210459\tTuesday Turiksh Kebab day\tFÜDA Week Day Deal\n210460\tWED- WRAP WEDNESDAY\tFÜDA Week Day Deal\n210475\tIce Chocolate\tIce Coffee\n210473\tIce Latte\tIce Coffee\n210474\tIce Long Black\tIce Coffee\n210373\tChicken Kebab\tKebab Mains\n210403\tchicken Shish Kebab\tKebab Mains\n210439\tDoner main\tKebab Mains\n210438\tIskender kebab\tKebab Mains\n210441\tKofta main\tKebab Mains\n210375\tLamb Kebab\tKebab Mains\n210422\tLamb Kofta\tKebab Mains\n210440\tLamb Meatball with Rice\tKebab Mains\n210423\tLamb meatball with rice Bowl\tKebab Mains\n210376\tLamb Shish Kebab\tKebab Mains\n210430\tLamb Sish\tKebab Mains\n210407\tMixed Grill Kebab\tKebab Mains\n210368\tChicken Doner Wrap\tKebab Wraps\n210367\tChicken Shish Wrap\tKebab Wraps\n210437\tFalafel and Haloumi Wrap\tKebab Wraps\n210402\tKofta Wrap\tKebab Wraps\n210371\tLamb Doner Wrap\tKebab Wraps\n210424\tLamb Shish Wrap\tKebab Wraps\n210433\tLunch Special\tLunch Special\n210334\tBuff Momo\tMomo\n210480\tChicken Momo\tMomo\n210333\tChicken Momo\tMomo\n210335\tPaneer Momo\tMomo\n210444\tVegan Momo\tMomo\n210481\tvegetable momo\tMomo\n210434\tvegetarian Momo\tMomo\n210476\tSnack Pack\tSnack Pack\n210384\tBuff Momo Platter\tSpecial Momo\n210380\tCabbage Momo (6pcs)\tSpecial Momo\n210382\tChicken Momo Platter\tSpecial Momo\n210381\tChocolate Momo (2pcs)\tSpecial Momo\n330001\tLhaphing\tSpecial Momo\n210383\tPaneer Momo Platter\tSpecial Momo\n210477\tKids Nuggets Meal\tSpecials\n210491\tLhaphing\tSpecials\n330002\tMomo Lunch Special\tSpecials\n360003\tTest Dish\tTest\n360008\tTest Dish\tTest\n360007\tTest Dish\tTest\n330010\tTest Dish\tTest\n330003\tTest Dish\tTest\n360001\tTest Dish\tTest\n330009\tTest Dish\tTest\n330008\tTest Dish\tTest\n360006\tTest Dish\tTest\n330005\tTest Dish\tTest\n",
+  "stderr": "",
+  "execution_time_ms": 1519
+}

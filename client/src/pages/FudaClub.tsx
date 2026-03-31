@@ -101,7 +101,7 @@ function JoinCard() {
             <span className="text-5xl font-bold">$80</span>
             <div className="text-muted-foreground pb-1">
               <div className="text-sm line-through">$90</div>
-              <div className="text-sm">first fortnight</div>
+              <div className="text-sm">first week</div>
             </div>
           </div>
           <p className="text-sm text-muted-foreground">Then $180 per fortnight</p>

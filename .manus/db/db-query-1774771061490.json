@@ -1,0 +1,15 @@
+{
+  "query": "SELECT id, merchantId, terminalDeviceId FROM squareConnections LIMIT 5;",
+  "command": "mysql --batch --raw --column-names --default-character-set=utf8mb4 --host gateway02.us-east-1.prod.aws.tidbcloud.com --port 4000 --user 26Zg4bMSKinv2hB.b060407587d5 --database Y3xsU4JPingL5a2iZMTuYr --execute SELECT id, merchantId, terminalDeviceId FROM squareConnections LIMIT 5;",
+  "rows": [
+    {
+      "id": "30002",
+      "merchantId": "MLMSYK18WQFHR",
+      "terminalDeviceId": "527CS134A9000406"
+    }
+  ],
+  "messages": [],
+  "stdout": "id\tmerchantId\tterminalDeviceId\n30002\tMLMSYK18WQFHR\t527CS134A9000406\n",
+  "stderr": "",
+  "execution_time_ms": 1493
+}

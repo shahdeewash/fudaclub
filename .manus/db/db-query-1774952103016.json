@@ -1,0 +1,718 @@
+{
+  "query": "SELECT id, name, category, imageUrl FROM menuItems ORDER BY category, name;",
+  "command": "mysql --batch --raw --column-names --default-character-set=utf8mb4 --host gateway02.us-east-1.prod.aws.tidbcloud.com --port 4000 --user 26Zg4bMSKinv2hB.b060407587d5 --database Y3xsU4JPingL5a2iZMTuYr --execute SELECT id, name, category, imageUrl FROM menuItems ORDER BY category, name;",
+  "rows": [
+    {
+      "id": "210379",
+      "name": "Buff Momo (6pcs)",
+      "category": "6 MOMO Entree",
+      "imageUrl": "NULL"
+    },
+    {
+      "id": "210377",
+      "name": "Chicken Momo (6pcs)",
+      "category": "6 MOMO Entree",
+      "imageUrl": "NULL"
+    },
+    {
+      "id": "210378",
+      "name": "Paneer Momo (6pcs)",
+      "category": "6 MOMO Entree",
+      "imageUrl": "NULL"
+    },
+    {
+      "id": "210443",
+      "name": "Vegan Momo 6 pcs",
+      "category": "6 MOMO Entree",
+      "imageUrl": "NULL"
+    },
+    {
+      "id": "210435",
+      "name": "vegetarian Momo 6",
+      "category": "6 MOMO Entree",
+      "imageUrl": "NULL"
+    },
+    {
+      "id": "210343",
+      "name": "Bottle of water 500ml",
+      "category": "Beverages",
+      "imageUrl": "NULL"
+    },
+    {
+      "id": "210340",
+      "name": "Coca-Cola 600ml",
+      "category": "Beverages",
+      "imageUrl": "NULL"
+    },
+    {
+      "id": "210362",
+      "name": "Coca-Cola Can",
+      "category": "Beverages",
+      "imageUrl": "NULL"
+    },
+    {
+      "id": "210341",
+      "name": "Coca-Cola Zero Sugar 600ml",
+      "category": "Beverages",
+      "imageUrl": "NULL"
+    },
+    {
+      "id": "210361",
+      "name": "Coca-Cola Zero Sugar Can",
+      "category": "Beverages",
+      "imageUrl": "NULL"
+    },
+    {
+      "id": "210445",
+      "name": "Fanta Orange Can",
+      "category": "Beverages",
+      "imageUrl": "NULL"
+    },
+    {
+      "id": "210357",
+      "name": "Fuze Lemon & Black Tea",
+      "category": "Beverages",
+      "imageUrl": "NULL"
+    },
+    {
+      "id": "210356",
+      "name": "Fuze Mango & Green Tea",
+      "category": "Beverages",
+      "imageUrl": "NULL"
+    },
+    {
+      "id": "210355",
+      "name": "Fuze Peach & Black Tea 500ml",
+      "category": "Beverages",
+      "imageUrl": "NULL"
+    },
+    {
+      "id": "210364",
+      "name": "Keri Evday Apple 350ml",
+      "category": "Beverages",
+      "imageUrl": "NULL"
+    },
+    {
+      "id": "210363",
+      "name": "Keri Gold Orange 350ml",
+      "category": "Beverages",
+      "imageUrl": "NULL"
+    },
+    {
+      "id": "210447",
+      "name": "Lemonade Can",
+      "category": "Beverages",
+      "imageUrl": "NULL"
+    },
+    {
+      "id": "210344",
+      "name": "Pump 750ml Berry",
+      "category": "Beverages",
+      "imageUrl": "NULL"
+    },
+    {
+      "id": "210446",
+      "name": "Sprite Can",
+      "category": "Beverages",
+      "imageUrl": "NULL"
+    },
+    {
+      "id": "210388",
+      "name": "Mocha Jelly Boba",
+      "category": "Bubble Coffee",
+      "imageUrl": "NULL"
+    },
+    {
+      "id": "210389",
+      "name": "Salted Caramel Machhiato Boba",
+      "category": "Bubble Coffee",
+      "imageUrl": "NULL"
+    },
+    {
+      "id": "210386",
+      "name": "Spanish Latte Boba",
+      "category": "Bubble Coffee",
+      "imageUrl": "NULL"
+    },
+    {
+      "id": "210387",
+      "name": "Tiramisu Cream Coffee Boba",
+      "category": "Bubble Coffee",
+      "imageUrl": "NULL"
+    },
+    {
+      "id": "210385",
+      "name": "Vietnamese Boba Coffee",
+      "category": "Bubble Coffee",
+      "imageUrl": "NULL"
+    },
+    {
+      "id": "300016",
+      "name": "Bubble Tea",
+      "category": "Bubble Tea",
+      "imageUrl": "NULL"
+    },
+    {
+      "id": "210464",
+      "name": "Cappucino",
+      "category": "Coffee",
+      "imageUrl": "https://items-images-production.s3.us-west-2.amazonaws.com/files/db0db1ba46987fc91c4f697a04b96b3abc36e3e1/original.png"
+    },
+    {
+      "id": "210469",
+      "name": "Chai Latte",
+      "category": "Coffee",
+      "imageUrl": "https://items-images-production.s3.us-west-2.amazonaws.com/files/95d2fa1dfbaba746ca33931c2cbc54c4dca64073/original.png"
+    },
+    {
+      "id": "210468",
+      "name": "Dirty Chai Latte",
+      "category": "Coffee",
+      "imageUrl": "https://items-images-production.s3.us-west-2.amazonaws.com/files/95d2fa1dfbaba746ca33931c2cbc54c4dca64073/original.png"
+    },
+    {
+      "id": "210466",
+      "name": "Flat White",
+      "category": "Coffee",
+      "imageUrl": "NULL"
+    },
+    {
+      "id": "210470",
+      "name": "Hot Chocolate",
+      "category": "Coffee",
+      "imageUrl": "https://items-images-production.s3.us-west-2.amazonaws.com/files/9d7d09c3294db80bdd838c164777b1dce1d57ffa/original.png"
+    },
+    {
+      "id": "210465",
+      "name": "Latte",
+      "category": "Coffee",
+      "imageUrl": "https://items-images-production.s3.us-west-2.amazonaws.com/files/b7a17fcc244ec487613c0bb26178205d3749f696/original.png"
+    },
+    {
+      "id": "210472",
+      "name": "Long Black",
+      "category": "Coffee",
+      "imageUrl": "NULL"
+    },
+    {
+      "id": "210471",
+      "name": "Macchiato",
+      "category": "Coffee",
+      "imageUrl": "https://items-images-production.s3.us-west-2.amazonaws.com/files/ce6964557ab35beeb89e4f2485ab4940b7a5c278/original.png"
+    },
+    {
+      "id": "210467",
+      "name": "Mocha",
+      "category": "Coffee",
+      "imageUrl": "https://items-images-production.s3.us-west-2.amazonaws.com/files/02403be347a263456dba81c622ef58b49d484216/original.png"
+    },
+    {
+      "id": "210419",
+      "name": "ANY $22.99 KEBAB MAIN + BUBBLE TEA",
+      "category": "COMBO MEAL",
+      "imageUrl": "NULL"
+    },
+    {
+      "id": "210417",
+      "name": "ANY 21.99 KEBAB MAIN + BUBBLE TEA",
+      "category": "COMBO MEAL",
+      "imageUrl": "NULL"
+    },
+    {
+      "id": "210416",
+      "name": "ANY WRAP + BUBBLE TEA",
+      "category": "COMBO MEAL",
+      "imageUrl": "NULL"
+    },
+    {
+      "id": "210414",
+      "name": "BUFF MOMO + BUBBLE TEA",
+      "category": "COMBO MEAL",
+      "imageUrl": "NULL"
+    },
+    {
+      "id": "210415",
+      "name": "CHICKEN DONER WRAP + BUBBLE TEA",
+      "category": "COMBO MEAL",
+      "imageUrl": "NULL"
+    },
+    {
+      "id": "210412",
+      "name": "CHICKEN MOMO + BUBBLE TEA",
+      "category": "COMBO MEAL",
+      "imageUrl": "NULL"
+    },
+    {
+      "id": "210413",
+      "name": "PANEER MOMO + BUBBLE TEA",
+      "category": "COMBO MEAL",
+      "imageUrl": "NULL"
+    },
+    {
+      "id": "210392",
+      "name": "Calamansi Green Freeze",
+      "category": "Darwin Weather Menu",
+      "imageUrl": "NULL"
+    },
+    {
+      "id": "210393",
+      "name": "Mango Pineapple Swirl",
+      "category": "Darwin Weather Menu",
+      "imageUrl": "NULL"
+    },
+    {
+      "id": "210394",
+      "name": "Monsoon Masala Chai",
+      "category": "Darwin Weather Menu",
+      "imageUrl": "NULL"
+    },
+    {
+      "id": "210395",
+      "name": "Salty Lychee Lime Cooler",
+      "category": "Darwin Weather Menu",
+      "imageUrl": "NULL"
+    },
+    {
+      "id": "210497",
+      "name": "2  Momo Special Chicken",
+      "category": "Deals",
+      "imageUrl": "NULL"
+    },
+    {
+      "id": "210498",
+      "name": "2 Lhaphing Special",
+      "category": "Deals",
+      "imageUrl": "NULL"
+    },
+    {
+      "id": "210496",
+      "name": "3 Momo Special Chicken",
+      "category": "Deals",
+      "imageUrl": "NULL"
+    },
+    {
+      "id": "210495",
+      "name": "Momo Special Chicken",
+      "category": "Deals",
+      "imageUrl": "NULL"
+    },
+    {
+      "id": "210408",
+      "name": "Carrot Dip",
+      "category": "Entrees",
+      "imageUrl": "NULL"
+    },
+    {
+      "id": "210427",
+      "name": "Chicken Spring Roll",
+      "category": "Entrees",
+      "imageUrl": "NULL"
+    },
+    {
+      "id": "210365",
+      "name": "Hummus with Pita Bread",
+      "category": "Entrees",
+      "imageUrl": "NULL"
+    },
+    {
+      "id": "210426",
+      "name": "Lamb Spring Roll",
+      "category": "Entrees",
+      "imageUrl": "NULL"
+    },
+    {
+      "id": "210442",
+      "name": "Mediterranean Salad",
+      "category": "Entrees",
+      "imageUrl": "NULL"
+    },
+    {
+      "id": "210448",
+      "name": "Pita Bread",
+      "category": "Entrees",
+      "imageUrl": "NULL"
+    },
+    {
+      "id": "210425",
+      "name": "Spinach and Fetta Spring Roll",
+      "category": "Entrees",
+      "imageUrl": "NULL"
+    },
+    {
+      "id": "210409",
+      "name": "Trio of Dip",
+      "category": "Entrees",
+      "imageUrl": "NULL"
+    },
+    {
+      "id": "210366",
+      "name": "Tzatziki with Pita Bread",
+      "category": "Entrees",
+      "imageUrl": "NULL"
+    },
+    {
+      "id": "210450",
+      "name": "#1 Momo Bubble Meal",
+      "category": "Fuda Combo",
+      "imageUrl": "NULL"
+    },
+    {
+      "id": "210451",
+      "name": "#2 Wrap Bubble Meal",
+      "category": "Fuda Combo",
+      "imageUrl": "NULL"
+    },
+    {
+      "id": "210452",
+      "name": "#3 Kebab Plate Bubble",
+      "category": "Fuda Combo",
+      "imageUrl": "NULL"
+    },
+    {
+      "id": "210453",
+      "name": "#4 Mixed Grill Bubble",
+      "category": "Fuda Combo",
+      "imageUrl": "NULL"
+    },
+    {
+      "id": "210454",
+      "name": "#5 Dinner For two",
+      "category": "Fuda Combo",
+      "imageUrl": "NULL"
+    },
+    {
+      "id": "210455",
+      "name": "#6 Family Feast",
+      "category": "Fuda Combo",
+      "imageUrl": "NULL"
+    },
+    {
+      "id": "210458",
+      "name": "Momo Monday",
+      "category": "FÜDA Week Day Deal",
+      "imageUrl": "NULL"
+    },
+    {
+      "id": "210461",
+      "name": "THU (MOMO) — STAFF & STUDENT FAVES (ID)",
+      "category": "FÜDA Week Day Deal",
+      "imageUrl": "NULL"
+    },
+    {
+      "id": "210462",
+      "name": "THU (WRAP) — STAFF & STUDENT FAVES (ID) REQUIRED",
+      "category": "FÜDA Week Day Deal",
+      "imageUrl": "NULL"
+    },
+    {
+      "id": "210459",
+      "name": "Tuesday Turiksh Kebab day",
+      "category": "FÜDA Week Day Deal",
+      "imageUrl": "NULL"
+    },
+    {
+      "id": "210460",
+      "name": "WED- WRAP WEDNESDAY",
+      "category": "FÜDA Week Day Deal",
+      "imageUrl": "NULL"
+    },
+    {
+      "id": "210475",
+      "name": "Ice Chocolate",
+      "category": "Ice Coffee",
+      "imageUrl": "NULL"
+    },
+    {
+      "id": "210473",
+      "name": "Ice Latte",
+      "category": "Ice Coffee",
+      "imageUrl": "https://items-images-production.s3.us-west-2.amazonaws.com/files/60fb4dbda6ffccecbcb0d74feb5ad469ccb12756/original.png"
+    },
+    {
+      "id": "210474",
+      "name": "Ice Long Black",
+      "category": "Ice Coffee",
+      "imageUrl": "NULL"
+    },
+    {
+      "id": "210373",
+      "name": "Chicken Kebab",
+      "category": "Kebab Mains",
+      "imageUrl": "NULL"
+    },
+    {
+      "id": "210403",
+      "name": "chicken Shish Kebab",
+      "category": "Kebab Mains",
+      "imageUrl": "NULL"
+    },
+    {
+      "id": "210439",
+      "name": "Doner main",
+      "category": "Kebab Mains",
+      "imageUrl": "NULL"
+    },
+    {
+      "id": "210438",
+      "name": "Iskender kebab",
+      "category": "Kebab Mains",
+      "imageUrl": "NULL"
+    },
+    {
+      "id": "210441",
+      "name": "Kofta main",
+      "category": "Kebab Mains",
+      "imageUrl": "NULL"
+    },
+    {
+      "id": "210375",
+      "name": "Lamb Kebab",
+      "category": "Kebab Mains",
+      "imageUrl": "NULL"
+    },
+    {
+      "id": "210422",
+      "name": "Lamb Kofta",
+      "category": "Kebab Mains",
+      "imageUrl": "NULL"
+    },
+    {
+      "id": "210440",
+      "name": "Lamb Meatball with Rice",
+      "category": "Kebab Mains",
+      "imageUrl": "NULL"
+    },
+    {
+      "id": "210423",
+      "name": "Lamb meatball with rice Bowl",
+      "category": "Kebab Mains",
+      "imageUrl": "NULL"
+    },
+    {
+      "id": "210376",
+      "name": "Lamb Shish Kebab",
+      "category": "Kebab Mains",
+      "imageUrl": "NULL"
+    },
+    {
+      "id": "210430",
+      "name": "Lamb Sish",
+      "category": "Kebab Mains",
+      "imageUrl": "NULL"
+    },
+    {
+      "id": "210407",
+      "name": "Mixed Grill Kebab",
+      "category": "Kebab Mains",
+      "imageUrl": "NULL"
+    },
+    {
+      "id": "210368",
+      "name": "Chicken Doner Wrap",
+      "category": "Kebab Wraps",
+      "imageUrl": "NULL"
+    },
+    {
+      "id": "210367",
+      "name": "Chicken Shish Wrap",
+      "category": "Kebab Wraps",
+      "imageUrl": "NULL"
+    },
+    {
+      "id": "210437",
+      "name": "Falafel and Haloumi Wrap",
+      "category": "Kebab Wraps",
+      "imageUrl": "NULL"
+    },
+    {
+      "id": "210402",
+      "name": "Kofta Wrap",
+      "category": "Kebab Wraps",
+      "imageUrl": "NULL"
+    },
+    {
+      "id": "210371",
+      "name": "Lamb Doner Wrap",
+      "category": "Kebab Wraps",
+      "imageUrl": "NULL"
+    },
+    {
+      "id": "210424",
+      "name": "Lamb Shish Wrap",
+      "category": "Kebab Wraps",
+      "imageUrl": "NULL"
+    },
+    {
+      "id": "210433",
+      "name": "Lunch Special",
+      "category": "Lunch Special",
+      "imageUrl": "NULL"
+    },
+    {
+      "id": "210334",
+      "name": "Buff Momo",
+      "category": "Momo",
+      "imageUrl": "NULL"
+    },
+    {
+      "id": "210333",
+      "name": "Chicken Momo",
+      "category": "Momo",
+      "imageUrl": "NULL"
+    },
+    {
+      "id": "210480",
+      "name": "Chicken Momo",
+      "category": "Momo",
+      "imageUrl": "NULL"
+    },
+    {
+      "id": "210335",
+      "name": "Paneer Momo",
+      "category": "Momo",
+      "imageUrl": "NULL"
+    },
+    {
+      "id": "210444",
+      "name": "Vegan Momo",
+      "category": "Momo",
+      "imageUrl": "NULL"
+    },
+    {
+      "id": "210481",
+      "name": "vegetable momo",
+      "category": "Momo",
+      "imageUrl": "NULL"
+    },
+    {
+      "id": "210434",
+      "name": "vegetarian Momo",
+      "category": "Momo",
+      "imageUrl": "NULL"
+    },
+    {
+      "id": "210476",
+      "name": "Snack Pack",
+      "category": "Snack Pack",
+      "imageUrl": "NULL"
+    },
+    {
+      "id": "210384",
+      "name": "Buff Momo Platter",
+      "category": "Special Momo",
+      "imageUrl": "NULL"
+    },
+    {
+      "id": "210380",
+      "name": "Cabbage Momo (6pcs)",
+      "category": "Special Momo",
+      "imageUrl": "NULL"
+    },
+    {
+      "id": "210382",
+      "name": "Chicken Momo Platter",
+      "category": "Special Momo",
+      "imageUrl": "NULL"
+    },
+    {
+      "id": "210381",
+      "name": "Chocolate Momo (2pcs)",
+      "category": "Special Momo",
+      "imageUrl": "NULL"
+    },
+    {
+      "id": "330001",
+      "name": "Lhaphing",
+      "category": "Special Momo",
+      "imageUrl": "NULL"
+    },
+    {
+      "id": "210383",
+      "name": "Paneer Momo Platter",
+      "category": "Special Momo",
+      "imageUrl": "NULL"
+    },
+    {
+      "id": "210477",
+      "name": "Kids Nuggets Meal",
+      "category": "Specials",
+      "imageUrl": "NULL"
+    },
+    {
+      "id": "210491",
+      "name": "Lhaphing",
+      "category": "Specials",
+      "imageUrl": "NULL"
+    },
+    {
+      "id": "330002",
+      "name": "Momo Lunch Special",
+      "category": "Specials",
+      "imageUrl": "NULL"
+    },
+    {
+      "id": "330003",
+      "name": "Test Dish",
+      "category": "Test",
+      "imageUrl": "NULL"
+    },
+    {
+      "id": "330005",
+      "name": "Test Dish",
+      "category": "Test",
+      "imageUrl": "NULL"
+    },
+    {
+      "id": "330008",
+      "name": "Test Dish",
+      "category": "Test",
+      "imageUrl": "NULL"
+    },
+    {
+      "id": "330009",
+      "name": "Test Dish",
+      "category": "Test",
+      "imageUrl": "NULL"
+    },
+    {
+      "id": "330010",
+      "name": "Test Dish",
+      "category": "Test",
+      "imageUrl": "NULL"
+    },
+    {
+      "id": "360001",
+      "name": "Test Dish",
+      "category": "Test",
+      "imageUrl": "NULL"
+    },
+    {
+      "id": "360003",
+      "name": "Test Dish",
+      "category": "Test",
+      "imageUrl": "NULL"
+    },
+    {
+      "id": "360006",
+      "name": "Test Dish",
+      "category": "Test",
+      "imageUrl": "NULL"
+    },
+    {
+      "id": "360007",
+      "name": "Test Dish",
+      "category": "Test",
+      "imageUrl": "NULL"
+    },
+    {
+      "id": "360008",
+      "name": "Test Dish",
+      "category": "Test",
+      "imageUrl": "NULL"
+    }
+  ],
+  "messages": [],
+  "stdout": "id\tname\tcategory\timageUrl\n210379\tBuff Momo (6pcs)\t6 MOMO Entree\tNULL\n210377\tChicken Momo (6pcs)\t6 MOMO Entree\tNULL\n210378\tPaneer Momo (6pcs)\t6 MOMO Entree\tNULL\n210443\tVegan Momo 6 pcs\t6 MOMO Entree\tNULL\n210435\tvegetarian Momo 6\t6 MOMO Entree\tNULL\n210343\tBottle of water 500ml\tBeverages\tNULL\n210340\tCoca-Cola 600ml\tBeverages\tNULL\n210362\tCoca-Cola Can\tBeverages\tNULL\n210341\tCoca-Cola Zero Sugar 600ml\tBeverages\tNULL\n210361\tCoca-Cola Zero Sugar Can\tBeverages\tNULL\n210445\tFanta Orange Can\tBeverages\tNULL\n210357\tFuze Lemon & Black Tea\tBeverages\tNULL\n210356\tFuze Mango & Green Tea\tBeverages\tNULL\n210355\tFuze Peach & Black Tea 500ml\tBeverages\tNULL\n210364\tKeri Evday Apple 350ml\tBeverages\tNULL\n210363\tKeri Gold Orange 350ml\tBeverages\tNULL\n210447\tLemonade Can\tBeverages\tNULL\n210344\tPump 750ml Berry\tBeverages\tNULL\n210446\tSprite Can\tBeverages\tNULL\n210388\tMocha Jelly Boba\tBubble Coffee\tNULL\n210389\tSalted Caramel Machhiato Boba\tBubble Coffee\tNULL\n210386\tSpanish Latte Boba\tBubble Coffee\tNULL\n210387\tTiramisu Cream Coffee Boba\tBubble Coffee\tNULL\n210385\tVietnamese Boba Coffee\tBubble Coffee\tNULL\n300016\tBubble Tea\tBubble Tea\tNULL\n210464\tCappucino\tCoffee\thttps://items-images-production.s3.us-west-2.amazonaws.com/files/db0db1ba46987fc91c4f697a04b96b3abc36e3e1/original.png\n210469\tChai Latte\tCoffee\thttps://items-images-production.s3.us-west-2.amazonaws.com/files/95d2fa1dfbaba746ca33931c2cbc54c4dca64073/original.png\n210468\tDirty Chai Latte\tCoffee\thttps://items-images-production.s3.us-west-2.amazonaws.com/files/95d2fa1dfbaba746ca33931c2cbc54c4dca64073/original.png\n210466\tFlat White\tCoffee\tNULL\n210470\tHot Chocolate\tCoffee\thttps://items-images-production.s3.us-west-2.amazonaws.com/files/9d7d09c3294db80bdd838c164777b1dce1d57ffa/original.png\n210465\tLatte\tCoffee\thttps://items-images-production.s3.us-west-2.amazonaws.com/files/b7a17fcc244ec487613c0bb26178205d3749f696/original.png\n210472\tLong Black\tCoffee\tNULL\n210471\tMacchiato\tCoffee\thttps://items-images-production.s3.us-west-2.amazonaws.com/files/ce6964557ab35beeb89e4f2485ab4940b7a5c278/original.png\n210467\tMocha\tCoffee\thttps://items-images-production.s3.us-west-2.amazonaws.com/files/02403be347a263456dba81c622ef58b49d484216/original.png\n210419\tANY $22.99 KEBAB MAIN + BUBBLE TEA\tCOMBO MEAL\tNULL\n210417\tANY 21.99 KEBAB MAIN + BUBBLE TEA\tCOMBO MEAL\tNULL\n210416\tANY WRAP + BUBBLE TEA\tCOMBO MEAL\tNULL\n210414\tBUFF MOMO + BUBBLE TEA\tCOMBO MEAL\tNULL\n210415\tCHICKEN DONER WRAP + BUBBLE TEA\tCOMBO MEAL\tNULL\n210412\tCHICKEN MOMO + BUBBLE TEA\tCOMBO MEAL\tNULL\n210413\tPANEER MOMO + BUBBLE TEA\tCOMBO MEAL\tNULL\n210392\tCalamansi Green Freeze\tDarwin Weather Menu\tNULL\n210393\tMango Pineapple Swirl\tDarwin Weather Menu\tNULL\n210394\tMonsoon Masala Chai\tDarwin Weather Menu\tNULL\n210395\tSalty Lychee Lime Cooler\tDarwin Weather Menu\tNULL\n210497\t2  Momo Special Chicken\tDeals\tNULL\n210498\t2 Lhaphing Special\tDeals\tNULL\n210496\t3 Momo Special Chicken\tDeals\tNULL\n210495\tMomo Special Chicken\tDeals\tNULL\n210408\tCarrot Dip\tEntrees\tNULL\n210427\tChicken Spring Roll\tEntrees\tNULL\n210365\tHummus with Pita Bread\tEntrees\tNULL\n210426\tLamb Spring Roll\tEntrees\tNULL\n210442\tMediterranean Salad\tEntrees\tNULL\n210448\tPita Bread\tEntrees\tNULL\n210425\tSpinach and Fetta Spring Roll\tEntrees\tNULL\n210409\tTrio of Dip\tEntrees\tNULL\n210366\tTzatziki with Pita Bread\tEntrees\tNULL\n210450\t#1 Momo Bubble Meal\tFuda Combo\tNULL\n210451\t#2 Wrap Bubble Meal\tFuda Combo\tNULL\n210452\t#3 Kebab Plate Bubble\tFuda Combo\tNULL\n210453\t#4 Mixed Grill Bubble\tFuda Combo\tNULL\n210454\t#5 Dinner For two\tFuda Combo\tNULL\n210455\t#6 Family Feast\tFuda Combo\tNULL\n210458\tMomo Monday\tFÜDA Week Day Deal\tNULL\n210461\tTHU (MOMO) — STAFF & STUDENT FAVES (ID)\tFÜDA Week Day Deal\tNULL\n210462\tTHU (WRAP) — STAFF & STUDENT FAVES (ID) REQUIRED\tFÜDA Week Day Deal\tNULL\n210459\tTuesday Turiksh Kebab day\tFÜDA Week Day Deal\tNULL\n210460\tWED- WRAP WEDNESDAY\tFÜDA Week Day Deal\tNULL\n210475\tIce Chocolate\tIce Coffee\tNULL\n210473\tIce Latte\tIce Coffee\thttps://items-images-production.s3.us-west-2.amazonaws.com/files/60fb4dbda6ffccecbcb0d74feb5ad469ccb12756/original.png\n210474\tIce Long Black\tIce Coffee\tNULL\n210373\tChicken Kebab\tKebab Mains\tNULL\n210403\tchicken Shish Kebab\tKebab Mains\tNULL\n210439\tDoner main\tKebab Mains\tNULL\n210438\tIskender kebab\tKebab Mains\tNULL\n210441\tKofta main\tKebab Mains\tNULL\n210375\tLamb Kebab\tKebab Mains\tNULL\n210422\tLamb Kofta\tKebab Mains\tNULL\n210440\tLamb Meatball with Rice\tKebab Mains\tNULL\n210423\tLamb meatball with rice Bowl\tKebab Mains\tNULL\n210376\tLamb Shish Kebab\tKebab Mains\tNULL\n210430\tLamb Sish\tKebab Mains\tNULL\n210407\tMixed Grill Kebab\tKebab Mains\tNULL\n210368\tChicken Doner Wrap\tKebab Wraps\tNULL\n210367\tChicken Shish Wrap\tKebab Wraps\tNULL\n210437\tFalafel and Haloumi Wrap\tKebab Wraps\tNULL\n210402\tKofta Wrap\tKebab Wraps\tNULL\n210371\tLamb Doner Wrap\tKebab Wraps\tNULL\n210424\tLamb Shish Wrap\tKebab Wraps\tNULL\n210433\tLunch Special\tLunch Special\tNULL\n210334\tBuff Momo\tMomo\tNULL\n210333\tChicken Momo\tMomo\tNULL\n210480\tChicken Momo\tMomo\tNULL\n210335\tPaneer Momo\tMomo\tNULL\n210444\tVegan Momo\tMomo\tNULL\n210481\tvegetable momo\tMomo\tNULL\n210434\tvegetarian Momo\tMomo\tNULL\n210476\tSnack Pack\tSnack Pack\tNULL\n210384\tBuff Momo Platter\tSpecial Momo\tNULL\n210380\tCabbage Momo (6pcs)\tSpecial Momo\tNULL\n210382\tChicken Momo Platter\tSpecial Momo\tNULL\n210381\tChocolate Momo (2pcs)\tSpecial Momo\tNULL\n330001\tLhaphing\tSpecial Momo\tNULL\n210383\tPaneer Momo Platter\tSpecial Momo\tNULL\n210477\tKids Nuggets Meal\tSpecials\tNULL\n210491\tLhaphing\tSpecials\tNULL\n330002\tMomo Lunch Special\tSpecials\tNULL\n330003\tTest Dish\tTest\tNULL\n330005\tTest Dish\tTest\tNULL\n330008\tTest Dish\tTest\tNULL\n330009\tTest Dish\tTest\tNULL\n330010\tTest Dish\tTest\tNULL\n360001\tTest Dish\tTest\tNULL\n360003\tTest Dish\tTest\tNULL\n360006\tTest Dish\tTest\tNULL\n360007\tTest Dish\tTest\tNULL\n360008\tTest Dish\tTest\tNULL\n",
+  "stderr": "",
+  "execution_time_ms": 2135
+}
