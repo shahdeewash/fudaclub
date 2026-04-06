@@ -690,6 +690,18 @@ export async function createSquareOrderForPrinting(
         state: "OPEN",  // GPT fix: explicit OPEN state makes order visible in POS
         source: { name: "FÜDA" },  // GPT fix: source name helps POS routing
         lineItems: squareLineItems,
+        // GST (10% inclusive) — Australian standard: GST = 1/11 of the total
+        // Square applies this as an INCLUSIVE tax so the printed receipt shows
+        // the GST component without changing the total amount.
+        taxes: [
+          {
+            uid: "GST",
+            name: "GST (10%)",
+            percentage: "10",
+            type: "INCLUSIVE",
+            scope: "ORDER",
+          },
+        ],
         // Fulfillment is required for Square POS to show the order in the Orders tab
         // and trigger auto-print on connected receipt printers
         fulfillments: [

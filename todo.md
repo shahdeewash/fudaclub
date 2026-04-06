@@ -784,3 +784,10 @@
 - [x] Fix applied to createSquareOrderForPrinting in server/square.ts
 - [x] Subscription test fixed (stale test data — now identifies by unique stripeSubscriptionId)
 - [x] All 58 tests passing
+
+## GST Breakdown on Square Receipts (2026-04-06)
+- [x] Add 10% GST tax line to Square order creation (taxes array on the order)
+- [x] GST calculated as inclusive 10% (Square computes 1/11 of total automatically)
+- [x] Test order lQ6yNx0w1iuu4H0AgKtRG3tq4KZZY created: total $30.50, GST $2.77
+- [x] Payment recorded, order visible in Square POS with GST line on receipt
+- [x] All 58 tests passing
