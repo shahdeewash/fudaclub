@@ -87,7 +87,7 @@ export default function Home() {
               Browse Menu
             </Button>
           </div>
-          <p className="text-sm text-muted-foreground">$80 first fortnight · then $180/fortnight · Mon–Sat</p>
+          <p className="text-sm text-muted-foreground">$80 first week · then $180/fortnight · Mon–Sat</p>
         </div>
       </section>
 
@@ -112,7 +112,7 @@ export default function Home() {
               <div className="pt-4">
                 <div className="flex items-baseline gap-2">
                   <span className="text-5xl font-extrabold text-amber-600">$80</span>
-                  <span className="text-muted-foreground text-base">first fortnight</span>
+                  <span className="text-muted-foreground text-base">first week</span>
                 </div>
                 <p className="text-sm text-muted-foreground mt-1">then $180 every fortnight · Mon–Sat</p>
               </div>
@@ -152,7 +152,7 @@ export default function Home() {
           <h3 className="text-3xl font-bold text-center mb-12">How it works</h3>
           <div className="grid grid-cols-1 md:grid-cols-4 gap-6">
             {[
-              { icon: Coins, title: "Join The Club", desc: "Subscribe to The FÜDA Club. $80 for your first fortnight." },
+              { icon: Coins, title: "Join The Club", desc: "Subscribe to The FÜDA Club. $80 for your first week." },
               { icon: Clock, title: "Order by 10:30 AM", desc: "Browse the menu and place your order before the cutoff." },
               { icon: Truck, title: "12:30 PM Delivery", desc: "5+ orders from your venue? Free delivery to your door." },
               { icon: Star, title: "Earn & Save", desc: "Coins, streak bonuses, referral rewards — every week." },
