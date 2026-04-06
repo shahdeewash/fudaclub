@@ -774,3 +774,13 @@
 - [x] Pass ctx.user.name as customerName in both daily-credit and Stripe-paid order paths
 - [x] Test order TEST-PRINT-002 created successfully with fulfillment: f3llo4rYPWaTVHDMj7vuuWWnfzSZY
 - [x] TypeScript clean, all tests passing
+
+## Square POS Order Visibility Fix (GPT iterative, 2026-04-06)
+- [x] Fetch test order from Square API and inspect all fields with GPT
+- [x] Root cause identified: Square only shows orders in POS AFTER they are paid
+- [x] Fix: after creating Square Order, call CreatePayment with sourceId=EXTERNAL, type=OTHER, source="FÜDA App"
+- [x] Test order vRKveAd0DGwLkC4MtlHJ8b59qcfZY created + payment VQ7MIoqJ5CvpCk2WovmYz6L01fNZY recorded
+- [x] User confirmed: order appeared in Square POS Orders tab and printed on Epson TM-T82
+- [x] Fix applied to createSquareOrderForPrinting in server/square.ts
+- [x] Subscription test fixed (stale test data — now identifies by unique stripeSubscriptionId)
+- [x] All 58 tests passing

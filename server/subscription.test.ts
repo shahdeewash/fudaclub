@@ -81,20 +81,34 @@ describe("getSubscriptionsExpiringWithin", () => {
     const expiresIn10Days = new Date(now.getTime() + 10 * 24 * 60 * 60 * 1000);
     const startDate = new Date(now.getTime() - 4 * 24 * 60 * 60 * 1000);
 
-    // Create a second user for this test
+    // Create a second user for this test (use unique openId to avoid stale data)
     await db.upsertUser({
-      openId: "expiry-test-user-002",
-      name: "Expiry Test User 2",
-      email: "expiry2@expiry-test.com",
+      openId: `expiry-test-user-far-${Date.now()}`,
+      name: "Expiry Test User Far",
+      email: `expiry-far-${Date.now()}@expiry-test.com`,
       loginMethod: "test",
       companyId: testCompanyId,
     });
-    const user2 = await db.getUserByOpenId("expiry-test-user-002");
-    if (!user2) throw new Error("Failed to create test user 2");
+    // Get the user we just created by the unique email
+    const allUsers = await db.getAllUsers?.() ?? [];
+    // Use a unique stripeSubscriptionId so we can identify this specific subscription
+    const uniqueSubId = `sub_expiry_far_${Date.now()}`;
+
+    // Create a fresh user with a unique openId
+    const uniqueOpenId = `expiry-test-user-far-${Date.now()}`;
+    await db.upsertUser({
+      openId: uniqueOpenId,
+      name: "Expiry Test User Far",
+      email: `expiry-far-${Date.now()}@expiry-test.com`,
+      loginMethod: "test",
+      companyId: testCompanyId,
+    });
+    const user2 = await db.getUserByOpenId(uniqueOpenId);
+    if (!user2) throw new Error("Failed to create test user far");
 
     await db.createSubscription({
       userId: user2.id,
-      stripeSubscriptionId: `sub_expiry_far_${Date.now()}`,
+      stripeSubscriptionId: uniqueSubId,
       stripeCustomerId: `cus_expiry_far_${Date.now()}`,
       status: "active",
       planAmount: 50000,
@@ -105,7 +119,8 @@ describe("getSubscriptionsExpiringWithin", () => {
     });
 
     const expiring = await db.getSubscriptionsExpiringWithin(3);
-    const found = expiring.find((s) => s.userId === user2.id);
+    // Check by unique subscription ID, not userId (avoids stale data from previous runs)
+    const found = expiring.find((s) => s.stripeSubscriptionId === uniqueSubId);
     expect(found).toBeUndefined();
   });
 });

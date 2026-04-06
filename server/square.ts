@@ -687,6 +687,8 @@ export async function createSquareOrderForPrinting(
       order: {
         locationId: conn.locationId,
         referenceId: fudaOrderNumber,
+        state: "OPEN",  // GPT fix: explicit OPEN state makes order visible in POS
+        source: { name: "FÜDA" },  // GPT fix: source name helps POS routing
         lineItems: squareLineItems,
         // Fulfillment is required for Square POS to show the order in the Orders tab
         // and trigger auto-print on connected receipt printers
@@ -717,6 +719,44 @@ export async function createSquareOrderForPrinting(
       console.warn("[Square Orders] Order created but no ID returned:", response);
       return null;
     }
+
+    // ─── Record an EXTERNAL payment so the order appears in Square POS ──────
+    // Square only shows orders in POS/KDS AFTER they are paid.
+    // Since FÜDA collects payment via Stripe/Coins (not Square), we record
+    // an EXTERNAL payment to mark the order as paid in Square.
+    const orderTotal = response?.order?.totalMoney?.amount;
+    const totalAmount = typeof orderTotal === "bigint" ? orderTotal : BigInt(orderTotal ?? 0);
+
+    try {
+      const paymentRes = await (client.payments as any).create({
+        sourceId: "EXTERNAL",
+        idempotencyKey: `fuda-pay-${fudaOrderId}-${Date.now()}`,
+        amountMoney: {
+          amount: totalAmount,
+          currency: "AUD",
+        },
+        orderId: squareOrderId,
+        locationId: conn.locationId,
+        externalDetails: {
+          type: "OTHER",
+          source: "FÜDA App",
+          sourceFeeMoney: { amount: BigInt(0), currency: "AUD" },
+        },
+        note: `FÜDA order ${fudaOrderNumber} — paid via app`,
+      });
+
+      const paymentId = paymentRes?.payment?.id;
+      if (paymentId) {
+        console.log(`[Square Orders] External payment recorded: ${paymentId} for order ${squareOrderId}`);
+      } else {
+        console.warn("[Square Orders] Payment created but no ID returned:", paymentRes);
+      }
+    } catch (payErr: any) {
+      // Non-fatal: order was created, payment recording failed
+      // Order may still appear in Square Dashboard but not POS
+      console.error("[Square Orders] Failed to record external payment:", payErr?.message ?? payErr);
+    }
+    // ────────────────────────────────────────────────────────────────────────
 
     // Persist the Square Order ID on the FÜDA order record
     await db

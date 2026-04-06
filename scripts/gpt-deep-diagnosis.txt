@@ -1,0 +1,54 @@
+The issue you're experiencing is a common one when integrating Square Orders API with Square POS. Let's break down the root cause and the exact steps needed to resolve it.
+
+### Root Cause
+
+1. **Fulfillment Type and State**: The orders created via the API have a `PICKUP` fulfillment type with a `PROPOSED` state. However, Square POS typically expects orders to have a `SIMPLE` fulfillment type for them to appear in the Orders tab. The `PICKUP` type is more suited for online orders that are managed through Square Online or third-party integrations, not directly through Square POS.
+
+2. **Order Source**: The source name in the API-created orders is custom (`"FÜDA"` or `"fuda lunch app"`), which might not be recognized by the POS as a valid source for displaying orders. POS orders typically have the source `"Point of Sale"`.
+
+3. **Order Visibility in POS**: Orders created via the API with a `PICKUP` fulfillment type might not automatically appear in the POS unless they are explicitly marked as ready for pickup or in a state that the POS recognizes for processing.
+
+### Exact Fix
+
+1. **Modify Fulfillment Type**: Change the fulfillment type from `PICKUP` to `SIMPLE`. This aligns with how POS orders are structured and ensures they appear in the POS Orders tab.
+
+   ```json
+   "fulfillments": [
+     {
+       "type": "SIMPLE",
+       "state": "PROPOSED",
+       "recipient": "Test Customer v2"
+     }
+   ]
+   ```
+
+2. **Adjust Order Source**: While you can't change the source to `"Point of Sale"` directly, ensure that the source is correctly configured to be recognized by the POS. This might involve checking any custom integrations or settings within your Square account.
+
+3. **Update Order State**: Ensure that the order state transitions from `PROPOSED` to `READY` or another state that triggers visibility in the POS. This might require an additional API call to update the order state once it's ready for processing.
+
+   ```json
+   {
+     "order": {
+       "fulfillments": [
+         {
+           "uid": "fulfillment_uid",
+           "state": "READY"
+         }
+       ]
+     }
+   }
+   ```
+
+4. **Check POS and KDS Settings**: Ensure that the POS and KDS are configured to handle orders with the `SIMPLE` fulfillment type. Verify that the KDS is set to auto-print orders with this type and that the location settings are correctly applied.
+
+### Square POS Settings
+
+- **Fulfillment Types**: Ensure that the POS is set to handle `SIMPLE` fulfillment types. This might involve checking the settings under the fulfillment options in your Square Dashboard.
+
+- **Auto-Print Configuration**: Verify that the KDS is set to auto-print orders with the `SIMPLE` type and that the printer is correctly configured.
+
+### Known Limitations
+
+- **API vs. POS Order Handling**: There is a known limitation where orders created via the API with certain fulfillment types might not automatically appear in the POS unless they are in a state recognized by the POS for processing.
+
+By implementing these changes, your API-created orders should start appearing in the Square POS Orders tab and trigger the auto-printing feature as expected.

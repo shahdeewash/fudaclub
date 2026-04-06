@@ -1,0 +1,52 @@
+Square Order Data:
+{}
+
+GPT-4o Diagnosis:
+To ensure that orders created via the Square Orders API appear in both the Square POS Orders tab and the Square KDS, you need to ensure that the order is correctly configured with the necessary fields and states. Here are the steps and corrections needed:
+
+1. **Order State**: Ensure the order state is set to `OPEN`. Orders need to be in an `OPEN` state to be processed and visible in the POS and KDS.
+
+2. **Fulfillment State**: The fulfillment state should be set to `PROPOSED` initially, which you have done correctly. However, ensure that the fulfillment type and details are correctly configured.
+
+3. **Source Name**: Use a specific `source_name` to indicate the order's origin. This can help with tracking and visibility in the POS system.
+
+4. **API Endpoint**: Ensure you are using the correct endpoint for creating orders. The `createOrder` endpoint is correct, but ensure all required fields are populated.
+
+5. **Location ID**: Double-check that the `locationId` is correct and corresponds to the location configured in your Square account.
+
+Here's the corrected TypeScript code for the order creation payload:
+
+```typescript
+const response = await (client.orders as any).createOrder({
+  order: {
+    locationId: conn.locationId,
+    referenceId: fudaOrderNumber,
+    lineItems: squareLineItems,
+    state: "OPEN", // Ensure the order state is OPEN
+    fulfillments: [
+      {
+        type: "PICKUP",
+        state: "PROPOSED",
+        pickupDetails: {
+          recipient: {
+            displayName: customerName ?? `Order ${fudaOrderNumber}`,
+          },
+          pickupAt: new Date(Date.now() + 15 * 60 * 1000).toISOString(),
+          note: specialInstructions ?? undefined,
+        },
+      },
+    ],
+    source: {
+      name: "FÜDA", // Specify a source name for the order
+    },
+  },
+  idempotencyKey,
+});
+```
+
+### Additional Considerations:
+- **Square KDS**: Ensure that the KDS is configured to receive orders from the location specified in `locationId`. The KDS should be set up to handle orders with the `PICKUP` fulfillment type.
+- **Permissions**: Verify that your Square application has the necessary permissions to create and manage orders. This includes `ORDERS_WRITE` and `ORDERS_READ` permissions.
+- **Testing**: After making these changes, test the order creation process to ensure that orders appear in both the POS and KDS.
+
+By ensuring the order state is `OPEN` and specifying a `source_name`, you should be able to resolve the visibility issues in both the Square POS and KDS.
