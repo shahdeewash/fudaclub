@@ -1,0 +1,93 @@
+To address the problem where orders created via the Square Orders API are not appearing in the Square POS Orders tab or triggering auto-print, let's break down each of the questions and provide specific technical solutions.
+
+### 1. Why do Square Orders API orders NOT appear in Square POS Orders tab or trigger auto-print?
+
+Orders created via the Square Orders API might not be appearing in the Square POS Orders tab due to the way they are created, particularly with their fulfillment details. Orders need to include specific fulfillment types (such as being associated with the location and set for in-store pickup or delivery) within the API call to be recognized by the Square POS system for printing.
+
+### 2. What is the EXACT technical solution to make our web app orders print on the Epson TM-T82 connected to Square POS hardware?
+
+To ensure orders trigger automatic printing, consider the following:
+
+1. **Set Fulfillment Properly**: Orders must include fulfillment details. When creating an order via the Orders API, ensure they are associated with a specific location and have fulfillment details set.
+
+2. **Fulfillment Type**: Set the `fulfillment_type` to either `PICKUP` or `DELIVERY`. This instructs Square that these orders are more than just records—they require actions tied to a location.
+
+3. **Use Orders API Properly**: Here's how you can construct the order to ensure it appears in the Square POS app and triggers the auto-print feature.
+
+```typescript
+import { Client, Environment, Order, CreateOrderRequest, OrderFulfillment } from 'square';
+
+const client = new Client({
+  environment: Environment.Sandbox, // Replace with Environment.Production in prod
+  accessToken: 'YOUR_ACCESS_TOKEN', // Make sure to use the correct access token
+});
+
+const idempotencyKey = Date.now().toString(); // Or other unique key method for idempotency
+
+async function createSquareOrderForPrinting() {
+  const locationId = 'YOUR_LOCATION_ID'; // Ensure you have the correct location ID
+  const order: Order = {
+    locationId,
+    lineItems: [/* Your line items here */],
+    fulfillments: [
+      {
+        type: 'PICKUP', // or 'DELIVERY'
+        state: 'PROPOSED', // can be set to 'PREPARED' when ready
+        pickupDetails: {
+          recipient: {
+            displayName: 'John Doe',
+            phoneNumber: '+1234567890',
+          },
+          pickupAt: '2023-10-01T10:00:00-07:00', // Future pickup time if needed
+        },
+      },
+    ],
+  };
+
+  const requestBody: CreateOrderRequest = {
+    idempotencyKey,
+    order,
+  };
+
+  const { result } = await client.ordersApi.createOrder({
+    order: requestBody,
+  });
+
+  return result.order;
+}
+
+createSquareOrderForPrinting()
+  .then(order => console.log('Order created:', order))
+  .catch(error => console.error('Failed to create order:', error));
+```
+
+### 3. Should we use Square Terminal API, Square KDS API, or another approach?
+
+In this scenario, utilizing the `Orders API` with correct fulfillment settings is the most viable approach. The `Terminal API` is primarily for creating and managing payments and not ideal for this purpose. The `KDS` is for kitchen display systems but can also listen for fulfillment API events to visualize on KDS.
+
+### 4. What specific API calls, parameters, or fulfillment settings are needed?
+
+- Use the `Orders API`.
+- Include `fulfillments` in the order object, setting the `type` to `PICKUP` or `DELIVERY`.
+- Set fulfillment states (`PROPOSED`, `RESERVED`, `PREPARED`, etc.) accurately to move the order through its lifecycle correctly.
+
+### 5. Is there a webhook or polling approach that would work?
+
+- **Webhooks**: You can set up Square webhooks for `order.created` and `order.updated` events. This allows you to listen for new orders or changes to orders, where you can take additional actions if needed.
+- Example URL to set up webhooks: [https://developer.squareup.com/docs/webhooks](https://developer.squareup.com/docs/webhooks)
+
+
+To set up a webhook to handle order creation:
+
+```json
+{
+  "order.created": {
+    "enabled": true,
+    "url": "https://your-webhook-url.com/order-created"
+  }
+}
+```
+
+Implement appropriate webhook handlers on the server to manage these events and ensure secure handling.
+
+By leveraging the correct API calls and settings and potentially integrating webhooks, you should be able to ensure that orders created via your web application are automatically printed by the Epson TM-T82 connected to your Square POS hardware.

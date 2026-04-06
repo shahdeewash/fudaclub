@@ -636,7 +636,9 @@ export async function createSquareOrderForPrinting(
   fudaOrderId: number,
   fudaOrderNumber: string,
   lineItems: SquareOrderLineItem[],
-  specialInstructions?: string | null
+  specialInstructions?: string | null,
+  customerName?: string | null,
+  customerPhone?: string | null
 ): Promise<string | null> {
   const db = await getDb();
   if (!db) return null;
@@ -686,6 +688,23 @@ export async function createSquareOrderForPrinting(
         locationId: conn.locationId,
         referenceId: fudaOrderNumber,
         lineItems: squareLineItems,
+        // Fulfillment is required for Square POS to show the order in the Orders tab
+        // and trigger auto-print on connected receipt printers
+        fulfillments: [
+          {
+            type: "PICKUP",
+            state: "PROPOSED",
+            pickupDetails: {
+              recipient: {
+                displayName: customerName ?? `Order ${fudaOrderNumber}`,
+                ...(customerPhone ? { phoneNumber: customerPhone } : {}),
+              },
+              // Pickup ASAP — set to 15 minutes from now
+              pickupAt: new Date(Date.now() + 15 * 60 * 1000).toISOString(),
+              note: specialInstructions ?? undefined,
+            },
+          },
+        ],
         ...(specialInstructions
           ? { metadata: { specialInstructions } }
           : {}),

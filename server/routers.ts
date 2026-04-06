@@ -743,7 +743,9 @@ export const appRouter = router({
             variationId: menuItemMap.get(i.menuItemId)?.squareVariationId ?? null,
             modifierNote: i.modifierNote ?? null,
           })),
-          input.specialInstructions ?? null
+          input.specialInstructions ?? null,
+          ctx.user.name ?? null,  // customer name for Square POS fulfillment display
+          null                    // phone not stored on user
         ).then(squareOrderId => {
           if (squareOrderId) {
             // Trigger receipt print on the connected Square Terminal
@@ -1345,7 +1347,9 @@ export const appRouter = router({
             variationId: menuItemMap.get(i.menuItemId)?.squareVariationId ?? null,
             modifierNote: (i as any).modifierNote ?? null,
           })),
-          specialInstructions ?? null
+          specialInstructions ?? null,
+          ctx.user.name ?? null,  // customer name for Square POS fulfillment display
+          null                    // phone not stored on user
         ).then(squareOrderId => {
           if (squareOrderId) {
             // Trigger receipt print on the connected Square Terminal

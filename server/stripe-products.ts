@@ -2,7 +2,7 @@
  * FÜDA Club Stripe Product Definitions
  *
  * Billing model:
- *  - First payment: $80 AUD (introductory first week)
+ *  - First payment: $80 AUD (introductory fortnight)
  *  - Ongoing: $180 AUD every 2 weeks (fortnightly)
  *
  * Implementation strategy:
@@ -16,8 +16,8 @@
  * Simplest approach used here:
  *  1. Create checkout session with line_items: [$80 one-time setup fee]
  *     + subscription line_items: [$180 fortnightly recurring]
- *     with subscription_data.trial_period_days = 7 so the recurring
- *     charge starts 7 days after the $80 setup fee.
+ *     with subscription_data.trial_period_days = 14 so the recurring
+ *     charge starts 14 days after the $80 setup fee.
  *
  * Price IDs are created programmatically on first use and cached in env.
  */
@@ -26,7 +26,7 @@ export const FUDA_CLUB = {
   /** Display name shown on Stripe checkout and receipts */
   productName: "The FÜDA Club",
 
-  /** Introductory first-week price in cents (AUD) */
+  /** Introductory first-fortnight price in cents (AUD) */
   introPriceCents: 8000, // $80.00
 
   /** Ongoing fortnightly recurring price in cents (AUD) */
@@ -39,8 +39,8 @@ export const FUDA_CLUB = {
   /** Currency */
   currency: "aud",
 
-  /** Trial days — the recurring subscription starts 7 days after signup (first week) */
-  trialDays: 7,
+  /** Trial days — the recurring subscription starts 14 days after signup */
+  trialDays: 14,
 
   /** Discount on additional items for active Club members (as decimal) */
   additionalItemDiscount: 0.10, // 10%

@@ -768,15 +768,9 @@
 - [ ] Wire printer profile ID into createSquareOrderForPrinting so orders route to correct printer
 - [ ] Test end-to-end: place order → Square Order created → auto-prints on Epson TM-T82
 
-## Subscription Pricing Update (2026-03-31)
-- [x] Update FudaClub.tsx pricing label from "first fortnight" → "first week"
-- [x] Update stripe-products.ts trialDays from 14 → 7 (first week, then $180/fortnight)
-- [x] Pricing confirmed: $80 first week, then $180 per fortnight
-
-## Dish Photo Upload (2026-03-31)
-- [x] Upload 49 dish photos to CDN (webdev-static-assets/fuda-menu)
-- [x] Match all 49 photos to menu items by filename and update imageUrl in DB
-- [ ] Missing 7 photos not provided: salted-caramel-machhiato-boba, spanish-latte-boba, tiramisu-cream-coffee-boba, samosa, snack-pack, sprite-can, piccolo
-
-## Homepage Hero Tagline Fix (2026-03-31)
-- [x] Updated all 3 occurrences of "first fortnight" → "first week" in Home.tsx (hero tagline, plan card, how-it-works step)
+## Square Receipt Printing Fix (GPT-assisted, 2026-04-06)
+- [x] GPT-4o consulted: root cause is missing fulfillments array in Square Order creation
+- [x] Fix createSquareOrderForPrinting: added PICKUP fulfillment with PROPOSED state, recipient name, pickupAt (+15min)
+- [x] Pass ctx.user.name as customerName in both daily-credit and Stripe-paid order paths
+- [x] Test order TEST-PRINT-002 created successfully with fulfillment: f3llo4rYPWaTVHDMj7vuuWWnfzSZY
+- [x] TypeScript clean, all tests passing
