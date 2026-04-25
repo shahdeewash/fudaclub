@@ -52,6 +52,7 @@ function CoinBadge({ count }: { count: number }) {
 function JoinCard() {
   const { user } = useAuth();
   const [referralCode, setReferralCode] = useState("");
+  const [planType, setPlanType] = useState<"fortnightly" | "monthly">("fortnightly");
 
   const createCheckout = trpc.fudaClub.subscribe.useMutation({
     onSuccess: (data) => {
@@ -68,8 +69,13 @@ function JoinCard() {
     createCheckout.mutate({
       origin: window.location.origin,
       referralCode: referralCode.trim() || undefined,
+      planType,
     });
   }
+
+  const isFortnightly = planType === "fortnightly";
+  const ctaPrice = isFortnightly ? "$80" : "$350";
+  const ctaSubtext = isFortnightly ? "for your first week" : "per month";
 
   return (
     <div className="max-w-2xl mx-auto space-y-6 py-10 px-4">
@@ -85,6 +91,56 @@ function JoinCard() {
         </p>
       </div>
 
+      {/* Plan selector */}
+      <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+        <button
+          type="button"
+          onClick={() => setPlanType("fortnightly")}
+          className={`relative text-left rounded-xl border-2 p-4 transition ${
+            isFortnightly
+              ? "border-amber-500 bg-amber-50"
+              : "border-muted bg-background hover:border-amber-200"
+          }`}
+        >
+          {isFortnightly && (
+            <Badge className="absolute -top-2 -right-2 bg-amber-500 text-white text-[11px] px-2 py-0.5">
+              Best value
+            </Badge>
+          )}
+          <div className="flex items-baseline justify-between gap-2">
+            <span className="text-lg font-semibold">Fortnightly</span>
+            <span className="text-2xl font-bold">$80</span>
+          </div>
+          <p className="text-xs text-muted-foreground mt-1">
+            First WEEK only. Then $180 every 2 weeks.
+          </p>
+          <p className="text-xs text-amber-700 font-medium mt-2">
+            Half-price first week
+          </p>
+        </button>
+
+        <button
+          type="button"
+          onClick={() => setPlanType("monthly")}
+          className={`text-left rounded-xl border-2 p-4 transition ${
+            !isFortnightly
+              ? "border-amber-500 bg-amber-50"
+              : "border-muted bg-background hover:border-amber-200"
+          }`}
+        >
+          <div className="flex items-baseline justify-between gap-2">
+            <span className="text-lg font-semibold">Monthly</span>
+            <span className="text-2xl font-bold">$350</span>
+          </div>
+          <p className="text-xs text-muted-foreground mt-1">
+            $350/month. No trial, cancel anytime.
+          </p>
+          <p className="text-xs text-muted-foreground mt-2">
+            Roughly $14/working day
+          </p>
+        </button>
+      </div>
+
       {/* Pricing card */}
       <Card className="border-amber-200 shadow-md">
         <CardHeader className="pb-2">
@@ -93,18 +149,23 @@ function JoinCard() {
               <CardTitle className="text-2xl">The FÜDA Club</CardTitle>
               <CardDescription>Mon – Sat · No lock-in · Cancel anytime</CardDescription>
             </div>
-            <Badge className="bg-amber-500 text-white text-sm px-3 py-1">Most Popular</Badge>
+            <Badge className="bg-amber-500 text-white text-sm px-3 py-1">
+              {isFortnightly ? "Most Popular" : "Simple"}
+            </Badge>
           </div>
         </CardHeader>
         <CardContent className="space-y-5">
           <div className="flex items-end gap-2">
-            <span className="text-5xl font-bold">$80</span>
+            <span className="text-5xl font-bold">{ctaPrice}</span>
             <div className="text-muted-foreground pb-1">
-              <div className="text-sm line-through">$90</div>
-              <div className="text-sm">first fortnight</div>
+              <div className="text-sm">{ctaSubtext}</div>
             </div>
           </div>
-          <p className="text-sm text-muted-foreground">Then $180 per fortnight</p>
+          {isFortnightly ? (
+            <p className="text-sm text-muted-foreground">Then $180 per fortnight, ongoing.</p>
+          ) : (
+            <p className="text-sm text-muted-foreground">$350 every month, ongoing.</p>
+          )}
 
           <Separator />
 
@@ -113,6 +174,7 @@ function JoinCard() {
               { icon: Coins, text: "1 FÜDA Coin per day (Mon–Sat) — redeem for any menu item" },
               { icon: Zap, text: "10% off all additional items (incl. Mix Grill)" },
               { icon: Calendar, text: "Coin issued at 6:00 AM — order by 10:30 AM for delivery" },
+              { icon: Clock, text: "Coins valid for 2 days — life happens, your lunch doesn't expire" },
               { icon: Snowflake, text: "Freeze up to 2 weeks — no billing during freeze" },
               { icon: Gift, text: "Referral bonus — you and your friend each get 1 FÜDA Coin" },
               { icon: Star, text: "Monthly streak bonus — use every coin, earn 1 free" },
@@ -145,12 +207,14 @@ function JoinCard() {
             onClick={handleJoin}
             disabled={createCheckout.isPending || !user}
           >
-            {createCheckout.isPending ? "Redirecting…" : "Join The FÜDA Club — $80"}
+            {createCheckout.isPending
+              ? "Redirecting…"
+              : `Join The FÜDA Club — ${ctaPrice}`}
             <ChevronRight className="ml-2 h-5 w-5" />
           </Button>
 
           <p className="text-xs text-center text-muted-foreground">
-            Mix Grill is excluded from coin redemption but receives 10% off. Coins expire at midnight and do not roll over (except on FÜDA closure days).
+            Mix Grill is excluded from coin redemption but receives 10% off. Coins are valid for 2 days from issuance, then expire.
           </p>
         </CardContent>
       </Card>
