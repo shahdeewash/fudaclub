@@ -467,10 +467,10 @@ function scheduleDailyFudaCoins() {
         // Rollover: extend any unissued coins from yesterday that haven't been issued yet
         // (In practice, we just don't issue today — the previous day's coin already expired.
         //  Rollover means we issue today's coin with tomorrow's expiry instead.)
-        // Issue rollover coins with +1 day expiry
+        // Issue rollover coins with +2 day expiry (matches the standard 2-day rollover policy)
         const rolloverExpiry = new Date();
-        rolloverExpiry.setDate(rolloverExpiry.getDate() + 1);
-        rolloverExpiry.setUTCHours(14, 30, 0, 0); // midnight Darwin next day
+        rolloverExpiry.setUTCDate(rolloverExpiry.getUTCDate() + 2);
+        rolloverExpiry.setUTCHours(14, 30, 0, 0); // midnight Darwin (today + 2)
 
         const activeSubs = await dbInstance
           .select({ userId: fudaClubSubscriptions.userId })
@@ -484,9 +484,10 @@ function scheduleDailyFudaCoins() {
         return;
       }
 
-      // Issue daily coins — expires at midnight Darwin today
+      // Issue daily coins — expires at midnight Darwin TWO days from now (2-day rollover policy)
+      // A coin issued Mon morning is valid Mon, Tue, and Wed up to 00:00 Darwin Wed.
       const [y, m, d] = nowDarwin.split("-").map(Number);
-      const expiresAt = new Date(Date.UTC(y, m - 1, d, 14, 30, 0)); // 00:00 Darwin = 14:30 UTC
+      const expiresAt = new Date(Date.UTC(y, m - 1, d + 2, 14, 30, 0)); // 00:00 Darwin (today + 2)
 
       const activeSubs = await dbInstance
         .select({ userId: fudaClubSubscriptions.userId })
