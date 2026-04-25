@@ -2,22 +2,18 @@
  * FÜDA Club Stripe Product Definitions
  *
  * Billing model:
- *  - First payment: $80 AUD (introductory fortnight)
- *  - Ongoing: $180 AUD every 2 weeks (fortnightly)
+ *  - Fortnightly plan:
+ *      First payment: $80 AUD (introductory WEEK)
+ *      Ongoing: $180 AUD every 2 weeks (fortnightly)
+ *  - Monthly plan:
+ *      $350 AUD every month (no intro discount)
  *
  * Implementation strategy:
- *  - One Stripe subscription with a 14-day trial at $0 is NOT used here.
- *  - Instead we use a coupon for the first period: create a subscription
- *    with a $100 discount coupon (making first $180 → $80) that applies
- *    once, then auto-expires.
- *  - Alternatively, use a Stripe Price with a trial_period_days=0 and
- *    a one-time setup fee via add_invoice_items.
- *
- * Simplest approach used here:
- *  1. Create checkout session with line_items: [$80 one-time setup fee]
- *     + subscription line_items: [$180 fortnightly recurring]
- *     with subscription_data.trial_period_days = 14 so the recurring
- *     charge starts 14 days after the $80 setup fee.
+ *  - Fortnightly: Stripe checkout session with the $180/fortnight recurring price,
+ *    using subscription_data.trial_period_days = 7 so the first recurring charge
+ *    happens 7 days after signup. The $80 intro is added as a one-time line item
+ *    or invoice item handled at checkout.
+ *  - Monthly: straight monthly recurring at $350. No trial, no intro discount.
  *
  * Price IDs are created programmatically on first use and cached in env.
  */
@@ -26,21 +22,27 @@ export const FUDA_CLUB = {
   /** Display name shown on Stripe checkout and receipts */
   productName: "The FÜDA Club",
 
-  /** Introductory first-fortnight price in cents (AUD) */
+  /** Introductory first-WEEK price in cents (AUD) — fortnightly plan only */
   introPriceCents: 8000, // $80.00
 
   /** Ongoing fortnightly recurring price in cents (AUD) */
   recurringPriceCents: 18000, // $180.00
 
-  /** Billing interval */
+  /** Monthly recurring price in cents (AUD) — alternative to fortnightly */
+  monthlyPriceCents: 35000, // $350.00
+
+  /** Billing interval (fortnightly plan) */
   interval: "week" as const,
   intervalCount: 2, // every 2 weeks = fortnightly
 
   /** Currency */
   currency: "aud",
 
-  /** Trial days — the recurring subscription starts 14 days after signup */
-  trialDays: 14,
+  /** Trial days for the FORTNIGHTLY plan — recurring $180 starts 7 days after signup */
+  trialDays: 7,
+
+  /** Plan types supported */
+  planTypes: ["fortnightly", "monthly"] as const,
 
   /** Discount on additional items for active Club members (as decimal) */
   additionalItemDiscount: 0.10, // 10%
@@ -63,6 +65,11 @@ export const FUDA_CLUB = {
   /** Coin issuance time in Darwin (HH:MM 24h) */
   coinIssuanceTime: "06:00",
 
+  /** Coin lifespan in days (2-day rollover policy) */
+  coinLifespanDays: 2,
+
   /** Max freeze duration in days */
   maxFreezeDays: 14,
 } as const;
+
+export type FudaClubPlanType = (typeof FUDA_CLUB.planTypes)[number];

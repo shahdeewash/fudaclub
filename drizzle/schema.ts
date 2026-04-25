@@ -228,6 +228,7 @@ export const fudaClubSubscriptions = mysqlTable("fudaClubSubscriptions", {
   currentPeriodStart: timestamp("currentPeriodStart"),
   currentPeriodEnd: timestamp("currentPeriodEnd"),
   cancelAtPeriodEnd: boolean("cancelAtPeriodEnd").default(false).notNull(),
+  planType: mysqlEnum("planType", ["fortnightly", "monthly"]).default("fortnightly").notNull(),
   createdAt: timestamp("createdAt").defaultNow().notNull(),
   updatedAt: timestamp("updatedAt").defaultNow().onUpdateNow().notNull(),
 });
