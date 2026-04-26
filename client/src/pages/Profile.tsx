@@ -203,7 +203,18 @@ export default function Profile() {
                   </div>
                   <div>
                     <p className="text-xs text-muted-foreground uppercase tracking-wide">Next billing</p>
-                    <p className="font-semibold">{formatDate(sub?.currentPeriodEnd)}</p>
+                    {sub?.currentPeriodEnd ? (
+                      <p className="font-semibold">{formatDate(sub.currentPeriodEnd)}</p>
+                    ) : planType === "trial" ? (
+                      <>
+                        <p className="font-semibold">After trial ends</p>
+                        <p className="text-xs text-muted-foreground mt-0.5">
+                          Auto-rolls into $180/fortnight, cancel anytime
+                        </p>
+                      </>
+                    ) : (
+                      <p className="font-semibold text-muted-foreground">—</p>
+                    )}
                     {isFrozen && sub?.frozenUntil && (
                       <p className="text-xs text-blue-600 mt-0.5">Frozen until {formatDate(sub.frozenUntil)}</p>
                     )}

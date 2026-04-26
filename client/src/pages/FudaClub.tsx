@@ -649,9 +649,13 @@ function ClubDashboard() {
           <CardTitle className="text-base">Subscription</CardTitle>
           <CardDescription className="text-xs">
             Next billing:{" "}
-            {sub?.currentPeriodEnd
-              ? new Date(sub.currentPeriodEnd).toLocaleDateString("en-AU", { timeZone: "Australia/Darwin" })
-              : "—"}
+            {sub?.currentPeriodEnd ? (
+              new Date(sub.currentPeriodEnd).toLocaleDateString("en-AU", { timeZone: "Australia/Darwin" })
+            ) : (sub as any)?.planType === "trial" ? (
+              <span>after trial ends — auto-rolls into $180/fortnight</span>
+            ) : (
+              "—"
+            )}
           </CardDescription>
         </CardHeader>
         <CardContent className="space-y-3">
