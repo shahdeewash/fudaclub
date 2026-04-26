@@ -8,7 +8,7 @@ import { Badge } from "@/components/ui/badge";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Separator } from "@/components/ui/separator";
 import { Textarea } from "@/components/ui/textarea";
-import { CheckCircle2, Truck, MapPin, Clock, ArrowLeft, Loader2, LogOut, CreditCard } from "lucide-react";
+import { CheckCircle2, Truck, MapPin, Clock, ArrowLeft, Loader2, LogOut, CreditCard, AlertCircle } from "lucide-react";
 import { CartIndicator } from "@/components/CartIndicator";
 import { toast } from "sonner";
 
@@ -49,6 +49,10 @@ export default function Checkout() {
   });
   const { data: colleagues } = trpc.order.getColleaguesWhoOrdered.useQuery(undefined, {
     enabled: isAuthenticated,
+  });
+  // Workplace stats — used to decide whether delivery is free for this venue.
+  const { data: venueStatus } = trpc.fudaClub.getVenueStatus.useQuery(undefined, {
+    enabled: isAuthenticated && isClubMember,
   });
 
   const logout = trpc.auth.logout.useMutation({
@@ -187,12 +191,16 @@ export default function Checkout() {
   }
 
   const colleagueCount = colleagues?.length || 0;
-  const deliveryThreshold = 5;
-  const venueQualifiesForFreeDelivery = colleagueCount + 1 >= deliveryThreshold;
-  // Pickup = $0 always. Delivery = $10, OR free if 5+ orders from same venue today.
+  const venueMemberCount = venueStatus?.memberCount ?? 0;
+  const venueQualifiesForFreeDelivery = !!venueStatus?.qualifiesForFreeDelivery;
+  // Pickup = $0 always. Delivery = $10, OR free if 5+ active club members at workplace.
   const isPickup = fulfillmentType === "pickup";
   const isFreeDelivery = !isPickup && venueQualifiesForFreeDelivery;
   const deliveryFee = isPickup ? 0 : (venueQualifiesForFreeDelivery ? 0 : 1000); // $10.00 if delivery
+  // Minimum order for delivery — UI blocks the proceed button if below.
+  const MIN_DELIVERY_SUBTOTAL = 1500; // $15.00
+  const meetsDeliveryMinimum = subtotal >= MIN_DELIVERY_SUBTOTAL;
+  const deliveryAllowed = isPickup || meetsDeliveryMinimum;
   // Club path is GST-inclusive; corporate path adds GST separately.
   const tax = isClubMember ? 0 : Math.round((subtotal + deliveryFee) * 0.1);
   const total = subtotal + deliveryFee + tax;
@@ -359,7 +367,7 @@ export default function Checkout() {
               <CardHeader>
                 <CardTitle>How would you like your order?</CardTitle>
                 <CardDescription>
-                  Pickup is always free. Delivery is $10, or free when 5+ orders are placed from the same workplace today.
+                  Pickup is always free. Delivery is $10, or free when your workplace has 5+ active FÜDA Club members.
                 </CardDescription>
               </CardHeader>
               <CardContent className="space-y-3">
@@ -399,8 +407,10 @@ export default function Checkout() {
                         <p className="font-semibold text-base">Delivery</p>
                         <p className="text-xs text-muted-foreground mt-0.5">
                           {venueQualifiesForFreeDelivery
-                            ? "5+ orders from your workplace — free today!"
-                            : "$10, or free with 5+ orders from your workplace"}
+                            ? `Free for ${venueStatus?.venueName ?? "your workplace"} (${venueMemberCount} members)`
+                            : venueStatus?.venueName
+                              ? `$10 — your workplace has ${venueMemberCount}/5 members. Get ${venueStatus.neededForFreeDelivery} more in The Club for free delivery, every order, forever.`
+                              : "$10. Set your workplace in /profile so colleagues' memberships count toward free delivery."}
                         </p>
                       </div>
                       <span className={`text-sm font-bold ${venueQualifiesForFreeDelivery ? "text-secondary" : ""}`}>
@@ -415,6 +425,14 @@ export default function Checkout() {
                     <AlertDescription className="text-amber-900 text-xs">
                       Delivery is available within <strong>5 km</strong> of FÜDA Darwin (9 Searcy St).
                       If you're outside this radius, please choose Pickup — we'll have to cancel the order otherwise.
+                    </AlertDescription>
+                  </Alert>
+                )}
+                {fulfillmentType === "delivery" && !meetsDeliveryMinimum && cartItems.length > 0 && (
+                  <Alert className="border-red-200 bg-red-50">
+                    <AlertCircle className="h-4 w-4 text-red-600" />
+                    <AlertDescription className="text-red-800 text-xs">
+                      Delivery requires a minimum order of <strong>$15.00</strong> (your subtotal is ${(subtotal / 100).toFixed(2)}). Add another item, or switch to Pickup.
                     </AlertDescription>
                   </Alert>
                 )}
@@ -547,9 +565,14 @@ export default function Checkout() {
               onClick={handleProceedToPayment}
               className="w-full"
               size="lg"
+              disabled={!deliveryAllowed}
             >
               <CreditCard className="mr-2 h-5 w-5" />
-              {total === 0 ? "Confirm Order (Free)" : `Proceed to Payment • $${(total / 100).toFixed(2)}`}
+              {!deliveryAllowed
+                ? `Add $${((1500 - subtotal) / 100).toFixed(2)} more for delivery, or switch to Pickup`
+                : total === 0
+                  ? "Confirm Order (Free)"
+                  : `Proceed to Payment • $${(total / 100).toFixed(2)}`}
             </Button>
           </div>
         </div>

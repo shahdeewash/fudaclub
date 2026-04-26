@@ -46,6 +46,9 @@ export default function Payment() {
   const { data: colleagues } = trpc.order.getColleaguesWhoOrdered.useQuery(undefined, {
     enabled: isAuthenticated,
   });
+  const { data: venueStatus } = trpc.fudaClub.getVenueStatus.useQuery(undefined, {
+    enabled: isAuthenticated && isClubMember,
+  });
 
   const utils = trpc.useUtils();
 
@@ -242,11 +245,10 @@ export default function Payment() {
   }
 
   const colleagueCount = colleagues?.length || 0;
-  const deliveryThreshold = 5;
-  const venueQualifiesForFreeDelivery = colleagueCount + 1 >= deliveryThreshold;
+  const venueQualifiesForFreeDelivery = !!venueStatus?.qualifiesForFreeDelivery;
   const isPickup = fulfillmentType === "pickup";
   const isFreeDelivery = !isPickup && venueQualifiesForFreeDelivery;
-  // Pickup = $0 always. Delivery = $10, OR free with 5+ orders from same venue.
+  // Pickup = $0 always. Delivery = $10, OR free if 5+ active club members at workplace.
   const deliveryFee = isPickup ? 0 : (venueQualifiesForFreeDelivery ? 0 : 1000);
   // GST: corporate path adds tax separately, club path is GST-inclusive at the line item.
   const tax = isClubMember ? 0 : Math.round((subtotal + deliveryFee) * 0.1);
@@ -265,7 +267,6 @@ export default function Payment() {
       createFoodCheckout.mutate({
         items,
         origin: window.location.origin,
-        venueOrderCount: colleagueCount,
         fulfillmentType,
         specialInstructions: specialInstructions || undefined,
       });
@@ -292,7 +293,6 @@ export default function Payment() {
       createFoodCheckout.mutate({
         items,
         origin: window.location.origin,
-        venueOrderCount: colleagueCount,
         fulfillmentType,
         specialInstructions: specialInstructions || undefined,
       });

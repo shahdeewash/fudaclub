@@ -56,6 +56,9 @@ export default function Profile() {
   const { data: coinHistory } = trpc.fudaClub.getCoinHistory.useQuery(undefined, {
     enabled: isAuthenticated,
   });
+  const { data: venueStatus } = trpc.fudaClub.getVenueStatus.useQuery(undefined, {
+    enabled: isAuthenticated,
+  });
 
   const logout = trpc.auth.logout.useMutation({
     onSuccess: () => {
@@ -291,25 +294,51 @@ export default function Profile() {
           </Card>
         )}
 
-        {/* Venue */}
+        {/* Venue + free-delivery progress */}
         {isClubMember && (
-          <Card>
+          <Card className={venueStatus?.qualifiesForFreeDelivery ? "border-green-300" : "border-muted"}>
             <CardHeader className="pb-2">
-              <CardTitle className="text-base">Workplace Venue</CardTitle>
+              <CardTitle className="text-base">Workplace</CardTitle>
               <CardDescription className="text-xs">
-                Where 5+ orders unlock free delivery
+                When your workplace has 5+ active FÜDA Club members, every delivery from anyone there is free — every day, no exceptions.
               </CardDescription>
             </CardHeader>
-            <CardContent className="text-sm">
+            <CardContent className="text-sm space-y-3">
               {clubStatus?.venueName ? (
                 <>
-                  <p className="font-medium">{clubStatus.venueName}</p>
-                  {clubStatus.venueAddress && (
-                    <p className="text-xs text-muted-foreground">{clubStatus.venueAddress}</p>
+                  <div>
+                    <p className="font-medium">{clubStatus.venueName}</p>
+                    {clubStatus.venueAddress && (
+                      <p className="text-xs text-muted-foreground">{clubStatus.venueAddress}</p>
+                    )}
+                  </div>
+                  {/* Member-count progress */}
+                  <div className="space-y-1.5">
+                    <div className="flex items-center justify-between text-xs">
+                      <span className="font-medium">
+                        {venueStatus?.memberCount ?? 0} of 5 active members
+                      </span>
+                      <span className={venueStatus?.qualifiesForFreeDelivery ? "text-green-700 font-semibold" : "text-muted-foreground"}>
+                        {venueStatus?.qualifiesForFreeDelivery
+                          ? "✓ Free delivery unlocked"
+                          : `${venueStatus?.neededForFreeDelivery ?? 5} more for free delivery`}
+                      </span>
+                    </div>
+                    <div className="w-full h-2 rounded-full bg-muted overflow-hidden">
+                      <div
+                        className={`h-full transition-all ${venueStatus?.qualifiesForFreeDelivery ? "bg-green-500" : "bg-amber-500"}`}
+                        style={{ width: `${Math.min(100, ((venueStatus?.memberCount ?? 0) / 5) * 100)}%` }}
+                      />
+                    </div>
+                  </div>
+                  {!venueStatus?.qualifiesForFreeDelivery && referralLink && (
+                    <p className="text-xs text-muted-foreground">
+                      Share your referral link with colleagues — every signup gets you both 1 FÜDA Coin AND moves your workplace closer to free delivery for everyone.
+                    </p>
                   )}
                 </>
               ) : (
-                <p className="text-muted-foreground">No venue set</p>
+                <p className="text-muted-foreground">No venue set yet — add your workplace to start counting toward free delivery.</p>
               )}
               <Button
                 variant="link"
@@ -317,7 +346,7 @@ export default function Profile() {
                 className="px-0 mt-1 h-auto"
                 onClick={() => setLocation("/fuda-club")}
               >
-                {clubStatus?.venueName ? "Edit on dashboard →" : "Add a venue →"}
+                {clubStatus?.venueName ? "Edit workplace →" : "Add a workplace →"}
               </Button>
             </CardContent>
           </Card>

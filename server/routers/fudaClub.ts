@@ -89,6 +89,36 @@ export async function getActiveFudaClubSub(userId: number) {
   return sub;
 }
 
+/**
+ * Count active (non-cancelled, non-frozen) FÜDA Club members at a given workplace.
+ * "Workplace" = users.venueName (case-insensitive, whitespace-trimmed match).
+ *
+ * Used by the delivery-pricing rule: when a workplace has 5+ active members,
+ * delivery is free for every order from anyone there. Stable, predictable, doesn't
+ * punish first-movers (unlike "5 orders today").
+ */
+export async function countActiveClubMembersAtVenue(venueName: string | null | undefined): Promise<number> {
+  if (!venueName || !venueName.trim()) return 0;
+  const db = await getDb();
+  if (!db) return 0;
+  const normalized = venueName.trim().toLowerCase();
+  // Pull all member+venue+status rows once and filter in JS so we don't depend on
+  // the database's collation for case-insensitive matching (varies by MySQL config).
+  const rows = await db
+    .select({ venueName: users.venueName, status: fudaClubSubscriptions.status })
+    .from(users)
+    .innerJoin(fudaClubSubscriptions, eq(fudaClubSubscriptions.userId, users.id));
+  return rows.filter(r =>
+    r.venueName &&
+    r.venueName.trim().toLowerCase() === normalized &&
+    r.status !== "canceled" &&
+    r.status !== "frozen"
+  ).length;
+}
+
+/** Minimum order subtotal (cents) for delivery — protects against $5 deliveries. */
+export const MIN_DELIVERY_SUBTOTAL_CENTS = 1500; // $15.00
+
 /** Get unexpired, unused coins for a user */
 export async function getAvailableCoins(userId: number) {
   const db = await getDb();
@@ -495,12 +525,33 @@ export const fudaClubRouter = router({
     }),
 
   /**
+   * Workplace status: how many active club members share the same venueName as the
+   * current user, and whether that's enough for free delivery (≥ 5).
+   * Used by Checkout, Payment and Profile to show "X / 5 members at your workplace".
+   */
+  getVenueStatus: protectedProcedure.query(async ({ ctx }) => {
+    const db = await getDb();
+    if (!db) return { venueName: null, memberCount: 0, qualifiesForFreeDelivery: false, neededForFreeDelivery: 5 };
+    const [me] = await db.select({ venueName: users.venueName }).from(users).where(eq(users.id, ctx.user.id)).limit(1);
+    const venueName = me?.venueName ?? null;
+    const memberCount = await countActiveClubMembersAtVenue(venueName);
+    const THRESHOLD = 5;
+    return {
+      venueName,
+      memberCount,
+      qualifiesForFreeDelivery: memberCount >= THRESHOLD,
+      neededForFreeDelivery: Math.max(0, THRESHOLD - memberCount),
+    };
+  }),
+
+  /**
    * Preview FÜDA Club pricing for a cart before checkout.
    * Fulfillment type controls whether a delivery fee is charged:
    *   - "pickup"   : $0 delivery fee (always)
-   *   - "delivery" : $10 delivery fee, OR free if 5+ orders from the same venue today
-   * Delivery is only available within 5km of FÜDA Darwin (9 Searcy St) — UI enforces
-   * this with a notice today; server-side geocoding check is a follow-up.
+   *   - "delivery" : $10 delivery fee, OR free if the workplace has 5+ active members
+   * Delivery requires a minimum $15 subtotal (after discounts) and is only available
+   * within 5km of FÜDA Darwin (9 Searcy St) — UI enforces the radius with a notice
+   * today; server-side geocoding check is a follow-up.
    */
   getCheckoutPreview: protectedProcedure
     .input(
@@ -512,7 +563,6 @@ export const fudaClubRouter = router({
             modifierNote: z.string().optional(),
           })
         ),
-        venueOrderCount: z.number().default(0), // orders from same venue today
         fulfillmentType: z.enum(["pickup", "delivery"]).default("pickup"),
       })
     )
@@ -546,10 +596,14 @@ export const fudaClubRouter = router({
         };
       });
 
-      // Pickup = no fee. Delivery = $10, OR free if 5+ orders from same venue today.
+      // Pickup = $0. Delivery = $10, OR free if 5+ active club members at this user's
+      // workplace (stable, doesn't punish first-movers like the old per-day count).
+      const [me] = await dbInstance.select({ venueName: users.venueName }).from(users).where(eq(users.id, ctx.user.id)).limit(1);
+      const memberCount = await countActiveClubMembersAtVenue(me?.venueName);
+      const venueQualifies = memberCount >= 5;
       const deliveryFeeInCents = input.fulfillmentType === "pickup"
         ? 0
-        : ((input.venueOrderCount + 1) >= 5 ? 0 : 1000);
+        : (venueQualifies ? 0 : 1000);
 
       return calculateClubPricing(cartItems, hasCoin, deliveryFeeInCents);
     }),
@@ -566,7 +620,6 @@ export const fudaClubRouter = router({
           })
         ),
         origin: z.string().url(),
-        venueOrderCount: z.number().default(0),
         fulfillmentType: z.enum(["pickup", "delivery"]).default("pickup"),
         specialInstructions: z.string().optional(),
       })
@@ -602,15 +655,30 @@ export const fudaClubRouter = router({
         };
       });
 
-      // Pickup = no fee. Delivery = $10, OR free if 5+ orders from same venue today.
-      // (Server enforces this — UI sends fulfillmentType but server is source of truth.)
-      const venueQualifiesForFreeDelivery = (input.venueOrderCount + 1) >= 5;
+      // Pickup = no fee. Delivery = $10, OR free if 5+ active club members at this user's
+      // workplace. Stable across the day, doesn't punish the first 4 orderers like the old
+      // "5 orders today" rule did.
       const isPickup = input.fulfillmentType === "pickup";
+      const [me] = await dbInstance.select({ venueName: users.venueName }).from(users).where(eq(users.id, ctx.user.id)).limit(1);
+      const memberCountAtVenue = await countActiveClubMembersAtVenue(me?.venueName);
+      const venueQualifiesForFreeDelivery = memberCountAtVenue >= 5;
       const deliveryFeeInCents = isPickup
         ? 0
         : (venueQualifiesForFreeDelivery ? 0 : 1000);
       const isFreeDelivery = !isPickup && venueQualifiesForFreeDelivery;
+
+      // Compute preview to check the subtotal-after-discount BEFORE enforcing the
+      // $15 minimum-order rule for delivery (so member discounts count).
       const preview = calculateClubPricing(cartItems, hasCoin, deliveryFeeInCents);
+
+      // Minimum order $15 for delivery (after coin + 10% discount applied).
+      // Pickup has no minimum — walk-ins are always welcome.
+      if (!isPickup && preview.subtotalInCents < MIN_DELIVERY_SUBTOTAL_CENTS) {
+        throw new TRPCError({
+          code: "BAD_REQUEST",
+          message: `Delivery requires a minimum order of $${(MIN_DELIVERY_SUBTOTAL_CENTS / 100).toFixed(2)}. Add more items, or switch to Pickup.`,
+        });
+      }
 
       // If total is $0 (all covered by coin, pickup or free delivery), create order directly
       if (preview.totalInCents === 0) {
