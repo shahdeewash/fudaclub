@@ -1303,8 +1303,8 @@ export default function Admin() {
                         </CardTitle>
                         <CardDescription>
                           {squareConnection.terminalDeviceId
-                            ? `Terminal linked: ${squareConnection.terminalDeviceId}`
-                            : 'No Square Terminal linked — enter your device ID below or click Detect'}
+                            ? `Square Terminal linked: ${squareConnection.terminalDeviceId}`
+                            : 'No Square Terminal hardware linked — see the iPad / POS-app note below'}
                         </CardDescription>
                       </div>
                       <Button
@@ -1355,17 +1355,17 @@ export default function Admin() {
                       </div>
                     </div>
 
-                    {/* Test print — full print job. Only useful with a paired device. */}
+                    {/* Test print — only works with dedicated Square Terminal hardware. */}
                     <div className="rounded-lg border border-amber-200 bg-amber-50/40 p-3 space-y-2">
                       <div className="flex items-start justify-between gap-3">
                         <div>
-                          <p className="text-sm font-semibold">Verify the printer</p>
+                          <p className="text-sm font-semibold">Verify the printer (Square Terminal only)</p>
                           <p className="text-xs text-muted-foreground">
-                            Sends a $1.00 test order with line item "TEST PRINT — FÜDA system check" to the terminal.
-                            Tap-to-pay or cancel on the device — either way the receipt format is exercised.
+                            Sends a $1.00 test order with line item "TEST PRINT — FÜDA system check" to a paired Square Terminal device.
+                            Only works with dedicated <strong>Square Terminal</strong> hardware — not iPad / phone POS setups.
                             {!squareConnection.terminalDeviceId && (
                               <span className="block mt-1 text-amber-800 font-medium">
-                                Pair a device ID first (Auto-Detect or paste below) — this button will error otherwise.
+                                No Square Terminal paired. If you use iPad + Epson (or similar), see the green note below — your real orders will print without using this button.
                               </span>
                             )}
                           </p>
@@ -1381,9 +1381,31 @@ export default function Admin() {
                       </div>
                     </div>
 
+                    {/* iPad + third-party printer setup guidance — covers the FÜDA case (Epson TM-T82000 + Square POS on iPad). */}
+                    <div className="rounded-lg border border-emerald-200 bg-emerald-50/60 p-3 space-y-2">
+                      <p className="text-sm font-semibold text-emerald-900">
+                        Using an iPad / phone with Square POS + a receipt printer?
+                      </p>
+                      <p className="text-xs text-emerald-900/90">
+                        Real FÜDA Club orders are pushed to Square as <strong>open tickets</strong> automatically.
+                        To get them printing on your printer (e.g. Epson TM-T82000), enable auto-print inside the Square POS app on the iPad:
+                      </p>
+                      <ol className="text-xs text-emerald-900/90 list-decimal pl-5 space-y-0.5">
+                        <li>Open the <strong>Square POS</strong> app on the iPad</li>
+                        <li>Tap <strong>≡ More → Settings → Hardware → Printers</strong></li>
+                        <li>Tap your printer (e.g. Epson TM-T82000)</li>
+                        <li>Turn ON <strong>"In-person order tickets"</strong> AND <strong>"Online order tickets"</strong></li>
+                        <li>Save</li>
+                      </ol>
+                      <p className="text-xs text-emerald-900/90">
+                        From then on, every order placed through the FÜDA app appears in Square POS and prints on the Epson automatically. The "Test Print" button above is only for dedicated Square Terminal hardware and won't apply to your setup.
+                      </p>
+                    </div>
+
                     <p className="text-xs text-amber-600 bg-amber-50 rounded p-2">
-                      <strong>Note:</strong> Auto-Detect requires reconnecting Square to grant device permissions.
-                      You can find your device ID in <strong>Square Dashboard → Devices</strong> and paste it below.
+                      <strong>Note:</strong> Auto-Detect and Test Print only work with dedicated Square Terminal devices.
+                      For iPad / phone POS + third-party printers (the FÜDA setup), follow the green guide above instead.
+                      If you ever add a Square Terminal, find its ID in <strong>Square Dashboard → Devices</strong> and paste it below.
                     </p>
                   </div>
                 </CardHeader>
