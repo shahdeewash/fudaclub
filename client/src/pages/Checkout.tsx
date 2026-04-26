@@ -137,9 +137,14 @@ export default function Checkout() {
     setLocation("/payment");
   };
 
-  // Calculate pricing
-  const hasDailyCredit = dailyCredit?.available && !dailyCredit?.usedToday;
-  
+  // Calculate pricing.
+  // Club members use their FÜDA Coin balance (1 coin = 1 free item).
+  // Corporate B2B users use the per-day "daily credit".
+  const coinBalance = clubStatus?.coinBalance ?? 0;
+  const hasDailyCredit = isClubMember
+    ? coinBalance > 0
+    : !!(dailyCredit?.available && !dailyCredit?.usedToday);
+
   // Calculate subtotal with daily credit applied to first unit only
   let subtotal = 0;
   if (hasDailyCredit && cartItems.length > 0) {
