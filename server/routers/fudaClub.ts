@@ -494,7 +494,14 @@ export const fudaClubRouter = router({
       return { success: true, referrerName: referrer.name };
     }),
 
-  /** Preview FÜDA Club pricing for a cart before checkout */
+  /**
+   * Preview FÜDA Club pricing for a cart before checkout.
+   * Fulfillment type controls whether a delivery fee is charged:
+   *   - "pickup"   : $0 delivery fee (always)
+   *   - "delivery" : $10 delivery fee, OR free if 5+ orders from the same venue today
+   * Delivery is only available within 5km of FÜDA Darwin (9 Searcy St) — UI enforces
+   * this with a notice today; server-side geocoding check is a follow-up.
+   */
   getCheckoutPreview: protectedProcedure
     .input(
       z.object({
@@ -506,6 +513,7 @@ export const fudaClubRouter = router({
           })
         ),
         venueOrderCount: z.number().default(0), // orders from same venue today
+        fulfillmentType: z.enum(["pickup", "delivery"]).default("pickup"),
       })
     )
     .query(async ({ ctx, input }) => {
@@ -538,9 +546,10 @@ export const fudaClubRouter = router({
         };
       });
 
-      // Delivery: free if 5+ orders from same venue today
-      const isFreeDelivery = (input.venueOrderCount + 1) >= 5;
-      const deliveryFeeInCents = isFreeDelivery ? 0 : 800;
+      // Pickup = no fee. Delivery = $10, OR free if 5+ orders from same venue today.
+      const deliveryFeeInCents = input.fulfillmentType === "pickup"
+        ? 0
+        : ((input.venueOrderCount + 1) >= 5 ? 0 : 1000);
 
       return calculateClubPricing(cartItems, hasCoin, deliveryFeeInCents);
     }),
@@ -558,6 +567,7 @@ export const fudaClubRouter = router({
         ),
         origin: z.string().url(),
         venueOrderCount: z.number().default(0),
+        fulfillmentType: z.enum(["pickup", "delivery"]).default("pickup"),
         specialInstructions: z.string().optional(),
       })
     )
@@ -592,11 +602,17 @@ export const fudaClubRouter = router({
         };
       });
 
-      const isFreeDelivery = (input.venueOrderCount + 1) >= 5;
-      const deliveryFeeInCents = isFreeDelivery ? 0 : 800;
+      // Pickup = no fee. Delivery = $10, OR free if 5+ orders from same venue today.
+      // (Server enforces this — UI sends fulfillmentType but server is source of truth.)
+      const venueQualifiesForFreeDelivery = (input.venueOrderCount + 1) >= 5;
+      const isPickup = input.fulfillmentType === "pickup";
+      const deliveryFeeInCents = isPickup
+        ? 0
+        : (venueQualifiesForFreeDelivery ? 0 : 1000);
+      const isFreeDelivery = !isPickup && venueQualifiesForFreeDelivery;
       const preview = calculateClubPricing(cartItems, hasCoin, deliveryFeeInCents);
 
-      // If total is $0 (all covered by coin, no delivery fee), create order directly
+      // If total is $0 (all covered by coin, pickup or free delivery), create order directly
       if (preview.totalInCents === 0) {
         // Create order directly without Stripe
         const { orders, orderItems } = await import("../../drizzle/schema");
@@ -616,7 +632,9 @@ export const fudaClubRouter = router({
             orderNumber,
             orderDate: new Date(),
             status: "confirmed",
-            fulfillmentType: (isFreeDelivery && !isPastCutoff) ? "delivery" : "pickup",
+            // Customer chose pickup → always pickup. Otherwise delivery, downgrading to pickup
+            // only if the cutoff has passed (kitchen can't run delivery after 10:30 AM).
+            fulfillmentType: (!isPickup && !isPastCutoff) ? "delivery" : "pickup",
             isFreeDelivery,
             dailyCreditUsed: preview.coinUsed,
             subtotal: preview.subtotalInCents,

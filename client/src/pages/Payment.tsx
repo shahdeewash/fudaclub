@@ -25,6 +25,7 @@ export default function Payment() {
   const [, setLocation] = useLocation();
   const [cartItems, setCartItems] = useState<CartItem[]>([]);
   const [specialInstructions, setSpecialInstructions] = useState("");
+  const [fulfillmentType, setFulfillmentType] = useState<"pickup" | "delivery">("pickup");
   const [orderPlaced, setOrderPlaced] = useState(false);
   const [orderNumber, setOrderNumber] = useState("");
   const [isRedirecting, setIsRedirecting] = useState(false);
@@ -125,6 +126,10 @@ export default function Payment() {
     const savedInstructions = localStorage.getItem("fuda_special_instructions");
     if (savedInstructions) {
       setSpecialInstructions(savedInstructions);
+    }
+    const savedFulfillment = localStorage.getItem("fuda_fulfillment_type");
+    if (savedFulfillment === "delivery" || savedFulfillment === "pickup") {
+      setFulfillmentType(savedFulfillment);
     }
   }, []);
 
@@ -238,8 +243,11 @@ export default function Payment() {
 
   const colleagueCount = colleagues?.length || 0;
   const deliveryThreshold = 5;
-  const isFreeDelivery = colleagueCount >= deliveryThreshold;
-  const deliveryFee = isFreeDelivery ? 0 : 800;
+  const venueQualifiesForFreeDelivery = colleagueCount + 1 >= deliveryThreshold;
+  const isPickup = fulfillmentType === "pickup";
+  const isFreeDelivery = !isPickup && venueQualifiesForFreeDelivery;
+  // Pickup = $0 always. Delivery = $10, OR free with 5+ orders from same venue.
+  const deliveryFee = isPickup ? 0 : (venueQualifiesForFreeDelivery ? 0 : 1000);
   // GST: corporate path adds tax separately, club path is GST-inclusive at the line item.
   const tax = isClubMember ? 0 : Math.round((subtotal + deliveryFee) * 0.1);
   const total = subtotal + deliveryFee + tax;
@@ -258,6 +266,7 @@ export default function Payment() {
         items,
         origin: window.location.origin,
         venueOrderCount: colleagueCount,
+        fulfillmentType,
         specialInstructions: specialInstructions || undefined,
       });
     } else {
@@ -284,6 +293,7 @@ export default function Payment() {
         items,
         origin: window.location.origin,
         venueOrderCount: colleagueCount,
+        fulfillmentType,
         specialInstructions: specialInstructions || undefined,
       });
       return;
@@ -563,9 +573,9 @@ export default function Payment() {
                     <span>${(subtotal / 100).toFixed(2)}</span>
                   </div>
                   <div className="flex justify-between text-sm">
-                    <span>Delivery Fee</span>
-                    <span className={isFreeDelivery ? "text-secondary" : ""}>
-                      {isFreeDelivery ? "FREE" : `$${(deliveryFee / 100).toFixed(2)}`}
+                    <span>{isPickup ? "Pickup" : "Delivery Fee"}</span>
+                    <span className={(isPickup || isFreeDelivery) ? "text-secondary" : ""}>
+                      {isPickup ? "FREE" : isFreeDelivery ? "FREE" : `$${(deliveryFee / 100).toFixed(2)}`}
                     </span>
                   </div>
                   {!isClubMember && (

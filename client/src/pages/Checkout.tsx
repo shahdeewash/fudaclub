@@ -25,6 +25,12 @@ export default function Checkout() {
   const [, setLocation] = useLocation();
   const [cartItems, setCartItems] = useState<CartItem[]>([]);
   const [specialInstructions, setSpecialInstructions] = useState("");
+  // Default to pickup so no fee is auto-added. User opts in to delivery.
+  const [fulfillmentType, setFulfillmentType] = useState<"pickup" | "delivery">(() => {
+    if (typeof window === "undefined") return "pickup";
+    const saved = window.localStorage.getItem("fuda_fulfillment_type");
+    return saved === "delivery" ? "delivery" : "pickup";
+  });
 
 
   const { data: subscription } = trpc.subscription.getMine.useQuery(undefined, {
@@ -128,12 +134,13 @@ export default function Checkout() {
   }
 
   const handleProceedToPayment = () => {
-    // Save special instructions to localStorage for payment page
+    // Persist special instructions and fulfillment choice for the Payment page.
     if (specialInstructions) {
       localStorage.setItem("fuda_special_instructions", specialInstructions);
     } else {
       localStorage.removeItem("fuda_special_instructions");
     }
+    localStorage.setItem("fuda_fulfillment_type", fulfillmentType);
     setLocation("/payment");
   };
 
@@ -181,8 +188,11 @@ export default function Checkout() {
 
   const colleagueCount = colleagues?.length || 0;
   const deliveryThreshold = 5;
-  const isFreeDelivery = colleagueCount >= deliveryThreshold;
-  const deliveryFee = isFreeDelivery ? 0 : 800; // $8.00
+  const venueQualifiesForFreeDelivery = colleagueCount + 1 >= deliveryThreshold;
+  // Pickup = $0 always. Delivery = $10, OR free if 5+ orders from same venue today.
+  const isPickup = fulfillmentType === "pickup";
+  const isFreeDelivery = !isPickup && venueQualifiesForFreeDelivery;
+  const deliveryFee = isPickup ? 0 : (venueQualifiesForFreeDelivery ? 0 : 1000); // $10.00 if delivery
   // Club path is GST-inclusive; corporate path adds GST separately.
   const tax = isClubMember ? 0 : Math.round((subtotal + deliveryFee) * 0.1);
   const total = subtotal + deliveryFee + tax;
@@ -344,6 +354,73 @@ export default function Checkout() {
               </CardContent>
             </Card>
 
+            {/* Pickup vs Delivery */}
+            <Card>
+              <CardHeader>
+                <CardTitle>How would you like your order?</CardTitle>
+                <CardDescription>
+                  Pickup is always free. Delivery is $10, or free when 5+ orders are placed from the same workplace today.
+                </CardDescription>
+              </CardHeader>
+              <CardContent className="space-y-3">
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                  <button
+                    type="button"
+                    onClick={() => setFulfillmentType("pickup")}
+                    className={`text-left rounded-xl border-2 p-4 transition ${
+                      fulfillmentType === "pickup"
+                        ? "border-primary bg-primary/5"
+                        : "border-muted bg-background hover:border-muted-foreground/30"
+                    }`}
+                    aria-pressed={fulfillmentType === "pickup"}
+                  >
+                    <div className="flex items-start justify-between gap-2">
+                      <div>
+                        <p className="font-semibold text-base">Pickup</p>
+                        <p className="text-xs text-muted-foreground mt-0.5">
+                          Collect from FÜDA Darwin · 9 Searcy St
+                        </p>
+                      </div>
+                      <span className="text-sm font-bold text-secondary">FREE</span>
+                    </div>
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setFulfillmentType("delivery")}
+                    className={`text-left rounded-xl border-2 p-4 transition ${
+                      fulfillmentType === "delivery"
+                        ? "border-primary bg-primary/5"
+                        : "border-muted bg-background hover:border-muted-foreground/30"
+                    }`}
+                    aria-pressed={fulfillmentType === "delivery"}
+                  >
+                    <div className="flex items-start justify-between gap-2">
+                      <div>
+                        <p className="font-semibold text-base">Delivery</p>
+                        <p className="text-xs text-muted-foreground mt-0.5">
+                          {venueQualifiesForFreeDelivery
+                            ? "5+ orders from your workplace — free today!"
+                            : "$10, or free with 5+ orders from your workplace"}
+                        </p>
+                      </div>
+                      <span className={`text-sm font-bold ${venueQualifiesForFreeDelivery ? "text-secondary" : ""}`}>
+                        {venueQualifiesForFreeDelivery ? "FREE" : "$10.00"}
+                      </span>
+                    </div>
+                  </button>
+                </div>
+                {fulfillmentType === "delivery" && (
+                  <Alert className="border-amber-200 bg-amber-50/60">
+                    <MapPin className="h-4 w-4 text-amber-700" />
+                    <AlertDescription className="text-amber-900 text-xs">
+                      Delivery is available within <strong>5 km</strong> of FÜDA Darwin (9 Searcy St).
+                      If you're outside this radius, please choose Pickup — we'll have to cancel the order otherwise.
+                    </AlertDescription>
+                  </Alert>
+                )}
+              </CardContent>
+            </Card>
+
             {/* Special Instructions */}
             <Card>
               <CardHeader>
@@ -392,9 +469,9 @@ export default function Checkout() {
                     <span>${(subtotal / 100).toFixed(2)}</span>
                   </div>
                   <div className="flex justify-between text-sm">
-                    <span>Delivery Fee</span>
-                    <span className={isFreeDelivery ? "text-secondary" : ""}>
-                      {isFreeDelivery ? "FREE" : `$${(deliveryFee / 100).toFixed(2)}`}
+                    <span>{isPickup ? "Pickup" : "Delivery Fee"}</span>
+                    <span className={(isPickup || isFreeDelivery) ? "text-secondary" : ""}>
+                      {isPickup ? "FREE" : isFreeDelivery ? "FREE" : `$${(deliveryFee / 100).toFixed(2)}`}
                     </span>
                   </div>
                   {!isClubMember && (
