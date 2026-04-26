@@ -99,6 +99,5 @@
       "when": 1782000000000,
       "tag": "0013_add_planType_to_fudaClubSubscriptions",
       "breakpoints": true
-    }
-  ]
-}
+    },
+    {

@@ -228,7 +228,7 @@ export const fudaClubSubscriptions = mysqlTable("fudaClubSubscriptions", {
   currentPeriodStart: timestamp("currentPeriodStart"),
   currentPeriodEnd: timestamp("currentPeriodEnd"),
   cancelAtPeriodEnd: boolean("cancelAtPeriodEnd").default(false).notNull(),
-  planType: mysqlEnum("planType", ["fortnightly", "monthly"]).default("fortnightly").notNull(),
+  planType: mysqlEnum("planType", ["trial", "fortnightly", "monthly"]).default("trial").notNull(),
   createdAt: timestamp("createdAt").defaultNow().notNull(),
   updatedAt: timestamp("updatedAt").defaultNow().onUpdateNow().notNull(),
 });
@@ -266,4 +266,4 @@ export const fudaClosureDates = mysqlTable("fudaClosureDates", {
 });
 
 export type FudaClosureDate = typeof fudaClosureDates.$inferSelect;
-export type InsertFudaClosureDate = typeof fudaClosureDates.$inferInsert;
+export type InsertFudaClosureDate = typeof fudaClosureDates.$inferInsert

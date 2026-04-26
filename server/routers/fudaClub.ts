@@ -21,6 +21,40 @@ const stripe = new Stripe(process.env.STRIPE_SECRET_KEY!, {
   apiVersion: "2026-02-25.clover",
 });
 
+/**
+ * Lazy get-or-create the trial intro coupon.
+ * Discounts the FIRST invoice of the trial plan from $180 → $80.
+ * Cached in process memory after first use; survives until the server restarts.
+ */
+let _cachedTrialCouponId: string | null = null;
+async function getTrialIntroCouponId(): Promise<string> {
+  if (_cachedTrialCouponId) return _cachedTrialCouponId;
+
+  // Try to reuse an existing coupon tagged with metadata.fudaClub = "trial_intro"
+  try {
+    const existing = await stripe.coupons.list({ limit: 100 });
+    const found = existing.data.find(
+      (c) => c.metadata?.fudaClub === "trial_intro" && c.valid && c.amount_off === FUDA_CLUB.trialDiscountCents
+    );
+    if (found) {
+      _cachedTrialCouponId = found.id;
+      return found.id;
+    }
+  } catch {
+    // fall through to create
+  }
+
+  const created = await stripe.coupons.create({
+    amount_off: FUDA_CLUB.trialDiscountCents,
+    currency: FUDA_CLUB.currency,
+    duration: "once",
+    name: "FÜDA Club — First fortnight intro",
+    metadata: { fudaClub: "trial_intro" },
+  });
+  _cachedTrialCouponId = created.id;
+  return created.id;
+}
+
 // ─── helpers ─────────────────────────────────────────────────────────────────
 
 /** Midnight Darwin time as UTC Date for a given Darwin date string YYYY-MM-DD */
@@ -127,13 +161,20 @@ export const fudaClubRouter = router({
     };
   }),
 
-  /** Create Stripe Checkout session for FÜDA Club signup */
+  /**
+   * Create Stripe Checkout session for FÜDA Club signup.
+   * Three plan types:
+   *  - "trial":       $180/fortnight recurring + first-invoice coupon ($100 off)
+   *                   → user pays $80 on day 1, $180 every 14 days starting day 15
+   *  - "fortnightly": $180/fortnight recurring from day 1, no discount
+   *  - "monthly":     $350/month recurring from day 1, no discount
+   */
   subscribe: protectedProcedure
     .input(
       z.object({
         origin: z.string().url(),
         referralCode: z.string().optional(),
-        planType: z.enum(["fortnightly", "monthly"]).default("fortnightly"),
+        planType: z.enum(["trial", "fortnightly", "monthly"]).default("trial"),
       })
     )
     .mutation(async ({ ctx, input }) => {
@@ -173,75 +214,97 @@ export const fudaClubRouter = router({
         metadata: { userId: userId.toString() },
       });
 
-      // Build checkout session based on selected plan
-      const isMonthly = input.planType === "monthly";
+      // ── Plan-specific config ───────────────────────────────────────────────
+      const planType = input.planType;
+
+      let lineItems: Stripe.Checkout.SessionCreateParams.LineItem[];
+      let discounts: Stripe.Checkout.SessionCreateParams.Discount[] | undefined;
+      let initialDbStatus: "trialing" | "active";
+
+      if (planType === "monthly") {
+        lineItems = [
+          {
+            price_data: {
+              currency: FUDA_CLUB.currency,
+              product_data: {
+                name: "The FÜDA Club — Monthly",
+                description: "Mon–Sat · 1 FÜDA Coin/day · 10% off every order",
+              },
+              recurring: { interval: "month", interval_count: 1 },
+              unit_amount: FUDA_CLUB.monthlyPriceCents,
+            },
+            quantity: 1,
+          },
+        ];
+        discounts = undefined;
+        initialDbStatus = "active";
+      } else if (planType === "fortnightly") {
+        lineItems = [
+          {
+            price_data: {
+              currency: FUDA_CLUB.currency,
+              product_data: {
+                name: "The FÜDA Club — Fortnightly",
+                description: "Mon–Sat · 1 FÜDA Coin/day · 10% off every order",
+              },
+              recurring: {
+                interval: FUDA_CLUB.interval,
+                interval_count: FUDA_CLUB.intervalCount,
+              },
+              unit_amount: FUDA_CLUB.recurringPriceCents,
+            },
+            quantity: 1,
+          },
+        ];
+        discounts = undefined;
+        initialDbStatus = "active";
+      } else {
+        // planType === "trial"
+        const couponId = await getTrialIntroCouponId();
+        lineItems = [
+          {
+            price_data: {
+              currency: FUDA_CLUB.currency,
+              product_data: {
+                name: "The FÜDA Club — 7-Day Trial",
+                description: "First fortnight $80, then $180 every 2 weeks · 1 FÜDA Coin/day · 10% off every order",
+              },
+              recurring: {
+                interval: FUDA_CLUB.interval,
+                interval_count: FUDA_CLUB.intervalCount,
+              },
+              unit_amount: FUDA_CLUB.recurringPriceCents,
+            },
+            quantity: 1,
+          },
+        ];
+        discounts = [{ coupon: couponId }];
+        initialDbStatus = "trialing";
+      }
 
       const session = await stripe.checkout.sessions.create({
         customer: customer.id,
         mode: "subscription",
         payment_method_types: ["card"],
-        line_items: isMonthly
-          ? [
-              // Monthly plan: straight $350/month, no trial, no intro
-              {
-                price_data: {
-                  currency: FUDA_CLUB.currency,
-                  product_data: {
-                    name: "The FÜDA Club — Monthly",
-                    description: "Mon–Sat · 1 FÜDA Coin/day · 10% off extras",
-                  },
-                  recurring: {
-                    interval: "month",
-                    interval_count: 1,
-                  },
-                  unit_amount: FUDA_CLUB.monthlyPriceCents,
-                },
-                quantity: 1,
-              },
-            ]
-          : [
-              // Fortnightly plan: $180/fortnight recurring with 7-day trial,
-              // and an $80 setup fee added as a one-time invoice item for the first week
-              {
-                price_data: {
-                  currency: FUDA_CLUB.currency,
-                  product_data: {
-                    name: "The FÜDA Club — Fortnightly",
-                    description: "Mon–Sat · 1 FÜDA Coin/day · 10% off extras",
-                  },
-                  recurring: {
-                    interval: FUDA_CLUB.interval,
-                    interval_count: FUDA_CLUB.intervalCount,
-                  },
-                  unit_amount: FUDA_CLUB.recurringPriceCents,
-                },
-                quantity: 1,
-              },
-            ],
-        subscription_data: isMonthly
-          ? {
-              metadata: {
-                userId: userId.toString(),
-                referralCode: input.referralCode ?? "",
-                planType: "monthly",
-              },
-            }
-          : {
-              trial_period_days: FUDA_CLUB.trialDays,
-              metadata: {
-                userId: userId.toString(),
-                referralCode: input.referralCode ?? "",
-                planType: "fortnightly",
-                introCharge: "true",
-              },
-            },
-        allow_promotion_codes: true,
+        line_items: lineItems,
+        // discounts and allow_promotion_codes are mutually exclusive in Stripe.
+        // For the trial plan we apply our intro coupon; for others we let users
+        // paste their own promo codes.
+        ...(discounts ? { discounts } : { allow_promotion_codes: true }),
+        subscription_data: {
+          metadata: {
+            userId: userId.toString(),
+            referralCode: input.referralCode ?? "",
+            planType,
+            introCharge: planType === "trial" ? "true" : "false",
+          },
+        },
         client_reference_id: userId.toString(),
         success_url: `${input.origin}/fuda-club?success=1`,
         cancel_url: `${input.origin}/fuda-club?canceled=1`,
         metadata: {
           userId: userId.toString(),
-          planType: input.planType,
+          planType,
           referralCode: input.referralCode ?? "",
         },
       });
@@ -253,16 +316,16 @@ export const fudaClubRouter = router({
           .values({
             userId,
             stripeCustomerId: customer.id,
-            status: "trialing",
+            status: initialDbStatus,
             introUsed: false,
             cancelAtPeriodEnd: false,
-            planType: input.planType,
+            planType,
           })
           .onDuplicateKeyUpdate({
             set: {
               stripeCustomerId: customer.id,
-              status: "trialing",
-              planType: input.planType,
+              status: initialDbStatus,
+              planType,
             },
           });
       }

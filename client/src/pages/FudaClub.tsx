@@ -1,7 +1,7 @@
 import { useState, useMemo } from "react";
 import { trpc } from "@/lib/trpc";
 import { useAuth } from "@/_core/hooks/useAuth";
-import { useLocation } from "wouter";
+import { useLocation, useSearch } from "wouter";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -24,6 +24,9 @@ import {
   Copy,
   ExternalLink,
   ChevronRight,
+  Home,
+  UtensilsCrossed,
+  PartyPopper,
 } from "lucide-react";
 
 // ─── helpers ──────────────────────────────────────────────────────────────────
@@ -47,12 +50,142 @@ function CoinBadge({ count }: { count: number }) {
   );
 }
 
+// ─── Persistent nav header (used on dashboard + welcome screens) ─────────────
+
+function ClubNav({ coinCount }: { coinCount?: number }) {
+  const [, setLocation] = useLocation();
+  return (
+    <header className="sticky top-0 z-30 bg-background/95 backdrop-blur border-b border-border">
+      <div className="max-w-2xl mx-auto px-4 py-3 flex items-center justify-between gap-3">
+        <button
+          type="button"
+          onClick={() => setLocation("/")}
+          className="flex items-center gap-2 font-bold text-lg tracking-tight hover:opacity-80 transition"
+          aria-label="Back to FÜDA home"
+        >
+          <span className="text-amber-500">FÜDA</span>
+          <span className="text-xs text-muted-foreground font-normal hidden sm:inline">
+            Club
+          </span>
+        </button>
+        <div className="flex items-center gap-2">
+          {typeof coinCount === "number" && (
+            <CoinBadge count={coinCount} />
+          )}
+          <Button
+            size="sm"
+            variant="outline"
+            onClick={() => setLocation("/menu")}
+            className="gap-1.5"
+          >
+            <UtensilsCrossed className="h-4 w-4" />
+            <span className="hidden sm:inline">Menu</span>
+          </Button>
+          <Button
+            size="sm"
+            variant="ghost"
+            onClick={() => setLocation("/")}
+            className="gap-1.5"
+            aria-label="Back to home"
+          >
+            <Home className="h-4 w-4" />
+          </Button>
+        </div>
+      </div>
+    </header>
+  );
+}
+
+// ─── Post-payment welcome banner (shown when ?success=1) ─────────────────────
+
+function WelcomeBanner({ subscriptionActive }: { subscriptionActive: boolean }) {
+  const [, setLocation] = useLocation();
+  return (
+    <div className="max-w-2xl mx-auto pt-6 px-4">
+      <Card className="border-amber-300 bg-gradient-to-br from-amber-50 to-amber-100 shadow-md">
+        <CardHeader className="text-center pb-3">
+          <div className="mx-auto mb-2 h-12 w-12 rounded-full bg-amber-200 flex items-center justify-center">
+            <PartyPopper className="h-6 w-6 text-amber-700" />
+          </div>
+          <CardTitle className="text-2xl">Welcome to The FÜDA Club!</CardTitle>
+          <CardDescription className="text-amber-900/80 text-base mt-1">
+            {subscriptionActive ? (
+              <>Your membership is active. Your first FÜDA Coin is issued at <strong>6:00 AM Darwin time</strong> tomorrow (Mon–Sat).</>
+            ) : (
+              <>Setting up your membership now — this takes a few seconds. Feel free to browse while we finish up.</>
+            )}
+          </CardDescription>
+        </CardHeader>
+        <CardContent className="flex flex-col sm:flex-row gap-3 pt-2">
+          <Button
+            onClick={() => setLocation("/menu")}
+            className="flex-1 bg-amber-500 hover:bg-amber-600 text-white text-base py-6"
+            size="lg"
+          >
+            <UtensilsCrossed className="mr-2 h-5 w-5" />
+            View the Menu
+          </Button>
+          <Button
+            onClick={() => setLocation("/")}
+            variant="outline"
+            className="flex-1 text-base py-6"
+            size="lg"
+          >
+            <Home className="mr-2 h-5 w-5" />
+            Back to Home
+          </Button>
+        </CardContent>
+      </Card>
+    </div>
+  );
+}
+
 // ─── Not subscribed — join card ───────────────────────────────────────────────
+
+type JoinPlanType = "trial" | "fortnightly" | "monthly";
+
+const PLAN_TILES: Record<JoinPlanType, {
+  label: string;
+  price: string;
+  perPeriod: string;
+  detail: string;
+  badge: string | null;
+  ctaSubtext: string;
+  ongoingNote: string;
+}> = {
+  trial: {
+    label: "7-Day Trial",
+    price: "$80",
+    perPeriod: "for your first 7 days",
+    detail: "Auto-renews at $180/fortnight after. Cancel anytime in your dashboard.",
+    badge: "Try It First",
+    ctaSubtext: "for your first week",
+    ongoingNote: "Then $180 per fortnight, ongoing.",
+  },
+  fortnightly: {
+    label: "Fortnightly",
+    price: "$180",
+    perPeriod: "every 2 weeks",
+    detail: "Billed every 2 weeks from day 1. Roughly $18/working day.",
+    badge: null,
+    ctaSubtext: "every 2 weeks",
+    ongoingNote: "$180 per fortnight, ongoing.",
+  },
+  monthly: {
+    label: "Monthly",
+    price: "$350",
+    perPeriod: "per month",
+    detail: "Billed monthly from day 1. Roughly $14/working day. Best value.",
+    badge: "Best Value",
+    ctaSubtext: "per month",
+    ongoingNote: "$350 every month, ongoing.",
+  },
+};
 
 function JoinCard() {
   const { user } = useAuth();
   const [referralCode, setReferralCode] = useState("");
-  const [planType, setPlanType] = useState<"fortnightly" | "monthly">("fortnightly");
+  const [planType, setPlanType] = useState<JoinPlanType>("trial");
 
   const createCheckout = trpc.fudaClub.subscribe.useMutation({
     onSuccess: (data) => {
@@ -73,12 +206,10 @@ function JoinCard() {
     });
   }
 
-  const isFortnightly = planType === "fortnightly";
-  const ctaPrice = isFortnightly ? "$80" : "$350";
-  const ctaSubtext = isFortnightly ? "for your first week" : "per month";
+  const selected = PLAN_TILES[planType];
 
   return (
-    <div className="max-w-2xl mx-auto space-y-6 py-10 px-4">
+    <div className="max-w-3xl mx-auto space-y-6 py-10 px-4">
       {/* Hero */}
       <div className="text-center space-y-3">
         <div className="inline-flex items-center gap-2 rounded-full bg-amber-50 border border-amber-200 px-4 py-1.5 text-amber-700 text-sm font-medium">
@@ -87,58 +218,47 @@ function JoinCard() {
         </div>
         <h1 className="text-4xl font-bold tracking-tight">Eat well. Every day.</h1>
         <p className="text-muted-foreground text-lg">
-          One FÜDA Coin daily. 10% off everything else. For every daily worker.
+          One FÜDA Coin daily. 10% off every order. For every daily worker.
         </p>
       </div>
 
-      {/* Plan selector */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-        <button
-          type="button"
-          onClick={() => setPlanType("fortnightly")}
-          className={`relative text-left rounded-xl border-2 p-4 transition ${
-            isFortnightly
-              ? "border-amber-500 bg-amber-50"
-              : "border-muted bg-background hover:border-amber-200"
-          }`}
-        >
-          {isFortnightly && (
-            <Badge className="absolute -top-2 -right-2 bg-amber-500 text-white text-[11px] px-2 py-0.5">
-              Best value
-            </Badge>
-          )}
-          <div className="flex items-baseline justify-between gap-2">
-            <span className="text-lg font-semibold">Fortnightly</span>
-            <span className="text-2xl font-bold">$80</span>
-          </div>
-          <p className="text-xs text-muted-foreground mt-1">
-            First WEEK only. Then $180 every 2 weeks.
-          </p>
-          <p className="text-xs text-amber-700 font-medium mt-2">
-            Half-price first week
-          </p>
-        </button>
-
-        <button
-          type="button"
-          onClick={() => setPlanType("monthly")}
-          className={`text-left rounded-xl border-2 p-4 transition ${
-            !isFortnightly
-              ? "border-amber-500 bg-amber-50"
-              : "border-muted bg-background hover:border-amber-200"
-          }`}
-        >
-          <div className="flex items-baseline justify-between gap-2">
-            <span className="text-lg font-semibold">Monthly</span>
-            <span className="text-2xl font-bold">$350</span>
-          </div>
-          <p className="text-xs text-muted-foreground mt-1">
-            $350/month. No trial, cancel anytime.
-          </p>
-          <p className="text-xs text-muted-foreground mt-2">
-            Roughly $14/working day
-          </p>
-        </button>
+      {/* Plan selector — 3 tiles */}
+      <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+        {(Object.keys(PLAN_TILES) as JoinPlanType[]).map((key) => {
+          const tile = PLAN_TILES[key];
+          const isSelected = planType === key;
+          return (
+            <button
+              key={key}
+              type="button"
+              onClick={() => setPlanType(key)}
+              className={`relative text-left rounded-xl border-2 p-4 transition ${
+                isSelected
+                  ? "border-amber-500 bg-amber-50 shadow-md"
+                  : "border-muted bg-background hover:border-amber-200"
+              }`}
+              aria-pressed={isSelected}
+            >
+              {tile.badge && (
+                <Badge
+                  className={`absolute -top-2 -right-2 text-[11px] px-2 py-0.5 ${
+                    isSelected
+                      ? "bg-amber-500 text-white"
+                      : "bg-amber-100 text-amber-700 border border-amber-200"
+                  }`}
+                >
+                  {tile.badge}
+                </Badge>
+              )}
+              <div className="flex items-baseline justify-between gap-2">
+                <span className="text-base font-semibold">{tile.label}</span>
+                <span className="text-2xl font-bold">{tile.price}</span>
+              </div>
+              <p className="text-[11px] text-muted-foreground mt-0.5">{tile.perPeriod}</p>
+              <p className="text-xs text-muted-foreground mt-2 leading-snug">{tile.detail}</p>
+            </button>
+          );
+        })}
       </div>
 
       {/* Pricing card */}
@@ -150,29 +270,25 @@ function JoinCard() {
               <CardDescription>Mon – Sat · No lock-in · Cancel anytime</CardDescription>
             </div>
             <Badge className="bg-amber-500 text-white text-sm px-3 py-1">
-              {isFortnightly ? "Most Popular" : "Simple"}
+              {selected.label}
             </Badge>
           </div>
         </CardHeader>
         <CardContent className="space-y-5">
           <div className="flex items-end gap-2">
-            <span className="text-5xl font-bold">{ctaPrice}</span>
+            <span className="text-5xl font-bold">{selected.price}</span>
             <div className="text-muted-foreground pb-1">
-              <div className="text-sm">{ctaSubtext}</div>
+              <div className="text-sm">{selected.ctaSubtext}</div>
             </div>
           </div>
-          {isFortnightly ? (
-            <p className="text-sm text-muted-foreground">Then $180 per fortnight, ongoing.</p>
-          ) : (
-            <p className="text-sm text-muted-foreground">$350 every month, ongoing.</p>
-          )}
+          <p className="text-sm text-muted-foreground">{selected.ongoingNote}</p>
 
           <Separator />
 
           <ul className="space-y-3 text-sm">
             {[
               { icon: Coins, text: "1 FÜDA Coin per day (Mon–Sat) — redeem for any menu item" },
-              { icon: Zap, text: "10% off all additional items (incl. Mix Grill)" },
+              { icon: Zap, text: "10% off every order — applies to every item, every time" },
               { icon: Calendar, text: "Coin issued at 6:00 AM — order by 10:30 AM for delivery" },
               { icon: Clock, text: "Coins valid for 2 days — life happens, your lunch doesn't expire" },
               { icon: Snowflake, text: "Freeze up to 2 weeks — no billing during freeze" },
@@ -209,12 +325,12 @@ function JoinCard() {
           >
             {createCheckout.isPending
               ? "Redirecting…"
-              : `Join The FÜDA Club — ${ctaPrice}`}
+              : `Join The FÜDA Club — ${selected.price}`}
             <ChevronRight className="ml-2 h-5 w-5" />
           </Button>
 
           <p className="text-xs text-center text-muted-foreground">
-            Mix Grill is excluded from coin redemption but receives 10% off. Coins are valid for 2 days from issuance, then expire.
+            Mix Grill is excluded from coin redemption but still gets 10% off as a Club member. Coins are valid for 2 days, then expire.
           </p>
         </CardContent>
       </Card>
@@ -571,8 +687,16 @@ function ClubDashboard() {
 
 export default function FudaClub() {
   const { user, isAuthenticated } = useAuth();
+  const search = useSearch();
+  const params = new URLSearchParams(search);
+  const showSuccess = params.get("success") === "1";
+  const showCanceled = params.get("canceled") === "1";
+
   const { data: status, isLoading: statusLoading } = trpc.fudaClub.getStatus.useQuery(undefined, {
     enabled: !!user,
+    // Poll every 2s for the first ~30s after a successful checkout so we pick
+    // up the webhook-driven subscription activation without a manual refresh.
+    refetchInterval: showSuccess ? 2000 : false,
   });
 
   if (!isAuthenticated || statusLoading) {
@@ -586,6 +710,29 @@ export default function FudaClub() {
   }
 
   const isSubscribed = status?.subscription && status.subscription.status !== "canceled";
+  const coinCount = status?.coinBalance ?? 0;
 
-  return isSubscribed ? <ClubDashboard /> : <JoinCard />;
+  return (
+    <div className="min-h-screen">
+      <ClubNav coinCount={isSubscribed ? coinCount : undefined} />
+
+      {/* Cancelled-from-checkout notice (rare, but possible) */}
+      {showCanceled && !isSubscribed && (
+        <div className="max-w-2xl mx-auto pt-6 px-4">
+          <Card className="border-muted bg-muted/40">
+            <CardContent className="py-4 text-sm text-muted-foreground text-center">
+              Checkout was cancelled — no charge was made. You can pick a plan again below.
+            </CardContent>
+          </Card>
+        </div>
+      )}
+
+      {/* Post-payment welcome banner */}
+      {showSuccess && (
+        <WelcomeBanner subscriptionActive={!!isSubscribed} />
+      )}
+
+      {isSubscribed ? <ClubDashboard /> : <JoinCard />}
+    </div>
+  );
 }
