@@ -145,27 +145,46 @@ export default function Checkout() {
     ? coinBalance > 0
     : !!(dailyCredit?.available && !dailyCredit?.usedToday);
 
-  // Calculate subtotal with daily credit applied to first unit only
+  // Subtotal calculation matches what the backend will charge for each user type.
+  // Club members: 10% off everything, plus 1 item free if a coin is available.
+  // Corporate B2B: 1 item free per day if credit available, otherwise full price.
+  const CLUB_DISCOUNT = 0.10;
   let subtotal = 0;
-  if (hasDailyCredit && cartItems.length > 0) {
-    // First item: one unit is free, remaining units are charged
+  let memberDiscountSavings = 0;
+  let coinDiscountSavings = 0;
+
+  if (isClubMember) {
+    let coinUsedThisOrder = false;
+    for (const item of cartItems) {
+      const fullPrice = item.price;
+      for (let i = 0; i < item.quantity; i++) {
+        if (hasDailyCredit && !coinUsedThisOrder) {
+          coinUsedThisOrder = true;
+          coinDiscountSavings += fullPrice;
+        } else {
+          const discountedUnit = Math.round(fullPrice * (1 - CLUB_DISCOUNT));
+          subtotal += discountedUnit;
+          memberDiscountSavings += (fullPrice - discountedUnit);
+        }
+      }
+    }
+  } else if (hasDailyCredit && cartItems.length > 0) {
     const firstItem = cartItems[0];
-    const firstItemTotal = firstItem.price * (firstItem.quantity - 1); // quantity - 1 because first unit is free
+    const firstItemTotal = firstItem.price * (firstItem.quantity - 1);
     subtotal += firstItemTotal;
-    
-    // Remaining items: all units are charged
     const otherItemsTotal = cartItems.slice(1).reduce((sum, item) => sum + (item.price * item.quantity), 0);
     subtotal += otherItemsTotal;
+    coinDiscountSavings = firstItem.price;
   } else {
-    // No daily credit: charge for all items
     subtotal = cartItems.reduce((sum, item) => sum + (item.price * item.quantity), 0);
   }
-  
+
   const colleagueCount = colleagues?.length || 0;
   const deliveryThreshold = 5;
   const isFreeDelivery = colleagueCount >= deliveryThreshold;
   const deliveryFee = isFreeDelivery ? 0 : 800; // $8.00
-  const tax = Math.round((subtotal + deliveryFee) * 0.1);
+  // Club path is GST-inclusive; corporate path adds GST separately.
+  const tax = isClubMember ? 0 : Math.round((subtotal + deliveryFee) * 0.1);
   const total = subtotal + deliveryFee + tax;
 
   const currentTime = new Date();
@@ -350,6 +369,24 @@ export default function Checkout() {
               </CardHeader>
               <CardContent className="space-y-4">
                 <div className="space-y-2">
+                  {(memberDiscountSavings > 0 || coinDiscountSavings > 0) && (
+                    <div className="flex justify-between text-sm text-muted-foreground">
+                      <span>Items at full price</span>
+                      <span>${((subtotal + memberDiscountSavings + coinDiscountSavings) / 100).toFixed(2)}</span>
+                    </div>
+                  )}
+                  {coinDiscountSavings > 0 && (
+                    <div className="flex justify-between text-sm text-amber-700">
+                      <span>{isClubMember ? "FÜDA Coin (1 item free)" : "Daily Credit"}</span>
+                      <span>-${(coinDiscountSavings / 100).toFixed(2)}</span>
+                    </div>
+                  )}
+                  {memberDiscountSavings > 0 && (
+                    <div className="flex justify-between text-sm text-amber-700">
+                      <span>FÜDA Club discount (10% off)</span>
+                      <span>-${(memberDiscountSavings / 100).toFixed(2)}</span>
+                    </div>
+                  )}
                   <div className="flex justify-between text-sm">
                     <span>Subtotal</span>
                     <span>${(subtotal / 100).toFixed(2)}</span>
@@ -360,10 +397,12 @@ export default function Checkout() {
                       {isFreeDelivery ? "FREE" : `$${(deliveryFee / 100).toFixed(2)}`}
                     </span>
                   </div>
-                  <div className="flex justify-between text-sm">
-                    <span>Tax (10%)</span>
-                    <span>${(tax / 100).toFixed(2)}</span>
-                  </div>
+                  {!isClubMember && (
+                    <div className="flex justify-between text-sm">
+                      <span>Tax (10%)</span>
+                      <span>${(tax / 100).toFixed(2)}</span>
+                    </div>
+                  )}
                   <Separator />
                   <div className="flex justify-between font-bold text-lg">
                     <span>Total</span>

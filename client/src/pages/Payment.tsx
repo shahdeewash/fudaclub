@@ -196,13 +196,42 @@ export default function Payment() {
     ? coinBalance > 0
     : !!(dailyCredit?.available && !dailyCredit?.usedToday);
 
+  // Subtotal calculation depends on user type so the cart display matches what
+  // the backend actually charges. Club members see 10% off every item (and one
+  // item free if they have a coin); corporate users see one item free if they
+  // have today's credit.
+  const CLUB_DISCOUNT = 0.10;
   let subtotal = 0;
-  if (hasDailyCredit && cartItems.length > 0) {
+  let memberDiscountSavings = 0;
+  let coinDiscountSavings = 0;
+
+  if (isClubMember) {
+    // Club math: walk each unit, apply coin to the first non-zero unit, 10% off everything else.
+    let coinUsedThisOrder = false;
+    for (const item of cartItems) {
+      const fullPrice = item.price;
+      for (let i = 0; i < item.quantity; i++) {
+        if (hasDailyCredit && !coinUsedThisOrder) {
+          // First unit: free via FÜDA Coin
+          coinUsedThisOrder = true;
+          coinDiscountSavings += fullPrice;
+          // contributes 0 to subtotal
+        } else {
+          // Discounted unit: 10% off
+          const discountedUnit = Math.round(fullPrice * (1 - CLUB_DISCOUNT));
+          subtotal += discountedUnit;
+          memberDiscountSavings += (fullPrice - discountedUnit);
+        }
+      }
+    }
+  } else if (hasDailyCredit && cartItems.length > 0) {
+    // Corporate: first unit of first item free, rest at full price
     const firstItem = cartItems[0];
     const firstItemTotal = firstItem.price * (firstItem.quantity - 1);
     subtotal += firstItemTotal;
     const otherItemsTotal = cartItems.slice(1).reduce((sum, item) => sum + (item.price * item.quantity), 0);
     subtotal += otherItemsTotal;
+    coinDiscountSavings = firstItem.price;
   } else {
     subtotal = cartItems.reduce((sum, item) => sum + (item.price * item.quantity), 0);
   }
@@ -211,7 +240,8 @@ export default function Payment() {
   const deliveryThreshold = 5;
   const isFreeDelivery = colleagueCount >= deliveryThreshold;
   const deliveryFee = isFreeDelivery ? 0 : 800;
-  const tax = Math.round((subtotal + deliveryFee) * 0.1);
+  // GST: corporate path adds tax separately, club path is GST-inclusive at the line item.
+  const tax = isClubMember ? 0 : Math.round((subtotal + deliveryFee) * 0.1);
   const total = subtotal + deliveryFee + tax;
 
   const isZeroTotal = total === 0;
@@ -507,26 +537,43 @@ export default function Payment() {
                 </div>
                 <Separator />
                 <div className="space-y-2">
+                  {/* Show original (full-price) subtotal so the discount math is visible */}
+                  {(memberDiscountSavings > 0 || coinDiscountSavings > 0) && (
+                    <div className="flex justify-between text-sm text-muted-foreground">
+                      <span>Items at full price</span>
+                      <span>
+                        ${((subtotal + memberDiscountSavings + coinDiscountSavings) / 100).toFixed(2)}
+                      </span>
+                    </div>
+                  )}
+                  {coinDiscountSavings > 0 && (
+                    <div className="flex justify-between text-sm text-amber-700">
+                      <span>{isClubMember ? "FÜDA Coin (1 item free)" : "Daily Credit"}</span>
+                      <span>-${(coinDiscountSavings / 100).toFixed(2)}</span>
+                    </div>
+                  )}
+                  {memberDiscountSavings > 0 && (
+                    <div className="flex justify-between text-sm text-amber-700">
+                      <span>FÜDA Club discount (10% off)</span>
+                      <span>-${(memberDiscountSavings / 100).toFixed(2)}</span>
+                    </div>
+                  )}
                   <div className="flex justify-between text-sm">
                     <span>Subtotal</span>
                     <span>${(subtotal / 100).toFixed(2)}</span>
                   </div>
-                  {hasDailyCredit && (
-                    <div className="flex justify-between text-sm text-secondary">
-                      <span>Daily Credit</span>
-                      <span>-${((cartItems[0]?.price || 0) / 100).toFixed(2)}</span>
-                    </div>
-                  )}
                   <div className="flex justify-between text-sm">
                     <span>Delivery Fee</span>
                     <span className={isFreeDelivery ? "text-secondary" : ""}>
                       {isFreeDelivery ? "FREE" : `$${(deliveryFee / 100).toFixed(2)}`}
                     </span>
                   </div>
-                  <div className="flex justify-between text-sm">
-                    <span>Tax (10%)</span>
-                    <span>${(tax / 100).toFixed(2)}</span>
-                  </div>
+                  {!isClubMember && (
+                    <div className="flex justify-between text-sm">
+                      <span>Tax (10%)</span>
+                      <span>${(tax / 100).toFixed(2)}</span>
+                    </div>
+                  )}
                   <Separator />
                   <div className="flex justify-between font-bold text-lg">
                     <span>Total</span>
@@ -534,13 +581,26 @@ export default function Payment() {
                       {isZeroTotal ? "FREE" : `$${(total / 100).toFixed(2)}`}
                     </span>
                   </div>
+                  {isClubMember && (
+                    <p className="text-[11px] text-muted-foreground text-right">
+                      Prices include GST
+                    </p>
+                  )}
                 </div>
 
-                {hasDailyCredit && (
+                {hasDailyCredit && !isClubMember && (
                   <Alert className="border-secondary/50 bg-secondary/10">
                     <CheckCircle2 className="h-4 w-4 text-secondary" />
                     <AlertDescription className="text-sm">
                       Daily credit applied to first item
+                    </AlertDescription>
+                  </Alert>
+                )}
+                {isClubMember && (memberDiscountSavings > 0 || coinDiscountSavings > 0) && (
+                  <Alert className="border-amber-300 bg-amber-50">
+                    <CheckCircle2 className="h-4 w-4 text-amber-600" />
+                    <AlertDescription className="text-sm text-amber-900">
+                      You're saving <strong>${((memberDiscountSavings + coinDiscountSavings) / 100).toFixed(2)}</strong> as a FÜDA Club member.
                     </AlertDescription>
                   </Alert>
                 )}
