@@ -32,6 +32,17 @@ export default function Checkout() {
     return saved === "delivery" ? "delivery" : "pickup";
   });
 
+  // 10:30 AM Darwin (UTC+9:30) cutoff — orders after this time can only be pickup.
+  // Computed inline (not stored in state) so the alert reflects the actual time
+  // the page was loaded.
+  const isBeforeCutoff = (() => {
+    const now = new Date();
+    const darwinNow = new Date(now.getTime() + 9.5 * 60 * 60 * 1000);
+    const h = darwinNow.getUTCHours();
+    const m = darwinNow.getUTCMinutes();
+    return h < 10 || (h === 10 && m < 30);
+  })();
+
 
   const { data: subscription } = trpc.subscription.getMine.useQuery(undefined, {
     enabled: isAuthenticated,
