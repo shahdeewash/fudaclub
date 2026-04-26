@@ -7,7 +7,7 @@ import { Badge } from "@/components/ui/badge";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { Progress } from "@/components/ui/progress";
 import { trpc } from "@/lib/trpc";
-import { ShoppingCart, Users, Star, Truck, Clock, LogOut, User as UserIcon } from "lucide-react";
+import { ShoppingCart, Users, Star, Truck, Clock, LogOut, User as UserIcon, UtensilsCrossed } from "lucide-react";
 import { CartIndicator } from "@/components/CartIndicator";
 import { ModifierDialog, type ModifierSelection } from "@/components/ModifierDialog";
 import { toast } from "sonner";
@@ -317,11 +317,18 @@ export default function Menu() {
             </CardHeader>
             <CardContent className="pt-6">
               <div className="flex gap-4">
-                <img
-                  src={todaysSpecial.imageUrl || ""}
-                  alt={todaysSpecial.name}
-                  className="w-32 h-32 object-cover rounded-lg"
-                />
+                {todaysSpecial.imageUrl ? (
+                  <img
+                    src={todaysSpecial.imageUrl}
+                    alt={todaysSpecial.name}
+                    className="w-32 h-32 object-cover rounded-lg"
+                    onError={(e) => { (e.currentTarget as HTMLImageElement).style.display = "none"; }}
+                  />
+                ) : (
+                  <div className="w-32 h-32 rounded-lg bg-gradient-to-br from-amber-100 to-amber-200 flex items-center justify-center shrink-0">
+                    <UtensilsCrossed className="h-10 w-10 text-amber-700 opacity-60" />
+                  </div>
+                )}
                 <div className="flex-1">
                   <h3 className="text-xl font-bold mb-1">{todaysSpecial.name}</h3>
                   <p className="text-muted-foreground mb-3">{todaysSpecial.description}</p>
@@ -372,11 +379,24 @@ export default function Menu() {
                 return (
                   <Card key={item.id}>
                     <CardHeader className="p-0">
-                      <img
-                        src={item.imageUrl || ""}
-                        alt={item.name}
-                        className="w-full h-48 object-cover rounded-t-lg"
-                      />
+                      {item.imageUrl ? (
+                        <img
+                          src={item.imageUrl}
+                          alt={item.name}
+                          className="w-full h-48 object-cover rounded-t-lg"
+                          onError={(e) => {
+                            // If the URL is broken, hide the image and let the fallback layout show
+                            (e.currentTarget as HTMLImageElement).style.display = "none";
+                          }}
+                        />
+                      ) : (
+                        <div className="w-full h-48 rounded-t-lg bg-gradient-to-br from-amber-100 to-amber-200 flex flex-col items-center justify-center gap-2 text-amber-700">
+                          <UtensilsCrossed className="h-10 w-10 opacity-60" />
+                          <span className="text-xs font-medium opacity-70 px-3 text-center line-clamp-2">
+                            {item.category || "FÜDA"}
+                          </span>
+                        </div>
+                      )}
                     </CardHeader>
                     <CardContent className="pt-4">
                       <div className="flex items-start justify-between mb-2">
