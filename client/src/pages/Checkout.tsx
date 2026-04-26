@@ -205,14 +205,6 @@ export default function Checkout() {
   const tax = isClubMember ? 0 : Math.round((subtotal + deliveryFee) * 0.1);
   const total = subtotal + deliveryFee + tax;
 
-  const currentTime = new Date();
-  const cutoffTime = new Date();
-  cutoffTime.setHours(10, 30, 0, 0);
-  const isBeforeCutoff = currentTime < cutoffTime;
-  const fulfillmentType = isBeforeCutoff && isFreeDelivery ? "delivery" : "pickup";
-
-
-
   return (
     <div className="min-h-screen bg-background">
       {/* Header */}
