@@ -25,6 +25,13 @@ export default function Menu() {
   const { data: subscription } = trpc.subscription.getMine.useQuery(undefined, {
     enabled: isAuthenticated,
   });
+  // FÜDA Club personal subscription — separate from the corporate B2B `subscription` above.
+  // Members get a daily FÜDA Coin and 10% off every order. Non-members can still browse the menu.
+  const { data: clubStatus } = trpc.fudaClub.getStatus.useQuery(undefined, {
+    enabled: isAuthenticated,
+  });
+  const isClubMember = !!(clubStatus?.subscription && clubStatus.subscription.status !== "canceled");
+
   const { data: colleagues } = trpc.order.getColleaguesWhoOrdered.useQuery(undefined, {
     enabled: isAuthenticated,
   });
@@ -70,23 +77,9 @@ export default function Menu() {
     );
   }
 
-  if (!subscription) {
-    return (
-      <div className="min-h-screen bg-background flex items-center justify-center">
-        <Card className="max-w-md">
-          <CardHeader>
-            <CardTitle>Subscription Required</CardTitle>
-            <CardDescription>Join The FÜDA Club to access daily lunch deals</CardDescription>
-          </CardHeader>
-          <CardContent>
-            <Button onClick={() => setLocation("/fuda-club")} className="w-full bg-amber-500 hover:bg-amber-600 text-white">
-              Join The FÜDA Club
-            </Button>
-          </CardContent>
-        </Card>
-      </div>
-    );
-  }
+  // Menu is browsable by anyone authenticated — corporate members, FÜDA Club members,
+  // and signed-in non-members alike. Member benefits (coin, 10% off) apply at checkout.
+  // Non-members see a soft prompt to join the Club but can still view and order.
 
   const saveCartToLocalStorage = (cartMap: Map<number, number>, modMap?: Map<number, { selections: ModifierSelection; extraCents: number }>) => {
     const modsToUse = modMap ?? cartModifiers;
@@ -214,6 +207,33 @@ export default function Menu() {
       </header>
 
       <main className="container py-6 max-w-6xl">
+        {/* FÜDA Club status banner — shows for everyone, content varies by membership */}
+        {isClubMember ? (
+          <Alert className="mb-6 border-amber-300 bg-amber-50">
+            <Star className="h-4 w-4 text-amber-600 fill-amber-400" />
+            <AlertTitle className="text-amber-800">FÜDA Club Member · 10% off every order</AlertTitle>
+            <AlertDescription className="text-amber-900/80">
+              Your daily FÜDA Coin covers one item free, and every other item is 10% off — applied automatically at checkout.
+            </AlertDescription>
+          </Alert>
+        ) : (
+          <Alert className="mb-6 border-amber-200 bg-amber-50/50">
+            <Star className="h-4 w-4 text-amber-500" />
+            <AlertTitle className="text-amber-800">Save with The FÜDA Club</AlertTitle>
+            <AlertDescription className="text-amber-900/80 flex items-center justify-between gap-3 flex-wrap">
+              <span>Members get 1 FÜDA Coin daily (a free item) plus 10% off every order.</span>
+              <Button
+                size="sm"
+                variant="outline"
+                className="border-amber-400 text-amber-800 hover:bg-amber-100"
+                onClick={() => setLocation("/fuda-club")}
+              >
+                Join the Club
+              </Button>
+            </AlertDescription>
+          </Alert>
+        )}
+
         {/* Colleague Banner */}
         {colleagueCount > 0 && (
           <Alert className="mb-6 border-secondary/50 bg-secondary/10">

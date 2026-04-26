@@ -266,4 +266,4 @@ export const fudaClosureDates = mysqlTable("fudaClosureDates", {
 });
 
 export type FudaClosureDate = typeof fudaClosureDates.$inferSelect;
-export type InsertFudaClosureDate = typeof fudaClosureDates.$inferInsert
+export type InsertFudaClosureDate = typeof fudaClosureDates.$inferInsert;
