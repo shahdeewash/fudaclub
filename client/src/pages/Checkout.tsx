@@ -30,6 +30,14 @@ export default function Checkout() {
   const { data: subscription } = trpc.subscription.getMine.useQuery(undefined, {
     enabled: isAuthenticated,
   });
+  // FÜDA Club personal subscription — separate from corporate B2B `subscription`.
+  // Either kind of membership unblocks checkout.
+  const { data: clubStatus } = trpc.fudaClub.getStatus.useQuery(undefined, {
+    enabled: isAuthenticated,
+  });
+  const isClubMember = !!(clubStatus?.subscription && clubStatus.subscription.status !== "canceled");
+  const hasAnyMembership = !!subscription || isClubMember;
+
   const { data: dailyCredit } = trpc.order.getDailyCredit.useQuery(undefined, {
     enabled: isAuthenticated,
   });
@@ -57,17 +65,43 @@ export default function Checkout() {
     }
   }, []);
 
-  if (!isAuthenticated || !subscription) {
+  if (!isAuthenticated) {
     return (
       <div className="min-h-screen bg-background flex items-center justify-center">
         <Card className="max-w-md">
           <CardHeader>
-            <CardTitle>Access Denied</CardTitle>
-            <CardDescription>Please login and subscribe to continue</CardDescription>
+            <CardTitle>Login Required</CardTitle>
+            <CardDescription>Please login to continue to checkout</CardDescription>
           </CardHeader>
           <CardContent>
-            <Button onClick={() => setLocation("/")} className="w-full">
-              Go Home
+            <Button onClick={() => window.location.href = "/api/oauth/login"} className="w-full">
+              Login
+            </Button>
+          </CardContent>
+        </Card>
+      </div>
+    );
+  }
+
+  if (!hasAnyMembership) {
+    return (
+      <div className="min-h-screen bg-background flex items-center justify-center p-4">
+        <Card className="max-w-md">
+          <CardHeader>
+            <CardTitle>Membership Required</CardTitle>
+            <CardDescription>
+              Join The FÜDA Club to order — daily coin + 10% off every order, no lock-in.
+            </CardDescription>
+          </CardHeader>
+          <CardContent className="space-y-2">
+            <Button
+              onClick={() => setLocation("/fuda-club")}
+              className="w-full bg-amber-500 hover:bg-amber-600 text-white"
+            >
+              Join The FÜDA Club
+            </Button>
+            <Button onClick={() => setLocation("/menu")} variant="outline" className="w-full">
+              Back to Menu
             </Button>
           </CardContent>
         </Card>

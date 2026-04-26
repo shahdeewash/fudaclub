@@ -32,6 +32,13 @@ export default function Payment() {
   const { data: subscription } = trpc.subscription.getMine.useQuery(undefined, {
     enabled: isAuthenticated,
   });
+  // FÜDA Club membership — separate from corporate `subscription`. Either grants checkout.
+  const { data: clubStatus } = trpc.fudaClub.getStatus.useQuery(undefined, {
+    enabled: isAuthenticated,
+  });
+  const isClubMember = !!(clubStatus?.subscription && clubStatus.subscription.status !== "canceled");
+  const hasAnyMembership = !!subscription || isClubMember;
+
   const { data: dailyCredit } = trpc.order.getDailyCredit.useQuery(undefined, {
     enabled: isAuthenticated,
   });
@@ -41,7 +48,7 @@ export default function Payment() {
 
   const utils = trpc.useUtils();
 
-  // For $0 orders (free via daily credit)
+  // CORPORATE PATH (B2B users with companyId): $0 orders use trpc.order.create
   const createOrder = trpc.order.create.useMutation({
     onSuccess: (data) => {
       setOrderPlaced(true);
@@ -62,11 +69,10 @@ export default function Payment() {
     },
   });
 
-  // For paid orders - create Stripe Checkout session
+  // CORPORATE PATH: paid orders use trpc.payment.createCheckoutSession
   const createCheckoutSession = trpc.payment.createCheckoutSession.useMutation({
     onSuccess: (data) => {
       if (data.url) {
-        // Redirect to Stripe Checkout
         window.location.href = data.url;
       } else {
         toast.error("Failed to create checkout session");
@@ -75,6 +81,32 @@ export default function Payment() {
     },
     onError: (error: any) => {
       toast.error(error.message || "Failed to initiate payment");
+      setIsRedirecting(false);
+    },
+  });
+
+  // CLUB PATH (FÜDA Club personal members): handles BOTH free orders (covered by coin)
+  // AND paid orders. Returns either an immediate orderId+orderNumber for $0 orders,
+  // or a Stripe checkoutUrl for paid orders.
+  const createFoodCheckout = trpc.fudaClub.createFoodCheckout.useMutation({
+    onSuccess: (data) => {
+      localStorage.removeItem("fuda_cart");
+      window.dispatchEvent(new Event("cartUpdated"));
+      if (data.requiresPayment && data.checkoutUrl) {
+        window.location.href = data.checkoutUrl;
+      } else if (data.orderNumber) {
+        setOrderPlaced(true);
+        setOrderNumber(data.orderNumber);
+        toast.success("Order placed using your FÜDA Coin!");
+        utils.fudaClub.getStatus.invalidate();
+        setTimeout(() => setLocation("/orders"), 3000);
+      } else {
+        toast.error("Unexpected response from server");
+        setIsRedirecting(false);
+      }
+    },
+    onError: (error: any) => {
+      toast.error(error.message || "Failed to place order");
       setIsRedirecting(false);
     },
   });
@@ -96,17 +128,40 @@ export default function Payment() {
     }
   }, []);
 
-  if (!isAuthenticated || !subscription) {
+  if (!isAuthenticated) {
     return (
       <div className="min-h-screen bg-background flex items-center justify-center">
         <Card className="max-w-md">
           <CardHeader>
-            <CardTitle>Access Denied</CardTitle>
-            <CardDescription>Please login and subscribe to continue</CardDescription>
+            <CardTitle>Login Required</CardTitle>
+            <CardDescription>Please login to complete payment</CardDescription>
           </CardHeader>
           <CardContent>
-            <Button onClick={() => setLocation("/")} className="w-full">
-              Go Home
+            <Button onClick={() => window.location.href = "/api/oauth/login"} className="w-full">
+              Login
+            </Button>
+          </CardContent>
+        </Card>
+      </div>
+    );
+  }
+
+  if (!hasAnyMembership) {
+    return (
+      <div className="min-h-screen bg-background flex items-center justify-center p-4">
+        <Card className="max-w-md">
+          <CardHeader>
+            <CardTitle>Membership Required</CardTitle>
+            <CardDescription>
+              Join The FÜDA Club to order — daily coin + 10% off every order.
+            </CardDescription>
+          </CardHeader>
+          <CardContent>
+            <Button
+              onClick={() => setLocation("/fuda-club")}
+              className="w-full bg-amber-500 hover:bg-amber-600 text-white"
+            >
+              Join The FÜDA Club
             </Button>
           </CardContent>
         </Card>
@@ -161,15 +216,44 @@ export default function Payment() {
       quantity: item.quantity,
       modifierNote: item.modifierNote,
     }));
-    createOrder.mutate({
-      items,
-      specialInstructions: specialInstructions || undefined,
-    });
+    if (isClubMember) {
+      // Club path: createFoodCheckout handles $0 case directly (no Stripe round trip).
+      createFoodCheckout.mutate({
+        items,
+        origin: window.location.origin,
+        venueOrderCount: colleagueCount,
+        specialInstructions: specialInstructions || undefined,
+      });
+    } else {
+      // Corporate path: original B2B order create
+      createOrder.mutate({
+        items,
+        specialInstructions: specialInstructions || undefined,
+      });
+    }
   };
 
   const handleStripeCheckout = () => {
     setIsRedirecting(true);
 
+    // Club members: route through fudaClub.createFoodCheckout, which handles
+    // coin redemption + 10% member discount + Stripe session creation server-side.
+    if (isClubMember) {
+      const items = cartItems.map(item => ({
+        menuItemId: item.id,
+        quantity: item.quantity,
+        modifierNote: item.modifierNote,
+      }));
+      createFoodCheckout.mutate({
+        items,
+        origin: window.location.origin,
+        venueOrderCount: colleagueCount,
+        specialInstructions: specialInstructions || undefined,
+      });
+      return;
+    }
+
+    // CORPORATE PATH below — unchanged from before
     // Build line items for Stripe - apply daily credit logic
     const stripeLineItems: Array<{ name: string; price: number; quantity: number; imageUrl?: string }> = [];
 
@@ -321,9 +405,9 @@ export default function Payment() {
                     onClick={handleFreeOrder}
                     className="w-full"
                     size="lg"
-                    disabled={createOrder.isPending}
+                    disabled={createOrder.isPending || createFoodCheckout.isPending}
                   >
-                    {createOrder.isPending ? (
+                    {(createOrder.isPending || createFoodCheckout.isPending) ? (
                       <>
                         <Loader2 className="mr-2 h-5 w-5 animate-spin" />
                         Placing Order...
@@ -375,9 +459,9 @@ export default function Payment() {
                     onClick={handleStripeCheckout}
                     className="w-full"
                     size="lg"
-                    disabled={isRedirecting || createCheckoutSession.isPending}
+                    disabled={isRedirecting || createCheckoutSession.isPending || createFoodCheckout.isPending}
                   >
-                    {isRedirecting || createCheckoutSession.isPending ? (
+                    {(isRedirecting || createCheckoutSession.isPending || createFoodCheckout.isPending) ? (
                       <>
                         <Loader2 className="mr-2 h-5 w-5 animate-spin" />
                         Redirecting to Stripe...
