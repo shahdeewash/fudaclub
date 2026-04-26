@@ -40,6 +40,7 @@ export function buildSquareAuthUrl(redirectUri: string, state: string): string {
     "PAYMENTS_WRITE",
     "PAYMENTS_READ",
     "DEVICE_CREDENTIAL_MANAGEMENT",
+    "DEVICES_READ", // needed for Devices API (Check Terminal Status, Auto-Detect)
   ].join("+");
   return (
     `${OAUTH_BASE}/oauth2/authorize` +
