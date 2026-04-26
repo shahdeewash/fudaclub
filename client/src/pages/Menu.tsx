@@ -59,6 +59,29 @@ export default function Menu() {
     },
   });
 
+  // Restore cart from localStorage on mount so navigating away (Checkout/Payment)
+  // and coming back to the menu doesn't lose the items already added.
+  // MUST be declared before any early-return — React's Rules of Hooks.
+  useEffect(() => {
+    const savedCart = localStorage.getItem("fuda_cart");
+    if (!savedCart) return;
+    try {
+      const parsed = JSON.parse(savedCart) as Array<{
+        id: number;
+        quantity: number;
+        selectedModifiers?: Array<{ name: string; priceCents?: number }>;
+      }>;
+      if (!Array.isArray(parsed) || parsed.length === 0) return;
+      const restoredCart = new Map<number, number>(
+        parsed.filter(it => typeof it.id === "number" && typeof it.quantity === "number")
+              .map(it => [it.id, it.quantity])
+      );
+      setCart(restoredCart);
+    } catch (e) {
+      console.error("Failed to restore cart from localStorage:", e);
+    }
+  }, []);
+
   if (!isAuthenticated) {
     return (
       <div className="min-h-screen bg-background flex items-center justify-center">
@@ -80,32 +103,6 @@ export default function Menu() {
   // Menu is browsable by anyone authenticated — corporate members, FÜDA Club members,
   // and signed-in non-members alike. Member benefits (coin, 10% off) apply at checkout.
   // Non-members see a soft prompt to join the Club but can still view and order.
-
-  // Restore cart from localStorage on mount so navigating away (Checkout/Payment)
-  // and coming back to the menu doesn't lose the items already added.
-  useEffect(() => {
-    const savedCart = localStorage.getItem("fuda_cart");
-    if (!savedCart) return;
-    try {
-      const parsed = JSON.parse(savedCart) as Array<{
-        id: number;
-        quantity: number;
-        selectedModifiers?: Array<{ name: string; priceCents?: number }>;
-      }>;
-      if (!Array.isArray(parsed) || parsed.length === 0) return;
-      const restoredCart = new Map<number, number>(
-        parsed.filter(it => typeof it.id === "number" && typeof it.quantity === "number")
-              .map(it => [it.id, it.quantity])
-      );
-      setCart(restoredCart);
-      // Modifiers can't be perfectly reconstructed without the original modifier-group structure,
-      // so we leave cartModifiers empty on restore — the user keeps their items but loses
-      // any modifier customisations. Acceptable trade-off; full restoration would need a richer
-      // localStorage shape that preserves the ModifierSelection groupings.
-    } catch (e) {
-      console.error("Failed to restore cart from localStorage:", e);
-    }
-  }, []);
 
   const saveCartToLocalStorage = (cartMap: Map<number, number>, modMap?: Map<number, { selections: ModifierSelection; extraCents: number }>) => {
     const modsToUse = modMap ?? cartModifiers;
