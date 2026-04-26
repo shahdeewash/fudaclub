@@ -1601,8 +1601,10 @@ export const appRouter = router({
           message: "No Square account connected. Please connect Square first.",
         });
       }
-      // Sync all menus under "Eatfuda" parent (auto-includes all child menus)
-      const result = await syncSquareCatalog(conn.accessToken, "Eatfuda");
+      // Sync ONLY the "Lunch Menu" from Square — this is the FÜDA Club lunch subscription menu.
+      // (Note: "Fuda Lunch" is a printer profile in Square, not a menu — don't confuse the two.)
+      // Name matched case-insensitively; sub-menus under "Lunch Menu" are auto-included.
+      const result = await syncSquareCatalog(conn.accessToken, "Lunch Menu");
       return result;
     }),
   }),
