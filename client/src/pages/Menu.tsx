@@ -7,7 +7,7 @@ import { Badge } from "@/components/ui/badge";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { Progress } from "@/components/ui/progress";
 import { trpc } from "@/lib/trpc";
-import { ShoppingCart, Users, Star, Truck, Clock, LogOut } from "lucide-react";
+import { ShoppingCart, Users, Star, Truck, Clock, LogOut, User as UserIcon } from "lucide-react";
 import { CartIndicator } from "@/components/CartIndicator";
 import { ModifierDialog, type ModifierSelection } from "@/components/ModifierDialog";
 import { toast } from "sonner";
@@ -213,20 +213,30 @@ export default function Menu() {
             <h1 className="text-xl font-bold">FÜDA · Daily Lunch</h1>
             <p className="text-xs opacity-90">Order before 10:30 AM</p>
           </div>
-          <div className="flex gap-2">
+          <div className="flex gap-2 items-center">
             <CartIndicator />
             <Button variant="secondary" size="sm" onClick={() => setLocation("/orders")}>
               My Orders
             </Button>
-            <Button 
-              variant="ghost" 
-              size="sm" 
+            <Button
+              variant="ghost"
+              size="sm"
+              onClick={() => setLocation("/profile")}
+              className="text-primary-foreground hover:bg-primary-foreground/20"
+              aria-label="My profile"
+            >
+              <UserIcon className="h-4 w-4 mr-2" />
+              <span className="hidden sm:inline">Profile</span>
+            </Button>
+            <Button
+              variant="ghost"
+              size="sm"
               onClick={() => logout.mutate()}
               disabled={logout.isPending}
               className="text-primary-foreground hover:bg-primary-foreground/20"
             >
               <LogOut className="h-4 w-4 mr-2" />
-              {logout.isPending ? "Logging out..." : "Logout"}
+              <span className="hidden sm:inline">{logout.isPending ? "Logging out..." : "Logout"}</span>
             </Button>
           </div>
         </div>

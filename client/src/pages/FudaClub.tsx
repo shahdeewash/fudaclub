@@ -27,6 +27,7 @@ import {
   Home,
   UtensilsCrossed,
   PartyPopper,
+  User as UserIcon,
 } from "lucide-react";
 
 // ─── helpers ──────────────────────────────────────────────────────────────────
@@ -80,6 +81,16 @@ function ClubNav({ coinCount }: { coinCount?: number }) {
           >
             <UtensilsCrossed className="h-4 w-4" />
             <span className="hidden sm:inline">Menu</span>
+          </Button>
+          <Button
+            size="sm"
+            variant="ghost"
+            onClick={() => setLocation("/profile")}
+            className="gap-1.5"
+            aria-label="My profile"
+          >
+            <UserIcon className="h-4 w-4" />
+            <span className="hidden sm:inline">Profile</span>
           </Button>
           <Button
             size="sm"

@@ -6,6 +6,7 @@ import { Badge } from "@/components/ui/badge";
 import {
   Truck, Clock, Star, CheckCircle2, LogOut,
   CreditCard, Coins, Zap, Snowflake, Gift, ChevronRight, HardHat,
+  User as UserIcon,
 } from "lucide-react";
 import { CartIndicator } from "@/components/CartIndicator";
 import { trpc } from "@/lib/trpc";
@@ -52,6 +53,16 @@ export default function Home() {
                   Subscriptions
                 </Button>
               )}
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => setLocation("/profile")}
+                className="gap-1.5"
+                aria-label="My profile"
+              >
+                <UserIcon className="h-3.5 w-3.5" />
+                Profile
+              </Button>
               <Button variant="ghost" size="sm" onClick={() => logout.mutate()} disabled={logout.isPending}
                 className="text-primary-foreground hover:bg-primary-foreground/20">
                 <LogOut className="h-4 w-4 mr-1" />
