@@ -1331,52 +1331,55 @@ export default function Admin() {
                       </p>
                     )}
 
-                    {/* Remote health-check — no print job, just confirms Square sees the device */}
-                    {squareConnection.terminalDeviceId && (
-                      <div className="rounded-lg border border-blue-200 bg-blue-50/40 p-3 space-y-2">
-                        <div className="flex items-start justify-between gap-3">
-                          <div>
-                            <p className="text-sm font-semibold">Check terminal status</p>
-                            <p className="text-xs text-muted-foreground">
-                              Asks Square if the paired terminal is still known. No print, no charge — works from anywhere.
-                              Use this when you're not at the store but want to confirm the wiring.
-                            </p>
-                          </div>
-                          <Button
-                            size="sm"
-                            variant="outline"
-                            onClick={() => checkTerminalStatus.mutate()}
-                            disabled={checkTerminalStatus.isPending}
-                            className="border-blue-400 text-blue-800 hover:bg-blue-100 shrink-0"
-                          >
-                            {checkTerminalStatus.isPending ? "Checking…" : "Check Status"}
-                          </Button>
+                    {/* Remote health-check — no print job, just confirms Square sees the device.
+                        Always visible when Square is connected so admin can use it even before
+                        a device ID is stored (the response will tell them what to fix). */}
+                    <div className="rounded-lg border border-blue-200 bg-blue-50/40 p-3 space-y-2">
+                      <div className="flex items-start justify-between gap-3">
+                        <div>
+                          <p className="text-sm font-semibold">Check terminal status</p>
+                          <p className="text-xs text-muted-foreground">
+                            Asks Square if your terminal is paired and known. No print, no charge — works from anywhere.
+                            If no device ID is stored yet, the response will list what Square sees.
+                          </p>
                         </div>
+                        <Button
+                          size="sm"
+                          variant="outline"
+                          onClick={() => checkTerminalStatus.mutate()}
+                          disabled={checkTerminalStatus.isPending}
+                          className="border-blue-400 text-blue-800 hover:bg-blue-100 shrink-0"
+                        >
+                          {checkTerminalStatus.isPending ? "Checking…" : "Check Status"}
+                        </Button>
                       </div>
-                    )}
+                    </div>
 
-                    {/* Test print — full print job, requires being at (or able to phone) the store */}
-                    {squareConnection.terminalDeviceId && (
-                      <div className="rounded-lg border border-amber-200 bg-amber-50/40 p-3 space-y-2">
-                        <div className="flex items-start justify-between gap-3">
-                          <div>
-                            <p className="text-sm font-semibold">Verify the printer</p>
-                            <p className="text-xs text-muted-foreground">
-                              Sends a $1.00 test order with line item "TEST PRINT — FÜDA system check" to the terminal.
-                              Tap-to-pay or cancel on the device — either way the receipt format is exercised.
-                            </p>
-                          </div>
-                          <Button
-                            size="sm"
-                            onClick={() => testPrint.mutate()}
-                            disabled={testPrint.isPending}
-                            className="bg-amber-500 hover:bg-amber-600 text-white shrink-0"
-                          >
-                            {testPrint.isPending ? "Sending…" : "Test Print"}
-                          </Button>
+                    {/* Test print — full print job. Only useful with a paired device. */}
+                    <div className="rounded-lg border border-amber-200 bg-amber-50/40 p-3 space-y-2">
+                      <div className="flex items-start justify-between gap-3">
+                        <div>
+                          <p className="text-sm font-semibold">Verify the printer</p>
+                          <p className="text-xs text-muted-foreground">
+                            Sends a $1.00 test order with line item "TEST PRINT — FÜDA system check" to the terminal.
+                            Tap-to-pay or cancel on the device — either way the receipt format is exercised.
+                            {!squareConnection.terminalDeviceId && (
+                              <span className="block mt-1 text-amber-800 font-medium">
+                                Pair a device ID first (Auto-Detect or paste below) — this button will error otherwise.
+                              </span>
+                            )}
+                          </p>
                         </div>
+                        <Button
+                          size="sm"
+                          onClick={() => testPrint.mutate()}
+                          disabled={testPrint.isPending || !squareConnection.terminalDeviceId}
+                          className="bg-amber-500 hover:bg-amber-600 text-white shrink-0"
+                        >
+                          {testPrint.isPending ? "Sending…" : "Test Print"}
+                        </Button>
                       </div>
-                    )}
+                    </div>
 
                     <p className="text-xs text-amber-600 bg-amber-50 rounded p-2">
                       <strong>Note:</strong> Auto-Detect requires reconnecting Square to grant device permissions.
