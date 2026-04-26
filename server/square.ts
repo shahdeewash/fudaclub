@@ -793,6 +793,75 @@ export async function createSquareOrderForPrinting(
  *
  * Returns the device ID string, or null if no terminal is paired.
  */
+/**
+ * Look up the configured Square Terminal device and return its current status.
+ * No print job sent — just queries Square's Devices API for the paired device's
+ * metadata so admin can verify the device is reachable without being at the store.
+ */
+export async function getTerminalStatus(
+  accessToken: string,
+  expectedDeviceId: string | null
+): Promise<{
+  found: boolean;
+  deviceId: string | null;
+  deviceName: string | null;
+  category: string | null;
+  attributes: Record<string, unknown> | null;
+  reachable: boolean;
+  message: string;
+}> {
+  const client = new SquareClient({ token: accessToken, environment: SQ_ENV });
+  try {
+    const res = await (client.devices as any).list({});
+    const devices: Array<any> = res?.devices ?? [];
+
+    if (!expectedDeviceId) {
+      return {
+        found: false,
+        deviceId: null,
+        deviceName: null,
+        category: null,
+        attributes: null,
+        reachable: false,
+        message: `No terminal device ID is stored. Square reports ${devices.length} paired device(s); pick one in admin or click Auto-detect.`,
+      };
+    }
+
+    const matched = devices.find(d => d.id === expectedDeviceId);
+    if (!matched) {
+      return {
+        found: false,
+        deviceId: expectedDeviceId,
+        deviceName: null,
+        category: null,
+        attributes: null,
+        reachable: false,
+        message: `Stored device ID ${expectedDeviceId} is not in the list of paired devices Square knows about. The terminal may have been unpaired or replaced — re-pair on the device or click Auto-detect.`,
+      };
+    }
+
+    return {
+      found: true,
+      deviceId: matched.id,
+      deviceName: matched.name ?? null,
+      category: matched.status?.category ?? matched.attributes?.type ?? null,
+      attributes: matched.attributes ?? null,
+      reachable: true,
+      message: `Device "${matched.name ?? matched.id}" is paired with Square${matched.status?.category ? ` as ${matched.status.category}` : ""}. Square will queue the next receipt for this device when an order is placed; if the terminal is powered on and online, it'll print immediately.`,
+    };
+  } catch (err: any) {
+    return {
+      found: false,
+      deviceId: expectedDeviceId,
+      deviceName: null,
+      category: null,
+      attributes: null,
+      reachable: false,
+      message: `Couldn't query Square Devices API: ${err?.message ?? "unknown error"}. The Square access token may have expired — try reconnecting Square.`,
+    };
+  }
+}
+
 export async function fetchAndStoreTerminalDeviceId(
   accessToken: string,
   connectionId: number

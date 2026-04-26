@@ -647,6 +647,16 @@ export default function Admin() {
     },
     onError: (error) => toast.error(error.message),
   });
+  const checkTerminalStatus = trpc.square.checkTerminalStatus.useMutation({
+    onSuccess: (result) => {
+      if (result.reachable) {
+        toast.success(result.message);
+      } else {
+        toast.warning(result.message);
+      }
+    },
+    onError: (error) => toast.error(error.message),
+  });
 
   // Closure date management
   const [newClosureDate, setNewClosureDate] = useState("");
@@ -1321,7 +1331,31 @@ export default function Admin() {
                       </p>
                     )}
 
-                    {/* Test print — exercises the printer pipeline without a real customer order */}
+                    {/* Remote health-check — no print job, just confirms Square sees the device */}
+                    {squareConnection.terminalDeviceId && (
+                      <div className="rounded-lg border border-blue-200 bg-blue-50/40 p-3 space-y-2">
+                        <div className="flex items-start justify-between gap-3">
+                          <div>
+                            <p className="text-sm font-semibold">Check terminal status</p>
+                            <p className="text-xs text-muted-foreground">
+                              Asks Square if the paired terminal is still known. No print, no charge — works from anywhere.
+                              Use this when you're not at the store but want to confirm the wiring.
+                            </p>
+                          </div>
+                          <Button
+                            size="sm"
+                            variant="outline"
+                            onClick={() => checkTerminalStatus.mutate()}
+                            disabled={checkTerminalStatus.isPending}
+                            className="border-blue-400 text-blue-800 hover:bg-blue-100 shrink-0"
+                          >
+                            {checkTerminalStatus.isPending ? "Checking…" : "Check Status"}
+                          </Button>
+                        </div>
+                      </div>
+                    )}
+
+                    {/* Test print — full print job, requires being at (or able to phone) the store */}
                     {squareConnection.terminalDeviceId && (
                       <div className="rounded-lg border border-amber-200 bg-amber-50/40 p-3 space-y-2">
                         <div className="flex items-start justify-between gap-3">

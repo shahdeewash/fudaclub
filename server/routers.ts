@@ -18,6 +18,7 @@ import {
   getMenuItemModifiers,
   createSquareOrderForPrinting,
   printReceiptOnTerminal,
+  getTerminalStatus,
   fetchAndStoreTerminalDeviceId,
   getAllSquareConnections,
 } from "./square";
@@ -1480,6 +1481,25 @@ export const appRouter = router({
       }
       const deviceId = await fetchAndStoreTerminalDeviceId(conn.accessToken, conn.id);
       return { deviceId };
+    }),
+
+    /**
+     * Remote health check: looks up the configured terminal device in Square's
+     * Devices API and returns whether it's known/paired. No print job sent — useful
+     * when admin isn't physically near the printer but wants to confirm the wiring.
+     */
+    checkTerminalStatus: protectedProcedure.mutation(async ({ ctx }) => {
+      if (ctx.user.role !== "admin") {
+        throw new TRPCError({ code: "FORBIDDEN" });
+      }
+      const conn = await getSquareConnection(ctx.user.id);
+      if (!conn) {
+        throw new TRPCError({
+          code: "PRECONDITION_FAILED",
+          message: "No Square account connected.",
+        });
+      }
+      return getTerminalStatus(conn.accessToken, conn.terminalDeviceId ?? null);
     }),
 
     /**
