@@ -16,6 +16,7 @@ import { eq, and, gt, desc, gte, lte } from "drizzle-orm";
 import Stripe from "stripe";
 import { FUDA_CLUB } from "../stripe-products";
 import { nanoid } from "nanoid";
+import { createSquareOrderForPrinting, printReceiptOnTerminal } from "../square";
 
 const stripe = new Stripe(process.env.STRIPE_SECRET_KEY!, {
   apiVersion: "2026-02-25.clover",
@@ -729,6 +730,33 @@ export const fudaClubRouter = router({
         if (preview.coinUsed && coins[0]) {
           await useFudaCoin(coins[0].id, orderId);
         }
+
+        // Push to Square so the order appears in Square POS / KDS and triggers
+        // the printer profile (e.g. "Fuda Lunch") on the connected printer.
+        // Fire-and-forget: receipt printing is best-effort, never blocks the order.
+        createSquareOrderForPrinting(
+          orderId,
+          orderNumber,
+          preview.items.map(item => {
+            const m = menuItemMap.get(item.menuItemId);
+            return {
+              menuItemId: item.menuItemId,
+              itemName: item.name,
+              quantity: item.quantity,
+              unitPriceInCents: item.discountedPriceInCents,
+              variationId: m?.squareVariationId ?? null,
+              modifierNote: item.modifierNote ?? null,
+            };
+          }),
+          input.specialInstructions ?? null,
+          ctx.user.name ?? null,
+          null
+        ).then(squareOrderId => {
+          if (squareOrderId) {
+            printReceiptOnTerminal(orderId, squareOrderId, preview.totalInCents)
+              .catch(err => console.error("[Square Terminal] Receipt print failed:", err));
+          }
+        }).catch(err => console.error("[Square Orders] Push failed for $0 club order:", err));
 
         return { orderId, orderNumber, requiresPayment: false, checkoutUrl: null };
       }

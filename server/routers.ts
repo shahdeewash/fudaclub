@@ -1197,6 +1197,176 @@ export const appRouter = router({
           });
         }
 
+        // ─── FÜDA Club branch ──────────────────────────────────────────────────
+        // FÜDA Club orders use a different shape than the legacy corporate flow
+        // (10% member discount, FÜDA Coin instead of daily credit, no companyId
+        // required, 5+ workplace-member free-delivery rule, FC-XXXX order numbers).
+        // If the Stripe session was created by createFoodCheckout in the FÜDA Club
+        // router, plan_type === "fuda_club" — branch here to handle it correctly
+        // AND push the order to Square so it prints via the "Fuda Lunch" profile.
+        if (session.metadata?.plan_type === "fuda_club") {
+          const clubOrderDataStr = session.metadata?.order_data;
+          if (!clubOrderDataStr) {
+            throw new TRPCError({ code: "BAD_REQUEST", message: "Order data not found in session" });
+          }
+          const clubOrderData = JSON.parse(clubOrderDataStr) as {
+            items: Array<{ menuItemId: number; quantity: number; modifierNote?: string }>;
+            deliveryFee: number;
+            tax: number;
+            coinUsed: boolean;
+            specialInstructions?: string;
+          };
+          const coinIdStr = session.metadata?.coin_id;
+          const coinId = coinIdStr ? parseInt(coinIdStr) : null;
+
+          // Idempotency — if a previous webhook or success-page hit already created
+          // this order, just return it instead of duplicating in DB / Square.
+          const dupExisting = await db.getOrderByStripeSessionId(input.sessionId);
+          if (dupExisting) {
+            return { order: dupExisting, orderNumber: dupExisting.orderNumber, orderId: dupExisting.id };
+          }
+
+          const menuItemsAll = await db.getAllMenuItems();
+          const clubItemMap = new Map(menuItemsAll.map(m => [m.id, m]));
+
+          // Apply 10% member discount + coin coverage to compute totals
+          const clubOrderItemsData: Array<{
+            menuItemId: number;
+            itemName: string;
+            quantity: number;
+            unitPrice: number;
+            totalPrice: number;
+            isFree: boolean;
+            modifierNote?: string;
+          }> = [];
+          let clubSubtotal = 0;
+          let coinApplied = false;
+
+          for (const it of clubOrderData.items) {
+            const m = clubItemMap.get(it.menuItemId);
+            if (!m) continue;
+            // 10% off every item for active club members
+            const discountedUnit = Math.round(m.price * 0.9);
+
+            if (clubOrderData.coinUsed && !coinApplied && it.quantity > 0) {
+              coinApplied = true;
+              clubOrderItemsData.push({
+                menuItemId: it.menuItemId,
+                itemName: m.name,
+                quantity: 1,
+                unitPrice: 0,
+                totalPrice: 0,
+                isFree: true,
+                modifierNote: it.modifierNote,
+              });
+              if (it.quantity > 1) {
+                const remQty = it.quantity - 1;
+                const remTotal = discountedUnit * remQty;
+                clubOrderItemsData.push({
+                  menuItemId: it.menuItemId,
+                  itemName: m.name,
+                  quantity: remQty,
+                  unitPrice: discountedUnit,
+                  totalPrice: remTotal,
+                  isFree: false,
+                  modifierNote: it.modifierNote,
+                });
+                clubSubtotal += remTotal;
+              }
+            } else {
+              const lineTotal = discountedUnit * it.quantity;
+              clubOrderItemsData.push({
+                menuItemId: it.menuItemId,
+                itemName: m.name,
+                quantity: it.quantity,
+                unitPrice: discountedUnit,
+                totalPrice: lineTotal,
+                isFree: false,
+                modifierNote: it.modifierNote,
+              });
+              clubSubtotal += lineTotal;
+            }
+          }
+
+          const clubDeliveryFee = clubOrderData.deliveryFee ?? 0;
+          const clubTotal = clubSubtotal + clubDeliveryFee;
+
+          // Create the order (FC-XXXX number, no companyId required)
+          const clubOrder = await db.createOrder({
+            userId: ctx.user.id,
+            companyId: ctx.user.companyId ?? 0,
+            orderNumber: `FC-${nanoid(8).toUpperCase()}`,
+            orderDate: new Date(),
+            status: "confirmed",
+            fulfillmentType: clubDeliveryFee > 0 ? "delivery" : (clubDeliveryFee === 0 && clubOrderData.deliveryFee === 0 ? "pickup" : "pickup"),
+            isFreeDelivery: clubDeliveryFee === 0 && (clubOrderData.deliveryFee ?? 0) === 0,
+            dailyCreditUsed: clubOrderData.coinUsed,
+            subtotal: clubSubtotal,
+            deliveryFee: clubDeliveryFee,
+            tax: 0,
+            total: clubTotal,
+            specialInstructions: clubOrderData.specialInstructions,
+            stripeSessionId: input.sessionId,
+          });
+
+          for (const it of clubOrderItemsData) {
+            await db.createOrderItem({ orderId: clubOrder.id, ...it });
+          }
+
+          // Mark the FÜDA Coin as used if applicable
+          if (clubOrderData.coinUsed && coinId) {
+            try {
+              const dbInst = await db.getDb();
+              if (dbInst) {
+                const { fudaCoins } = await import("../drizzle/schema");
+                const { eq: eqOp } = await import("drizzle-orm");
+                await dbInst
+                  .update(fudaCoins)
+                  .set({ usedAt: new Date(), orderId: clubOrder.id })
+                  .where(eqOp(fudaCoins.id, coinId));
+              }
+            } catch (coinErr: any) {
+              console.error("[FÜDA Club] Failed to mark coin used:", coinErr?.message ?? coinErr);
+            }
+          }
+
+          // ─── PUSH TO SQUARE ─────────────────────────────────────────────────
+          // Fire-and-forget: the order is the source of truth in our DB; Square
+          // push is best-effort for printer routing. Logged on failure.
+          createSquareOrderForPrinting(
+            clubOrder.id,
+            clubOrder.orderNumber,
+            clubOrderItemsData.map(i => ({
+              menuItemId: i.menuItemId,
+              itemName: i.itemName,
+              quantity: i.quantity,
+              unitPriceInCents: i.unitPrice,
+              variationId: clubItemMap.get(i.menuItemId)?.squareVariationId ?? null,
+              modifierNote: i.modifierNote ?? null,
+            })),
+            clubOrderData.specialInstructions ?? null,
+            ctx.user.name ?? null,
+            null
+          ).then(squareOrderId => {
+            if (squareOrderId) {
+              printReceiptOnTerminal(clubOrder.id, squareOrderId, clubTotal)
+                .catch(err => console.error("[Square Terminal] Receipt print failed:", err));
+            }
+          }).catch(err => console.error("[Square Orders] FÜDA Club push failed:", err));
+
+          // Notify owner
+          const clubItemsSummary = clubOrderItemsData
+            .map(i => `${i.quantity}x ${i.itemName}${i.isFree ? " (FÜDA Coin)" : ""}`)
+            .join(", ");
+          await notifyOwner({
+            title: `New FÜDA Club Order: ${clubOrder.orderNumber}`,
+            content: `Customer: ${ctx.user.name ?? ctx.user.email}\nItems: ${clubItemsSummary}\nTotal: $${(clubTotal / 100).toFixed(2)} AUD\nPayment: Stripe (${input.sessionId})`,
+          }).catch(() => {});
+
+          return { order: clubOrder, orderNumber: clubOrder.orderNumber, orderId: clubOrder.id };
+        }
+        // ─── End FÜDA Club branch ──────────────────────────────────────────────
+
         // Parse order data from metadata
         const orderDataStr = session.metadata?.order_data;
         if (!orderDataStr) {
