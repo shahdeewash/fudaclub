@@ -641,6 +641,12 @@ export default function Admin() {
     },
     onError: (error) => toast.error(error.message),
   });
+  const testPrint = trpc.square.testPrint.useMutation({
+    onSuccess: (result) => {
+      toast.success(result.message ?? "Test print sent — check the FÜDA terminal.");
+    },
+    onError: (error) => toast.error(error.message),
+  });
 
   // Closure date management
   const [newClosureDate, setNewClosureDate] = useState("");
@@ -1313,6 +1319,29 @@ export default function Admin() {
                       <p className="text-xs text-muted-foreground">
                         A receipt will be sent to this terminal automatically when each order is placed.
                       </p>
+                    )}
+
+                    {/* Test print — exercises the printer pipeline without a real customer order */}
+                    {squareConnection.terminalDeviceId && (
+                      <div className="rounded-lg border border-amber-200 bg-amber-50/40 p-3 space-y-2">
+                        <div className="flex items-start justify-between gap-3">
+                          <div>
+                            <p className="text-sm font-semibold">Verify the printer</p>
+                            <p className="text-xs text-muted-foreground">
+                              Sends a $1.00 test order with line item "TEST PRINT — FÜDA system check" to the terminal.
+                              Tap-to-pay or cancel on the device — either way the receipt format is exercised.
+                            </p>
+                          </div>
+                          <Button
+                            size="sm"
+                            onClick={() => testPrint.mutate()}
+                            disabled={testPrint.isPending}
+                            className="bg-amber-500 hover:bg-amber-600 text-white shrink-0"
+                          >
+                            {testPrint.isPending ? "Sending…" : "Test Print"}
+                          </Button>
+                        </div>
+                      </div>
                     )}
 
                     <p className="text-xs text-amber-600 bg-amber-50 rounded p-2">

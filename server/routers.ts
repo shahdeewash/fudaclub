@@ -1482,6 +1482,84 @@ export const appRouter = router({
       return { deviceId };
     }),
 
+    /**
+     * Sends a tiny test order to the connected Square Terminal so we can verify
+     * the kitchen receipt printer is wired up correctly. Creates a $1.00 Square
+     * order with one line item "TEST PRINT — FÜDA system check", then triggers
+     * the same printReceiptOnTerminal flow real orders use.
+     *
+     * The terminal will display a $1.00 payment screen — admin can either
+     * tap-to-pay or cancel; either way the receipt format and printer wiring
+     * are exercised. Admin-only.
+     */
+    testPrint: protectedProcedure.mutation(async ({ ctx }) => {
+      if (ctx.user.role !== "admin") {
+        throw new TRPCError({ code: "FORBIDDEN" });
+      }
+
+      const conn = await getSquareConnection(ctx.user.id);
+      if (!conn) {
+        throw new TRPCError({
+          code: "PRECONDITION_FAILED",
+          message: "No Square account connected — please connect Square first.",
+        });
+      }
+      if (!conn.terminalDeviceId) {
+        throw new TRPCError({
+          code: "PRECONDITION_FAILED",
+          message: "No Square Terminal device paired — click 'Auto-discover' or paste the device ID first.",
+        });
+      }
+
+      // Use a fake but unique fuda order ID (negative timestamp so it can never
+      // collide with a real order in the orders table).
+      const fakeFudaOrderId = -Date.now();
+      const fakeOrderNumber = `TEST-${fakeFudaOrderId}`;
+
+      // 1. Create a tiny Square order to anchor the receipt
+      const squareOrderId = await createSquareOrderForPrinting(
+        fakeFudaOrderId,
+        fakeOrderNumber,
+        [
+          {
+            menuItemId: 0,
+            itemName: "TEST PRINT — FÜDA system check",
+            quantity: 1,
+            unitPriceInCents: 100,
+            variationId: null,
+            modifierNote: "If you can read this, the printer is alive.",
+          },
+        ],
+        "This is a printer test from /admin — no real order, no kitchen action needed.",
+        ctx.user.name ?? "FÜDA Admin",
+        null
+      );
+
+      if (!squareOrderId) {
+        throw new TRPCError({
+          code: "INTERNAL_SERVER_ERROR",
+          message: "Failed to create test Square order. Check server logs for the underlying Square API error.",
+        });
+      }
+
+      // 2. Send to terminal — receipt prints as part of the checkout flow
+      const checkoutId = await printReceiptOnTerminal(fakeFudaOrderId, squareOrderId, 100);
+
+      if (!checkoutId) {
+        throw new TRPCError({
+          code: "INTERNAL_SERVER_ERROR",
+          message: "Square accepted the order but the terminal checkout failed. Verify the device ID and that the terminal is online.",
+        });
+      }
+
+      return {
+        success: true,
+        squareOrderId,
+        checkoutId,
+        message: "Test print sent. Look at the FÜDA terminal — a $1.00 payment screen should appear; the receipt will print on completion or you can cancel on the device.",
+      };
+    }),
+
     /** Disconnects the Square account */
     disconnect: protectedProcedure.mutation(async ({ ctx }) => {
       if (ctx.user.role !== "admin") {
