@@ -82,17 +82,31 @@ export default function Checkout() {
     },
   });
 
-  // Load cart from localStorage on mount
+  // Load cart from localStorage on mount AND keep in sync with the
+  // CartIndicator dropdown — that component dispatches "cartUpdated" whenever
+  // the user adds/removes items, so we re-load to reflect the latest state
+  // without forcing a page reload.
   useEffect(() => {
-    const savedCart = localStorage.getItem("fuda_cart");
-    if (savedCart) {
-      try {
-        const parsed = JSON.parse(savedCart);
-        setCartItems(parsed);
-      } catch (e) {
-        console.error("Failed to parse cart:", e);
+    const loadCart = () => {
+      const savedCart = localStorage.getItem("fuda_cart");
+      if (savedCart) {
+        try {
+          setCartItems(JSON.parse(savedCart));
+        } catch (e) {
+          console.error("Failed to parse cart:", e);
+          setCartItems([]);
+        }
+      } else {
+        setCartItems([]);
       }
-    }
+    };
+    loadCart();
+    window.addEventListener("cartUpdated", loadCart);
+    window.addEventListener("storage", loadCart);
+    return () => {
+      window.removeEventListener("cartUpdated", loadCart);
+      window.removeEventListener("storage", loadCart);
+    };
   }, []);
 
   // Persist coinsToUse choice across navigation to /payment. Must run on every
@@ -301,89 +315,14 @@ export default function Checkout() {
                 <CardDescription>{cartItems.length} {cartItems.length === 1 ? "item" : "items"}</CardDescription>
               </CardHeader>
               <CardContent className="space-y-4">
-                {cartItems.flatMap((item, index) => {
-                  const isFirstItem = index === 0;
-                  const hasMultipleUnits = item.quantity > 1;
-                  
-                  // If first item with daily credit and multiple units, split into two entries
-                  if (hasDailyCredit && isFirstItem && hasMultipleUnits) {
-                    return [
-                      // Free unit (1x)
-                      <div key={`${item.id}-free`} className="flex gap-4 pb-4 border-b">
-                        {item.imageUrl && item.imageUrl.trim() !== "" && (
-                          <img
-                            src={item.imageUrl}
-                            alt={item.name}
-                            className="w-20 h-20 object-cover rounded-lg"
-                          />
-                        )}
-                        <div className="flex-1">
-                          <div className="flex justify-between items-start mb-1">
-                            <h3 className="font-semibold">{item.name}</h3>
-                            <span className="font-bold text-secondary">$0.00</span>
-                          </div>
-                          <div className="flex items-center gap-2 text-sm text-muted-foreground">
-                            <span>Quantity: 1</span>
-                          </div>
-                          <Badge variant="secondary" className="mt-2">
-                            Daily Credit Applied
-                          </Badge>
-                        </div>
-                      </div>,
-                      // Paid units (remaining quantity)
-                      <div key={`${item.id}-paid`} className="flex gap-4 pb-4 border-b last:border-0">
-                        {item.imageUrl && item.imageUrl.trim() !== "" && (
-                          <img
-                            src={item.imageUrl}
-                            alt={item.name}
-                            className="w-20 h-20 object-cover rounded-lg"
-                          />
-                        )}
-                        <div className="flex-1">
-                          <div className="flex justify-between items-start mb-1">
-                            <h3 className="font-semibold">{item.name}</h3>
-                            <span className="font-bold">
-                              ${(item.price * (item.quantity - 1) / 100).toFixed(2)}
-                            </span>
-                          </div>
-                          <div className="flex items-center gap-2 text-sm text-muted-foreground">
-                            <span>Quantity: {item.quantity - 1}</span>
-                            <span>• ${(item.price / 100).toFixed(2)} each</span>
-                          </div>
-                        </div>
-                      </div>
-                    ];
-                  }
-                  
-                  // First item with daily credit but only 1 unit - show as free
-                  if (hasDailyCredit && isFirstItem && !hasMultipleUnits) {
-                    return (
-                      <div key={item.id} className="flex gap-4 pb-4 border-b last:border-0">
-                        {item.imageUrl && item.imageUrl.trim() !== "" && (
-                          <img
-                            src={item.imageUrl}
-                            alt={item.name}
-                            className="w-20 h-20 object-cover rounded-lg"
-                          />
-                        )}
-                        <div className="flex-1">
-                          <div className="flex justify-between items-start mb-1">
-                            <h3 className="font-semibold">{item.name}</h3>
-                            <span className="font-bold text-secondary">$0.00</span>
-                          </div>
-                          <div className="flex items-center gap-2 text-sm text-muted-foreground">
-                            <span>Quantity: {item.quantity}</span>
-                          </div>
-                          <Badge variant="secondary" className="mt-2">
-                            Daily Credit Applied
-                          </Badge>
-                        </div>
-                      </div>
-                    );
-                  }
-                  
-                  // All other items - show regular price
+                {/* Clean cart-item list — each item shown at its full original total
+                    and full quantity. All discount math (coin redemption + 10% off)
+                    is applied in the Order Summary on the right rather than here.
+                    Mix Grill items get a small badge so members know they can't be
+                    coin-covered. */}
+                {cartItems.map((item) => {
                   const itemTotal = item.price * item.quantity;
+                  const isMG = isMixGrillItem(item.name);
                   return (
                     <div key={item.id} className="flex gap-4 pb-4 border-b last:border-0">
                       {item.imageUrl && item.imageUrl.trim() !== "" && (
@@ -396,14 +335,22 @@ export default function Checkout() {
                       <div className="flex-1">
                         <div className="flex justify-between items-start mb-1">
                           <h3 className="font-semibold">{item.name}</h3>
-                          <span className="font-bold">
-                            ${(itemTotal / 100).toFixed(2)}
-                          </span>
+                          <span className="font-bold">${(itemTotal / 100).toFixed(2)}</span>
                         </div>
                         <div className="flex items-center gap-2 text-sm text-muted-foreground">
                           <span>Quantity: {item.quantity}</span>
                           <span>• ${(item.price / 100).toFixed(2)} each</span>
                         </div>
+                        {item.modifierNote && (
+                          <p className="text-xs text-muted-foreground mt-1 italic">
+                            {item.modifierNote}
+                          </p>
+                        )}
+                        {isMG && canOrderAsClub && (
+                          <Badge variant="outline" className="mt-2 text-[10px] border-amber-300 text-amber-700">
+                            Mix Grill — 10% off only (no coins)
+                          </Badge>
+                        )}
                       </div>
                     </div>
                   );

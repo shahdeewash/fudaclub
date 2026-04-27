@@ -29,10 +29,22 @@ export default function Payment() {
   const [orderPlaced, setOrderPlaced] = useState(false);
   const [orderNumber, setOrderNumber] = useState("");
   const [isRedirecting, setIsRedirecting] = useState(false);
-  // Member-controlled count of FÜDA Coins to spend on THIS order. Defaults to
-  // "all of them" for max savings; member can dial down with +/− to save coins
-  // for later. Capped to coinBalance and to eligible (non-Mix-Grill) cart units.
-  const [coinsToUse, setCoinsToUse] = useState<number | null>(null);
+  // Member-controlled count of FÜDA Coins to spend on THIS order. Initial value
+  // comes from localStorage so the choice the member made on /checkout carries
+  // through. null sentinel means "use all available". Capped to coinBalance and
+  // to eligible (non-Mix-Grill) cart units below.
+  const [coinsToUse, setCoinsToUse] = useState<number | null>(() => {
+    if (typeof window === "undefined") return null;
+    const stored = window.localStorage.getItem("fuda_coins_to_use");
+    return stored !== null ? parseInt(stored, 10) : null;
+  });
+  // Persist any change here so a back-nav to /checkout sees the same value.
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    if (coinsToUse !== null) {
+      window.localStorage.setItem("fuda_coins_to_use", String(coinsToUse));
+    }
+  }, [coinsToUse]);
 
   const { data: subscription } = trpc.subscription.getMine.useQuery(undefined, {
     enabled: isAuthenticated,
@@ -107,6 +119,9 @@ export default function Payment() {
   const createFoodCheckout = trpc.fudaClub.createFoodCheckout.useMutation({
     onSuccess: (data) => {
       localStorage.removeItem("fuda_cart");
+      // Clear the coin-spend choice so the NEXT order defaults to "use all
+      // available" again, rather than silently re-applying the previous count.
+      localStorage.removeItem("fuda_coins_to_use");
       window.dispatchEvent(new Event("cartUpdated"));
       if (data.requiresPayment && data.checkoutUrl) {
         window.location.href = data.checkoutUrl;
@@ -127,17 +142,24 @@ export default function Payment() {
     },
   });
 
-  // Load cart and special instructions from localStorage on mount
+  // Load cart, instructions, fulfillment from localStorage on mount AND keep
+  // the cart in sync with the CartIndicator dropdown (which dispatches
+  // "cartUpdated" whenever the user adds/removes items).
   useEffect(() => {
-    const savedCart = localStorage.getItem("fuda_cart");
-    if (savedCart) {
-      try {
-        const parsed = JSON.parse(savedCart);
-        setCartItems(parsed);
-      } catch (e) {
-        console.error("Failed to parse cart:", e);
+    const loadCart = () => {
+      const savedCart = localStorage.getItem("fuda_cart");
+      if (savedCart) {
+        try {
+          setCartItems(JSON.parse(savedCart));
+        } catch (e) {
+          console.error("Failed to parse cart:", e);
+          setCartItems([]);
+        }
+      } else {
+        setCartItems([]);
       }
-    }
+    };
+    loadCart();
     const savedInstructions = localStorage.getItem("fuda_special_instructions");
     if (savedInstructions) {
       setSpecialInstructions(savedInstructions);
@@ -146,6 +168,12 @@ export default function Payment() {
     if (savedFulfillment === "delivery" || savedFulfillment === "pickup") {
       setFulfillmentType(savedFulfillment);
     }
+    window.addEventListener("cartUpdated", loadCart);
+    window.addEventListener("storage", loadCart);
+    return () => {
+      window.removeEventListener("cartUpdated", loadCart);
+      window.removeEventListener("storage", loadCart);
+    };
   }, []);
 
   if (!isAuthenticated) {
