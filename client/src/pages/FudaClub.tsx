@@ -254,63 +254,93 @@ function JoinCard() {
 
   return (
     <div className="bg-white">
-      {/* ── HERO — compact, warm radial-gradient background, founding-50 inline ── */}
+      {/* ── HERO — big, immersive, food-warmth radial gradient ────────────── */}
       <section
         ref={heroRef}
-        className="relative overflow-hidden text-white text-center px-4 py-12 sm:py-16"
+        className="relative overflow-hidden text-white text-center px-4 pt-20 pb-24 sm:pt-28 sm:pb-32"
         style={{
           background:
-            "radial-gradient(circle at 20% 20%, rgba(201,168,76,0.25), transparent 45%)," +
-            "radial-gradient(circle at 80% 80%, rgba(230,57,70,0.18), transparent 45%)," +
-            "linear-gradient(135deg, #1A1A1A 0%, #2a2218 100%)",
+            "radial-gradient(ellipse 80% 60% at 30% 30%, rgba(201,168,76,0.35), transparent 60%)," +
+            "radial-gradient(ellipse 60% 50% at 80% 80%, rgba(230,57,70,0.22), transparent 60%)," +
+            "radial-gradient(circle at 50% 100%, rgba(201,168,76,0.15), transparent 50%)," +
+            "linear-gradient(160deg, #0F0F0F 0%, #1A1A1A 50%, #2a2218 100%)",
         }}
       >
-        {/* Subtle grain — pure CSS, no asset needed */}
+        {/* Soft noise + subtle decorative shapes */}
         <div
           aria-hidden
-          className="absolute inset-0 opacity-[0.06] pointer-events-none mix-blend-soft-light"
+          className="absolute inset-0 opacity-[0.08] pointer-events-none mix-blend-soft-light"
           style={{
             backgroundImage:
               "url(\"data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='120' height='120'><filter id='n'><feTurbulence type='fractalNoise' baseFrequency='0.85' numOctaves='2' stitchTiles='stitch'/></filter><rect width='100%25' height='100%25' filter='url(%23n)'/></svg>\")",
           }}
         />
-        <div className="relative max-w-3xl mx-auto">
-          {/* Founding-50 badge — front-and-center, glowing */}
+        {/* Decorative circle accents — subtle gold orbs */}
+        <div aria-hidden className="absolute top-10 left-[8%] w-32 h-32 rounded-full bg-[#C9A84C]/10 blur-3xl" />
+        <div aria-hidden className="absolute bottom-10 right-[8%] w-40 h-40 rounded-full bg-[#E63946]/10 blur-3xl" />
+
+        <div className="relative max-w-4xl mx-auto">
+          {/* Founding-50 badge — much bigger, glowing */}
           {founding?.isFoundingWindowOpen && (
-            <div className="inline-flex items-center gap-2 rounded-full bg-[#E63946]/15 border border-[#E63946]/40 px-3 py-1 text-[#ff6b75] text-[11px] sm:text-xs font-bold tracking-widest uppercase mb-5 shadow-[0_0_20px_rgba(230,57,70,0.25)]">
-              <span className="relative flex h-1.5 w-1.5">
+            <div className="inline-flex items-center gap-2.5 rounded-full bg-[#E63946]/15 border-2 border-[#E63946]/50 px-5 py-2 text-[#ff7a82] text-sm font-bold tracking-wider uppercase mb-8 shadow-[0_0_40px_rgba(230,57,70,0.3)]">
+              <span className="relative flex h-2.5 w-2.5">
                 <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-[#E63946] opacity-75" />
-                <span className="relative inline-flex rounded-full h-1.5 w-1.5 bg-[#E63946]" />
+                <span className="relative inline-flex rounded-full h-2.5 w-2.5 bg-[#E63946]" />
               </span>
               Founding {founding.remaining} of {founding.cap} spots left
             </div>
           )}
-          <h1 className="text-5xl sm:text-7xl font-black leading-[0.95] tracking-tight mb-4">
-            Lunch, <span className="text-[#C9A84C]">sorted.</span>
+          <h1 className="text-7xl sm:text-9xl font-black leading-[0.9] tracking-tighter mb-6">
+            Lunch,<br/>
+            <span className="text-[#C9A84C]" style={{ textShadow: "0 4px 30px rgba(201,168,76,0.4)" }}>sorted.</span>
           </h1>
-          <p className="text-base sm:text-lg text-white/75 max-w-xl mx-auto leading-relaxed">
-            Darwin's lunch subscription. Save <strong className="text-[#C9A84C]">10%</strong> on everything, get up to <strong className="text-[#C9A84C]">6 free lunches</strong> a week.
+          <p className="text-xl sm:text-2xl text-white/80 max-w-2xl mx-auto leading-relaxed font-light">
+            Darwin's lunch subscription. Save <strong className="text-[#C9A84C] font-bold">10%</strong> on everything,<br className="hidden sm:block"/>
+            get up to <strong className="text-[#C9A84C] font-bold">6 free lunches</strong> a week.
           </p>
-          {/* Hero stats strip — three pieces of social proof in one row */}
-          <div className="flex flex-wrap items-center justify-center gap-x-6 gap-y-2 mt-6 text-[11px] sm:text-xs text-white/60 uppercase tracking-wider font-semibold">
-            <span>✓ 100% Halal</span>
+          {/* Big inline CTA buttons in the hero itself */}
+          <div className="mt-10 flex flex-col sm:flex-row items-center justify-center gap-3">
+            <Button
+              className="bg-[#C9A84C] hover:bg-[#b89540] text-[#1A1A1A] text-lg py-7 px-10 font-black tracking-wide shadow-[0_8px_30px_rgba(201,168,76,0.4)]"
+              onClick={handleJoin}
+              disabled={createCheckout.isPending}
+            >
+              {isAuthenticated ? `Join from $80` : `Sign in & join from $80`}
+              <ChevronRight className="ml-2 h-6 w-6" />
+            </Button>
+            <button
+              type="button"
+              onClick={() => document.getElementById("plans")?.scrollIntoView({ behavior: "smooth" })}
+              className="text-white/70 hover:text-white text-sm font-semibold uppercase tracking-wider underline-offset-4 hover:underline px-4 py-2"
+            >
+              See plans ↓
+            </button>
+          </div>
+          {/* Hero stats strip */}
+          <div className="flex flex-wrap items-center justify-center gap-x-8 gap-y-3 mt-12 text-sm text-white/70 uppercase tracking-wider font-bold">
+            <span className="flex items-center gap-2"><CheckCircle className="h-4 w-4 text-[#C9A84C]" /> 100% Halal</span>
             <span className="opacity-30">·</span>
-            <span>✓ Cancel anytime</span>
+            <span className="flex items-center gap-2"><CheckCircle className="h-4 w-4 text-[#C9A84C]" /> Cancel anytime</span>
             <span className="opacity-30">·</span>
-            <span>✓ Pickup &amp; delivery</span>
+            <span className="flex items-center gap-2"><CheckCircle className="h-4 w-4 text-[#C9A84C]" /> Pickup &amp; delivery</span>
           </div>
         </div>
       </section>
 
-      {/* ── PLAN SELECTOR — tighter spacing, no scale jiggle, clean checkmark ── */}
-      <section className="px-4 py-10 sm:py-14">
-        <div className="max-w-5xl mx-auto">
-          <div className="text-center mb-7">
-            <div className="text-[11px] uppercase tracking-widest text-[#C9A84C] font-bold mb-1">Pick your plan</div>
-            <h2 className="text-2xl sm:text-3xl font-black text-[#1A1A1A]">Three ways to join.</h2>
+      {/* ── PLAN SELECTOR — bigger type, generous internal padding ─────────── */}
+      <section id="plans" className="px-4 py-20 sm:py-28 bg-gradient-to-b from-white to-[#FAF7F0]/30">
+        <div className="max-w-6xl mx-auto">
+          <div className="text-center mb-14">
+            <div className="text-sm uppercase tracking-[0.3em] text-[#C9A84C] font-black mb-3">— Pick your plan —</div>
+            <h2 className="text-5xl sm:text-6xl font-black text-[#1A1A1A] tracking-tight leading-none">
+              Three ways<br/>to <span className="text-[#C9A84C]">join.</span>
+            </h2>
+            <p className="text-lg text-gray-600 mt-5 max-w-xl mx-auto">
+              All plans include 10% off everything, free workplace delivery, and FÜDA Coins.
+            </p>
           </div>
 
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-3 sm:gap-4">
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-5 sm:gap-6">
             {PLANS.map(plan => {
               const isSelected = planType === plan.key;
               return (
@@ -318,49 +348,53 @@ function JoinCard() {
                   key={plan.key}
                   type="button"
                   onClick={() => setPlanType(plan.key)}
-                  className={`relative text-left rounded-xl p-5 sm:p-6 transition-colors duration-150 border-2 ${
+                  className={`relative text-left rounded-3xl p-8 sm:p-10 transition-colors duration-150 border-2 ${
                     isSelected
-                      ? "bg-[#1A1A1A] text-white border-[#C9A84C] shadow-xl"
+                      ? "bg-[#1A1A1A] text-white border-[#C9A84C] shadow-[0_20px_60px_rgba(0,0,0,0.2)]"
                       : plan.highlight
-                        ? "bg-white border-[#C9A84C] hover:bg-amber-50/40"
-                        : "bg-white border-gray-200 hover:border-[#C9A84C]/50"
+                        ? "bg-white border-[#C9A84C] hover:shadow-2xl shadow-lg"
+                        : "bg-white border-gray-200 hover:border-[#C9A84C]/60 hover:shadow-xl shadow-md"
                   }`}
                 >
                   {plan.badge && (
-                    <div className="absolute -top-2.5 left-1/2 -translate-x-1/2">
-                      <div className="bg-[#E63946] text-white text-[10px] font-bold tracking-widest uppercase px-2.5 py-0.5 rounded-full whitespace-nowrap">
+                    <div className="absolute -top-4 left-1/2 -translate-x-1/2">
+                      <div className="bg-[#E63946] text-white text-xs font-black tracking-widest uppercase px-4 py-1.5 rounded-full whitespace-nowrap shadow-lg">
                         {plan.badge}
                       </div>
                     </div>
                   )}
-                  {/* Selected checkmark — replaces the old 1.02× scale */}
                   {isSelected && (
-                    <div className="absolute top-3 right-3 h-6 w-6 rounded-full bg-[#C9A84C] flex items-center justify-center">
-                      <CheckCircle className="h-4 w-4 text-[#1A1A1A]" />
+                    <div className="absolute top-5 right-5 h-9 w-9 rounded-full bg-[#C9A84C] flex items-center justify-center shadow-lg">
+                      <CheckCircle className="h-5 w-5 text-[#1A1A1A]" />
                     </div>
                   )}
-                  <div className="text-[10px] uppercase tracking-widest text-[#C9A84C] font-bold mb-1.5">
+                  <div className="text-sm uppercase tracking-[0.2em] text-[#C9A84C] font-black mb-4">
                     {plan.label}
                   </div>
-                  <div className="flex items-baseline gap-2 mb-0.5">
-                    <span className="text-4xl font-black leading-none">${plan.currentPrice}</span>
-                    {founding?.isFoundingWindowOpen && (
-                      <span className={`text-sm line-through ${isSelected ? "text-white/40" : "text-gray-400"}`}>
+                  <div className="flex items-baseline gap-3 mb-2">
+                    <span className="text-7xl font-black leading-none tracking-tighter">${plan.currentPrice}</span>
+                  </div>
+                  {founding?.isFoundingWindowOpen && (
+                    <div className="flex items-baseline gap-2 mb-4">
+                      <span className={`text-base line-through ${isSelected ? "text-white/40" : "text-gray-400"}`}>
                         ${plan.postLaunchPrice}
                       </span>
-                    )}
+                      <span className="text-xs font-bold text-[#E63946] uppercase tracking-wide">post-launch</span>
+                    </div>
+                  )}
+                  <div className={`text-base mb-6 ${isSelected ? "text-white/70" : "text-gray-600"}`}>
+                    <strong>{plan.period}</strong>
+                    <br/>
+                    <span className="text-sm opacity-80">{plan.sub}</span>
                   </div>
-                  <div className={`text-xs mb-3 ${isSelected ? "text-white/60" : "text-gray-500"}`}>
-                    {plan.period} · {plan.sub}
-                  </div>
-                  <div className={`text-xs font-semibold ${isSelected ? "text-[#C9A84C]" : "text-[#1A1A1A]"}`}>
+                  <div className={`text-base font-bold mb-1 ${isSelected ? "text-[#C9A84C]" : "text-[#1A1A1A]"}`}>
                     {plan.tagline}
                   </div>
                   {founding?.isFoundingWindowOpen && (
-                    <div className={`mt-3 pt-2.5 border-t text-[10px] ${
+                    <div className={`mt-6 pt-5 border-t text-xs ${
                       isSelected ? "border-white/15 text-[#C9A84C]" : "border-gray-100 text-[#E63946]"
-                    } font-semibold uppercase tracking-wider`}>
-                      🔒 Locked for 12 months
+                    } font-black uppercase tracking-widest flex items-center gap-2`}>
+                      🔒 Price locked 12 months
                     </div>
                   )}
                 </button>
@@ -368,10 +402,10 @@ function JoinCard() {
             })}
           </div>
 
-          {/* Referral + CTA — kept inline below cards, no big gaps */}
-          <div className="max-w-md mx-auto mt-6 space-y-3">
+          {/* Referral + CTA */}
+          <div className="max-w-lg mx-auto mt-12 space-y-4">
             <div>
-              <Label htmlFor="referral" className="text-xs font-semibold text-[#1A1A1A] mb-1 block">
+              <Label htmlFor="referral" className="text-sm font-bold text-[#1A1A1A] mb-2 block">
                 Referral code <span className="text-gray-500 font-normal">(optional)</span>
               </Label>
               <Input
@@ -379,11 +413,11 @@ function JoinCard() {
                 placeholder="Enter a friend's code"
                 value={referralCode}
                 onChange={(e) => setReferralCode(e.target.value)}
-                className="uppercase border-2 focus:border-[#C9A84C] h-10 text-sm"
+                className="uppercase border-2 focus:border-[#C9A84C] h-14 text-base"
               />
             </div>
             <Button
-              className="w-full bg-[#C9A84C] hover:bg-[#b89540] text-[#1A1A1A] text-base py-6 font-bold tracking-wide shadow-md"
+              className="w-full bg-[#C9A84C] hover:bg-[#b89540] text-[#1A1A1A] text-lg py-8 font-black tracking-wide shadow-[0_8px_30px_rgba(201,168,76,0.4)]"
               onClick={handleJoin}
               disabled={createCheckout.isPending}
             >
@@ -392,97 +426,107 @@ function JoinCard() {
                 : isAuthenticated
                   ? `Join — $${selected.currentPrice} ${selected.period}`
                   : `Sign in to join — $${selected.currentPrice} ${selected.period}`}
-              <ChevronRight className="ml-2 h-5 w-5" />
+              <ChevronRight className="ml-2 h-6 w-6" />
             </Button>
-            <p className="text-[11px] text-center text-gray-500">
+            <p className="text-sm text-center text-gray-500">
               Cancel anytime · No lock-in · Secure payment via Stripe
             </p>
           </div>
         </div>
       </section>
 
-      {/* ── SOCIAL PROOF STRIP (NEW) — uses real founding count to build trust ── */}
+      {/* ── SOCIAL PROOF STRIP — bigger numbers, more presence ─────────────── */}
       {founding && (
-        <section className="px-4 py-6 border-t border-b border-gray-100">
-          <div className="max-w-5xl mx-auto grid grid-cols-3 gap-4 text-center">
-            <div>
-              <div className="text-2xl sm:text-3xl font-black text-[#1A1A1A]">{founding.taken}</div>
-              <div className="text-[10px] sm:text-xs uppercase tracking-wider text-gray-500 font-semibold mt-0.5">Founding members</div>
+        <section className="bg-[#1A1A1A] text-white px-4 py-14 sm:py-16">
+          <div className="max-w-5xl mx-auto">
+            <div className="text-center mb-10">
+              <div className="text-sm uppercase tracking-[0.3em] text-[#C9A84C] font-black mb-2">— By the numbers —</div>
             </div>
-            <div className="border-l border-r border-gray-100">
-              <div className="text-2xl sm:text-3xl font-black text-[#C9A84C]">10%</div>
-              <div className="text-[10px] sm:text-xs uppercase tracking-wider text-gray-500 font-semibold mt-0.5">Off everything</div>
-            </div>
-            <div>
-              <div className="text-2xl sm:text-3xl font-black text-[#1A1A1A]">6×</div>
-              <div className="text-[10px] sm:text-xs uppercase tracking-wider text-gray-500 font-semibold mt-0.5">Free lunches/week</div>
+            <div className="grid grid-cols-3 gap-6 text-center">
+              <div>
+                <div className="text-5xl sm:text-7xl font-black text-[#C9A84C] tracking-tighter">{founding.taken}</div>
+                <div className="text-xs sm:text-sm uppercase tracking-widest text-white/60 font-bold mt-3">Founding members joined</div>
+              </div>
+              <div className="border-l border-r border-white/10">
+                <div className="text-5xl sm:text-7xl font-black text-[#C9A84C] tracking-tighter">10%</div>
+                <div className="text-xs sm:text-sm uppercase tracking-widest text-white/60 font-bold mt-3">Off every order</div>
+              </div>
+              <div>
+                <div className="text-5xl sm:text-7xl font-black text-[#C9A84C] tracking-tighter">6×</div>
+                <div className="text-xs sm:text-sm uppercase tracking-widest text-white/60 font-bold mt-3">Free lunches a week</div>
+              </div>
             </div>
           </div>
         </section>
       )}
 
-      {/* ── PERKS GRID — tighter padding, white canvas (no cream chunk) ────── */}
-      <section className="px-4 py-10 sm:py-14">
-        <div className="max-w-5xl mx-auto">
-          <div className="text-center mb-7">
-            <div className="text-[11px] uppercase tracking-widest text-[#C9A84C] font-bold mb-1">Members get</div>
-            <h2 className="text-2xl sm:text-3xl font-black text-[#1A1A1A]">Every perk. Every time.</h2>
+      {/* ── PERKS GRID — bigger cards, generous padding, real presence ─────── */}
+      <section className="px-4 py-20 sm:py-28">
+        <div className="max-w-6xl mx-auto">
+          <div className="text-center mb-14">
+            <div className="text-sm uppercase tracking-[0.3em] text-[#C9A84C] font-black mb-3">— Members get —</div>
+            <h2 className="text-5xl sm:text-6xl font-black text-[#1A1A1A] tracking-tight leading-none">
+              Every perk.<br/><span className="text-[#C9A84C]">Every time.</span>
+            </h2>
           </div>
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3 sm:gap-4">
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-5 sm:gap-6">
             {[
-              { icon: Zap, title: "10% off everything", body: "Every item, every time. Auto-applied at checkout." },
-              { icon: Coins, title: "Up to 6 free lunches/week", body: "1 FÜDA Coin/day Mon–Sat. Each covers your highest-value item. Resets Monday." },
-              { icon: Users, title: "Free workplace delivery", body: "5+ members at your office? Delivery to your work is on us." },
-              { icon: Snowflake, title: "Freeze anytime", body: "Pause for up to 2 weeks. No billing during freeze." },
-              { icon: CheckCircle, title: "100% halal certified", body: "Every plate, every time. No exceptions." },
-              { icon: Gift, title: "Refer a friend", body: "You both get a free FÜDA Coin when they join." },
+              { icon: Zap, title: "10% off everything", body: "Every item, every time. Auto-applied at checkout. No codes, no fuss." },
+              { icon: Coins, title: "6 free lunches a week", body: "1 FÜDA Coin per day Mon–Sat. Each covers your highest-value item. All reset Monday." },
+              { icon: Users, title: "Free workplace delivery", body: "5+ members at your office? We deliver lunch to your work — no fee, ever." },
+              { icon: Snowflake, title: "Freeze anytime", body: "Going on holiday? Pause for up to 2 weeks. Zero billing during freeze." },
+              { icon: CheckCircle, title: "100% halal certified", body: "Every plate, every time. No exceptions, no compromises." },
+              { icon: Gift, title: "Refer a friend", body: "You both get a free FÜDA Coin when they join. No limit on how many you can refer." },
             ].map(({ icon: Icon, title, body }) => (
-              <div key={title} className="bg-[#FAF7F0]/60 rounded-xl p-5 border border-gray-100 hover:border-[#C9A84C]/40 hover:bg-white transition">
-                <div className="w-9 h-9 rounded-lg bg-[#C9A84C]/15 flex items-center justify-center mb-3">
-                  <Icon className="h-4 w-4 text-[#C9A84C]" />
+              <div key={title} className="bg-white rounded-2xl p-8 border-2 border-gray-100 hover:border-[#C9A84C] hover:shadow-2xl transition-all">
+                <div className="w-14 h-14 rounded-2xl bg-gradient-to-br from-[#C9A84C] to-[#a88a3c] flex items-center justify-center mb-5 shadow-lg">
+                  <Icon className="h-7 w-7 text-white" />
                 </div>
-                <h3 className="font-bold text-[#1A1A1A] text-sm mb-1">{title}</h3>
-                <p className="text-xs text-gray-600 leading-relaxed">{body}</p>
+                <h3 className="font-black text-[#1A1A1A] text-xl mb-2 tracking-tight">{title}</h3>
+                <p className="text-base text-gray-600 leading-relaxed">{body}</p>
               </div>
             ))}
           </div>
         </div>
       </section>
 
-      {/* ── HOW IT WORKS — symmetric centered grid (no left-column whitespace) ── */}
-      <section className="px-4 py-10 sm:py-14 bg-[#FAF7F0]/40">
-        <div className="max-w-5xl mx-auto">
-          <div className="text-center mb-7">
-            <div className="text-[11px] uppercase tracking-widest text-[#C9A84C] font-bold mb-1">How it works</div>
-            <h2 className="text-2xl sm:text-3xl font-black text-[#1A1A1A]">Three steps.</h2>
+      {/* ── HOW IT WORKS — bigger numbered cards on warm background ────────── */}
+      <section className="px-4 py-20 sm:py-28 bg-gradient-to-br from-[#FAF7F0] to-[#F5EFE0]">
+        <div className="max-w-6xl mx-auto">
+          <div className="text-center mb-14">
+            <div className="text-sm uppercase tracking-[0.3em] text-[#C9A84C] font-black mb-3">— How it works —</div>
+            <h2 className="text-5xl sm:text-6xl font-black text-[#1A1A1A] tracking-tight leading-none">
+              Three steps.
+            </h2>
+            <p className="text-lg text-gray-600 mt-5">From signup to your first lunch — under 2 minutes.</p>
           </div>
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-5">
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-6 sm:gap-8">
             {[
-              { n: "1", title: "Pick a plan", body: "Trial, fortnightly, or monthly. Cancel anytime." },
-              { n: "2", title: "Eat with us", body: "Pickup from 9 Searcy St, or workplace delivery (5+ members)." },
-              { n: "3", title: "Save every time", body: "10% off auto-applied. Spend coins on the highest-value item." },
+              { n: "01", title: "Pick a plan", body: "Trial, fortnightly, or monthly. Cancel anytime — no contracts, no lock-in." },
+              { n: "02", title: "Eat with us", body: "Pickup from 9 Searcy St, or get free workplace delivery (5+ members at your office)." },
+              { n: "03", title: "Save every time", body: "10% off auto-applies at checkout. Coins land on your highest-value item — max value, every order." },
             ].map(step => (
-              <div key={step.n} className="text-center">
-                <div className="mx-auto mb-3 h-12 w-12 rounded-full bg-[#1A1A1A] text-[#C9A84C] flex items-center justify-center text-xl font-black">
-                  {step.n}
-                </div>
-                <h3 className="text-base font-bold text-[#1A1A1A] mb-1">{step.title}</h3>
-                <p className="text-sm text-gray-600 leading-relaxed">{step.body}</p>
+              <div key={step.n} className="bg-white rounded-3xl p-8 sm:p-10 shadow-lg hover:shadow-2xl transition border border-white">
+                <div className="text-6xl font-black text-[#C9A84C] mb-4 tracking-tighter leading-none">{step.n}</div>
+                <h3 className="text-2xl font-black text-[#1A1A1A] mb-3 tracking-tight">{step.title}</h3>
+                <p className="text-base text-gray-600 leading-relaxed">{step.body}</p>
               </div>
             ))}
           </div>
         </div>
       </section>
 
-      {/* ── RULES & FINE PRINT — same content, tighter padding ──────────────── */}
-      <section className="px-4 py-10 sm:py-14">
+      {/* ── RULES & FINE PRINT — bigger header, more presence ──────────────── */}
+      <section className="px-4 py-20 sm:py-28">
         <div className="max-w-3xl mx-auto">
-          <div className="text-center mb-6">
-            <div className="text-[11px] uppercase tracking-widest text-[#C9A84C] font-bold mb-1">The rules</div>
-            <h2 className="text-2xl sm:text-3xl font-black text-[#1A1A1A]">No surprises.</h2>
-            <p className="text-sm text-gray-600 mt-2">Everything you should know — in plain English.</p>
+          <div className="text-center mb-12">
+            <div className="text-sm uppercase tracking-[0.3em] text-[#C9A84C] font-black mb-3">— The rules —</div>
+            <h2 className="text-5xl sm:text-6xl font-black text-[#1A1A1A] tracking-tight leading-none">
+              No surprises.
+            </h2>
+            <p className="text-lg text-gray-600 mt-5">Everything you should know — in plain English.</p>
           </div>
-          <div className="bg-white rounded-2xl border border-gray-200 divide-y divide-gray-100">
+          <div className="bg-white rounded-3xl border-2 border-gray-100 divide-y-2 divide-gray-100 shadow-lg overflow-hidden">
             {[
               { q: "What does the 10% discount apply to?", a: "Every item on the menu — momos, kebabs, bubble tea, coffee, sides, even Mix Grill. Auto-applied at checkout once you're logged in as a member." },
               { q: "How do FÜDA Coins work?", a: "1 coin is issued each day Mon–Sat (none on Sunday). Each coin covers ONE item — free. When you check out we automatically apply your coin to the highest-value item in your cart so you get the most for it. You choose how many coins to spend on each order (so you can save some for later)." },
@@ -497,11 +541,11 @@ function JoinCard() {
               { q: "How does founding-member pricing work?", a: `First ${founding?.cap ?? 50} members keep today's pricing for 12 months. After spot ${founding?.cap ?? 50}, new members pay 20% more. After year one, founders get a 5% loyalty discount on whatever the prevailing rate is.` },
             ].map((item, i) => (
               <details key={i} className="group">
-                <summary className="cursor-pointer p-5 sm:p-6 list-none flex items-start justify-between gap-4 hover:bg-gray-50">
-                  <span className="font-semibold text-[#1A1A1A] text-sm sm:text-base">{item.q}</span>
-                  <ChevronRight className="h-5 w-5 text-[#C9A84C] shrink-0 transition-transform group-open:rotate-90" />
+                <summary className="cursor-pointer p-6 sm:p-7 list-none flex items-start justify-between gap-4 hover:bg-[#FAF7F0]/40 transition">
+                  <span className="font-bold text-[#1A1A1A] text-base sm:text-lg">{item.q}</span>
+                  <ChevronRight className="h-6 w-6 text-[#C9A84C] shrink-0 transition-transform group-open:rotate-90 mt-0.5" />
                 </summary>
-                <div className="px-5 sm:px-6 pb-5 sm:pb-6 -mt-2 text-sm text-gray-600 leading-relaxed">
+                <div className="px-6 sm:px-7 pb-6 sm:pb-7 -mt-1 text-base text-gray-600 leading-relaxed">
                   {item.a}
                 </div>
               </details>
@@ -510,26 +554,33 @@ function JoinCard() {
         </div>
       </section>
 
-      {/* ── FINAL CTA — slimmer, charcoal anchor ─────────────────────────────── */}
-      <section className="bg-[#1A1A1A] text-white px-4 py-10 sm:py-14 text-center">
-        <div className="max-w-2xl mx-auto">
+      {/* ── FINAL CTA — bold, dark, big closing statement ───────────────────── */}
+      <section
+        className="relative overflow-hidden text-white px-4 py-24 sm:py-32 text-center"
+        style={{
+          background:
+            "radial-gradient(ellipse 60% 50% at 50% 30%, rgba(201,168,76,0.25), transparent 60%)," +
+            "linear-gradient(180deg, #1A1A1A 0%, #0F0F0F 100%)",
+        }}
+      >
+        <div className="relative max-w-3xl mx-auto">
           {founding?.isFoundingWindowOpen && (
-            <div className="inline-flex items-center gap-2 rounded-full bg-[#E63946]/20 border border-[#E63946]/40 px-3 py-1 text-[#ff6b75] text-[11px] font-bold tracking-wider uppercase mb-4">
-              <span className="relative flex h-1.5 w-1.5">
+            <div className="inline-flex items-center gap-2.5 rounded-full bg-[#E63946]/20 border-2 border-[#E63946]/50 px-5 py-2 text-[#ff7a82] text-sm font-bold tracking-wider uppercase mb-8 shadow-[0_0_30px_rgba(230,57,70,0.3)]">
+              <span className="relative flex h-2.5 w-2.5">
                 <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-[#E63946] opacity-75" />
-                <span className="relative inline-flex rounded-full h-1.5 w-1.5 bg-[#E63946]" />
+                <span className="relative inline-flex rounded-full h-2.5 w-2.5 bg-[#E63946]" />
               </span>
               {founding.remaining} founding spots left
             </div>
           )}
-          <h2 className="text-3xl sm:text-5xl font-black leading-tight mb-3">
-            Ready to <span className="text-[#C9A84C]">eat well</span> without thinking?
+          <h2 className="text-5xl sm:text-7xl font-black leading-[0.95] tracking-tight mb-6">
+            Ready to <span className="text-[#C9A84C]" style={{ textShadow: "0 4px 30px rgba(201,168,76,0.4)" }}>eat well</span><br/>without thinking?
           </h2>
-          <p className="text-sm sm:text-base text-white/70 mb-6">
-            Join the FÜDA Club today. Cancel anytime.
+          <p className="text-lg sm:text-xl text-white/75 mb-10 max-w-xl mx-auto">
+            Join the FÜDA Club today. Cancel anytime — no contracts, no lock-in.
           </p>
           <Button
-            className="bg-[#C9A84C] hover:bg-[#b89540] text-[#1A1A1A] text-base py-6 px-8 font-bold tracking-wide shadow-xl"
+            className="bg-[#C9A84C] hover:bg-[#b89540] text-[#1A1A1A] text-lg py-8 px-12 font-black tracking-wide shadow-[0_8px_40px_rgba(201,168,76,0.5)]"
             onClick={handleJoin}
             disabled={createCheckout.isPending}
           >
@@ -538,12 +589,14 @@ function JoinCard() {
               : isAuthenticated
                 ? `Join — $${selected.currentPrice}`
                 : `Sign in to join — $${selected.currentPrice}`}
-            <ChevronRight className="ml-2 h-5 w-5" />
+            <ChevronRight className="ml-2 h-6 w-6" />
           </Button>
-          <div className="text-[11px] text-white/40 mt-5 flex items-center justify-center gap-2 flex-wrap">
-            <MapPin className="h-3 w-3" /> 9 Searcy St, Darwin City
-            <span className="opacity-50">·</span>
-            Sun–Thu 10am–10pm · Fri–Sat 10am–1am
+          <div className="text-sm text-white/50 mt-10 flex items-center justify-center gap-3 flex-wrap font-medium">
+            <span className="flex items-center gap-1.5"><MapPin className="h-4 w-4" /> 9 Searcy St, Darwin City</span>
+            <span className="opacity-30">·</span>
+            <span>Sun–Thu 10am–10pm</span>
+            <span className="opacity-30">·</span>
+            <span>Fri–Sat 10am–1am</span>
           </div>
         </div>
       </section>
