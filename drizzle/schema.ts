@@ -236,6 +236,9 @@ export const fudaClubSubscriptions = mysqlTable("fudaClubSubscriptions", {
   // Coin grace period: when a member cancels, they lose 10% off immediately but
   // keep the right to redeem existing coins until coinGraceUntil (≈ end of paid period).
   coinGraceUntil: timestamp("coinGraceUntil"),
+  // Welcome coin: gets flipped to true after the member's first coin is issued
+  // on signup (so it can't fire again on every subsequent getStatus call).
+  hasReceivedWelcomeCoin: boolean("hasReceivedWelcomeCoin").default(false).notNull(),
   createdAt: timestamp("createdAt").defaultNow().notNull(),
   updatedAt: timestamp("updatedAt").defaultNow().onUpdateNow().notNull(),
 });

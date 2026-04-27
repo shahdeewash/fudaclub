@@ -206,6 +206,57 @@ export async function issueFudaCoin(
   await db.insert(fudaCoins).values({ userId, reason, expiresAt, isUsed: false });
 }
 
+/**
+ * Welcome coin: issued once per subscription, the moment we observe the sub is
+ * active AND hasn't received its welcome coin yet. Idempotent — safe to call on
+ * every getStatus query. Solves the "I just subscribed at 11 AM, where's my
+ * coin?" problem (otherwise members would wait until tomorrow's 6 AM cron).
+ *
+ * Skips silently on Sundays (no coins issued at all that day) and uses the
+ * standard weekly-bucket expiry so the welcome coin behaves identically to a
+ * regular daily coin.
+ */
+export async function issueWelcomeCoinIfNeeded(userId: number): Promise<boolean> {
+  const db = await getDb();
+  if (!db) return false;
+  const [sub] = await db
+    .select()
+    .from(fudaClubSubscriptions)
+    .where(eq(fudaClubSubscriptions.userId, userId))
+    .limit(1);
+  if (!sub) return false;
+  if (sub.hasReceivedWelcomeCoin) return false;
+  // Only issue if the sub is in a "benefits-on" state — same gate as ordering.
+  const benefitsOn = sub.status === "active" || sub.status === "trialing";
+  if (!benefitsOn) return false;
+  // Compute the same end-of-week (next Monday 00:00 Darwin) expiry used by the
+  // daily cron, so the welcome coin lives or dies with that week's bucket.
+  const dayOfWeek = new Date().toLocaleDateString("en-US", { timeZone: "Australia/Darwin", weekday: "short" });
+  if (dayOfWeek === "Sun") {
+    // No issuance Sundays — but still flip the flag so we don't loop forever.
+    // The next subsequent cron run on Monday will issue them their day-1 coin.
+    await db
+      .update(fudaClubSubscriptions)
+      .set({ hasReceivedWelcomeCoin: true })
+      .where(eq(fudaClubSubscriptions.id, sub.id));
+    return false;
+  }
+  const daysToNextMonday: Record<string, number> = {
+    Mon: 7, Tue: 6, Wed: 5, Thu: 4, Fri: 3, Sat: 2, Sun: 1,
+  };
+  const nowDarwin = new Date().toLocaleDateString("en-CA", { timeZone: "Australia/Darwin" });
+  const [y, m, d] = nowDarwin.split("-").map(Number);
+  const daysAhead = daysToNextMonday[dayOfWeek] ?? 7;
+  const expiresAt = new Date(Date.UTC(y, m - 1, d + daysAhead, 14, 30, 0));
+  await issueFudaCoin(userId, "daily", expiresAt);
+  await db
+    .update(fudaClubSubscriptions)
+    .set({ hasReceivedWelcomeCoin: true })
+    .where(eq(fudaClubSubscriptions.id, sub.id));
+  console.log(`[FÜDA Club] Welcome coin issued to user ${userId} (expires ${expiresAt.toISOString()})`);
+  return true;
+}
+
 /** Mark a coin as used on an order */
 export async function useFudaCoin(coinId: number, orderId: number) {
   const db = await getDb();
@@ -244,6 +295,15 @@ export const fudaClubRouter = router({
     const userId = ctx.user.id;
     const db = await getDb();
     const sub = await getActiveFudaClubSub(userId);
+    // Self-healing welcome-coin issuance — if member is freshly active and
+    // hasn't received their welcome coin yet, issue it now (instead of making
+    // them wait until tomorrow's 6 AM cron). No-op if already issued or sub
+    // is in any other state.
+    if (sub) {
+      await issueWelcomeCoinIfNeeded(userId).catch(err =>
+        console.error("[FÜDA Club] Welcome coin issue failed (non-blocking):", err)
+      );
+    }
     // If they're not actively subscribed, check whether they're in the post-cancel
     // coin grace window — they can still spend coins, but no 10% discount.
     const graceSub = sub ? null : await getCoinGracePeriodSub(userId);
