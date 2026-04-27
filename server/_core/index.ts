@@ -176,17 +176,21 @@ async function startServer() {
         console.error("[Stripe Webhook] Error processing checkout.session.completed:", err.message);
       }
     }
-    // Handle subscription lifecycle events
+    // Handle subscription lifecycle events for BOTH:
+    //   - corporate `subscriptions` table (legacy B2B path), keyed on stripeSubscriptionId
+    //   - new `fudaClubSubscriptions` table, keyed on stripeCustomerId until the
+    //     subscription.created event populates the stripeSubscriptionId for the first time
     if (
+      event.type === "customer.subscription.created" ||
       event.type === "customer.subscription.updated" ||
       event.type === "customer.subscription.deleted"
     ) {
       const stripeSub = event.data.object as any;
-      console.log(`[Stripe Webhook] Subscription event: ${event.type}, sub: ${stripeSub.id}`);
+      console.log(`[Stripe Webhook] Subscription event: ${event.type}, sub: ${stripeSub.id}, customer: ${stripeSub.customer}`);
       try {
         const dbInstance = await db.getDb();
         if (dbInstance) {
-          const { subscriptions } = await import("../../drizzle/schema");
+          const { subscriptions, fudaClubSubscriptions } = await import("../../drizzle/schema");
           const { eq } = await import("drizzle-orm");
           const newStatus: "active" | "canceled" | "past_due" | "trialing" =
             event.type === "customer.subscription.deleted"
@@ -194,6 +198,8 @@ async function startServer() {
               : (stripeSub.status === "active" || stripeSub.status === "trialing" || stripeSub.status === "past_due"
                 ? stripeSub.status
                 : "canceled");
+
+          // Legacy corporate subs — update by stripeSubscriptionId
           await dbInstance
             .update(subscriptions)
             .set({
@@ -204,7 +210,33 @@ async function startServer() {
                 : undefined,
             })
             .where(eq(subscriptions.stripeSubscriptionId, stripeSub.id));
-          console.log(`[Stripe Webhook] Subscription ${stripeSub.id} updated to status: ${newStatus}`);
+
+          // FÜDA Club subs — match by stripeCustomerId (because stripeSubscriptionId
+          // is null until THIS event populates it). Sets the subscriptionId so the
+          // welcome-coin gate can finally pass on the next getStatus call.
+          const customerId = typeof stripeSub.customer === "string"
+            ? stripeSub.customer
+            : stripeSub.customer?.id;
+          if (customerId) {
+            const updateSet: any = {
+              stripeSubscriptionId: stripeSub.id,
+              status: newStatus,
+              cancelAtPeriodEnd: stripeSub.cancel_at_period_end ?? false,
+            };
+            if (stripeSub.current_period_end) {
+              updateSet.currentPeriodEnd = new Date(stripeSub.current_period_end * 1000);
+            }
+            if (stripeSub.current_period_start) {
+              updateSet.currentPeriodStart = new Date(stripeSub.current_period_start * 1000);
+            }
+            const updated = await dbInstance
+              .update(fudaClubSubscriptions)
+              .set(updateSet)
+              .where(eq(fudaClubSubscriptions.stripeCustomerId, customerId));
+            console.log(`[Stripe Webhook] FÜDA Club sub for customer ${customerId} updated → ${newStatus}, stripeSubscriptionId=${stripeSub.id}`);
+          }
+
+          console.log(`[Stripe Webhook] Subscription ${stripeSub.id} processed (status=${newStatus})`);
         }
       } catch (err: any) {
         console.error("[Stripe Webhook] Error handling subscription event:", err.message);

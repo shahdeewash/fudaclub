@@ -259,11 +259,40 @@ export async function issueWelcomeCoinIfNeeded(userId: number): Promise<boolean>
   // ⚠️ Critical payment gate: the row is inserted with status='trialing' BEFORE the
   // user actually pays at Stripe Checkout. Without this guard, abandoned signups
   // (open Stripe but back-button out) would still get a free welcome coin.
-  // stripeSubscriptionId only gets populated by the webhook handler AFTER payment
-  // succeeds, so its presence is our proof that money actually changed hands.
+  // stripeSubscriptionId is normally populated by the webhook handler AFTER
+  // payment, so its presence is our primary proof that money changed hands.
+  // Backfill: if it's still null but we have a stripeCustomerId AND Stripe has an
+  // active subscription on that customer, that's also proof of payment — self-heal
+  // by patching the row, then proceed.
   if (!sub.stripeSubscriptionId) {
-    console.log(`[FÜDA Club] Skipping welcome coin for user ${userId} — no stripeSubscriptionId yet (payment not confirmed)`);
-    return false;
+    if (!sub.stripeCustomerId) {
+      console.log(`[FÜDA Club] Skipping welcome coin for user ${userId} — no Stripe customer yet`);
+      return false;
+    }
+    try {
+      const subs = await stripe.subscriptions.list({ customer: sub.stripeCustomerId, limit: 1 });
+      const stripeActive = subs.data.find(s => s.status === "active" || s.status === "trialing");
+      if (!stripeActive) {
+        console.log(`[FÜDA Club] Skipping welcome coin for user ${userId} — no active Stripe sub on customer ${sub.stripeCustomerId}`);
+        return false;
+      }
+      // Patch our row — webhook clearly missed the subscription.created event.
+      await db
+        .update(fudaClubSubscriptions)
+        .set({
+          stripeSubscriptionId: stripeActive.id,
+          status: stripeActive.status as any,
+          currentPeriodEnd: stripeActive.current_period_end
+            ? new Date(stripeActive.current_period_end * 1000)
+            : null,
+        })
+        .where(eq(fudaClubSubscriptions.id, sub.id));
+      console.log(`[FÜDA Club] Backfilled stripeSubscriptionId=${stripeActive.id} for user ${userId} from Stripe API. Welcome coin will proceed.`);
+      sub.stripeSubscriptionId = stripeActive.id;
+    } catch (err: any) {
+      console.error(`[FÜDA Club] Stripe lookup failed during welcome-coin backfill for user ${userId}:`, err?.message ?? err);
+      return false;
+    }
   }
   // Compute the same end-of-week (next Monday 00:00 Darwin) expiry used by the
   // daily cron, so the welcome coin lives or dies with that week's bucket.
