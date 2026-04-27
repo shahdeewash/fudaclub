@@ -9,6 +9,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Separator } from "@/components/ui/separator";
 import { toast } from "sonner";
+import { getLoginUrl } from "@/const";
 import {
   Coins,
   Star,
@@ -55,16 +56,17 @@ function CoinBadge({ count }: { count: number }) {
 
 function ClubNav({ coinCount }: { coinCount?: number }) {
   const [, setLocation] = useLocation();
+  const { isAuthenticated } = useAuth();
   return (
     <header className="sticky top-0 z-30 bg-background/95 backdrop-blur border-b border-border">
-      <div className="max-w-2xl mx-auto px-4 py-3 flex items-center justify-between gap-3">
+      <div className="max-w-5xl mx-auto px-4 py-3 flex items-center justify-between gap-3">
         <button
           type="button"
           onClick={() => setLocation("/")}
           className="flex items-center gap-2 font-bold text-lg tracking-tight hover:opacity-80 transition"
           aria-label="Back to FÜDA home"
         >
-          <span className="text-amber-500">FÜDA</span>
+          <span className="text-[#C9A84C]">FÜDA</span>
           <span className="text-xs text-muted-foreground font-normal hidden sm:inline">
             Club
           </span>
@@ -73,34 +75,38 @@ function ClubNav({ coinCount }: { coinCount?: number }) {
           {typeof coinCount === "number" && (
             <CoinBadge count={coinCount} />
           )}
-          <Button
-            size="sm"
-            variant="outline"
-            onClick={() => setLocation("/menu")}
-            className="gap-1.5"
-          >
-            <UtensilsCrossed className="h-4 w-4" />
-            <span className="hidden sm:inline">Menu</span>
-          </Button>
-          <Button
-            size="sm"
-            variant="ghost"
-            onClick={() => setLocation("/profile")}
-            className="gap-1.5"
-            aria-label="My profile"
-          >
-            <UserIcon className="h-4 w-4" />
-            <span className="hidden sm:inline">Profile</span>
-          </Button>
-          <Button
-            size="sm"
-            variant="ghost"
-            onClick={() => setLocation("/")}
-            className="gap-1.5"
-            aria-label="Back to home"
-          >
-            <Home className="h-4 w-4" />
-          </Button>
+          {isAuthenticated ? (
+            <>
+              <Button
+                size="sm"
+                variant="outline"
+                onClick={() => setLocation("/menu")}
+                className="gap-1.5"
+              >
+                <UtensilsCrossed className="h-4 w-4" />
+                <span className="hidden sm:inline">Menu</span>
+              </Button>
+              <Button
+                size="sm"
+                variant="ghost"
+                onClick={() => setLocation("/profile")}
+                className="gap-1.5"
+                aria-label="My profile"
+              >
+                <UserIcon className="h-4 w-4" />
+                <span className="hidden sm:inline">Profile</span>
+              </Button>
+            </>
+          ) : (
+            <Button
+              size="sm"
+              variant="outline"
+              onClick={() => { window.location.href = getLoginUrl(); }}
+              className="gap-1.5 border-[#C9A84C] text-[#1A1A1A] hover:bg-[#C9A84C]/10"
+            >
+              Sign in
+            </Button>
+          )}
         </div>
       </div>
     </header>
@@ -158,7 +164,7 @@ type JoinPlanType = "trial" | "fortnightly" | "monthly";
 // ─── New homepage / JoinCard — visually attractive landing page ──────────────
 
 function JoinCard() {
-  const { user } = useAuth();
+  const { user, isAuthenticated } = useAuth();
   const [referralCode, setReferralCode] = useState("");
   const [planType, setPlanType] = useState<JoinPlanType>("fortnightly");
 
@@ -177,7 +183,13 @@ function JoinCard() {
   });
 
   function handleJoin() {
-    if (!user) return;
+    // Unauthenticated visitor clicking Join → kick them through Google OAuth login
+    // first; after login the app brings them back to /fuda-club where they can
+    // complete checkout with one more click.
+    if (!isAuthenticated || !user) {
+      window.location.href = getLoginUrl();
+      return;
+    }
     createCheckout.mutate({
       origin: window.location.origin,
       referralCode: referralCode.trim() || undefined,
@@ -362,11 +374,13 @@ function JoinCard() {
             <Button
               className="w-full bg-[#C9A84C] hover:bg-[#b89540] text-[#1A1A1A] text-base sm:text-lg py-7 font-bold tracking-wide shadow-lg"
               onClick={handleJoin}
-              disabled={createCheckout.isPending || !user}
+              disabled={createCheckout.isPending}
             >
               {createCheckout.isPending
                 ? "Redirecting…"
-                : `Join — $${selected.currentPrice} ${selected.period}`}
+                : isAuthenticated
+                  ? `Join — $${selected.currentPrice} ${selected.period}`
+                  : `Sign in to join — $${selected.currentPrice} ${selected.period}`}
               <ChevronRight className="ml-2 h-5 w-5" />
             </Button>
             <p className="text-xs text-center text-gray-500 mt-3">
@@ -483,9 +497,13 @@ function JoinCard() {
           <Button
             className="bg-[#C9A84C] hover:bg-[#b89540] text-[#1A1A1A] text-base sm:text-lg py-7 px-10 font-bold tracking-wide shadow-2xl"
             onClick={handleJoin}
-            disabled={createCheckout.isPending || !user}
+            disabled={createCheckout.isPending}
           >
-            {createCheckout.isPending ? "Redirecting…" : `Join — $${selected.currentPrice}`}
+            {createCheckout.isPending
+              ? "Redirecting…"
+              : isAuthenticated
+                ? `Join — $${selected.currentPrice}`
+                : `Sign in to join — $${selected.currentPrice}`}
             <ChevronRight className="ml-2 h-5 w-5" />
           </Button>
           <div className="text-xs text-white/40 mt-6 flex items-center justify-center gap-2 flex-wrap">
@@ -866,7 +884,20 @@ export default function FudaClub() {
     refetchInterval: showSuccess ? 2000 : false,
   });
 
-  if (!isAuthenticated || statusLoading) {
+  // Unauthenticated visitors land here from fudaclub.com.au — show the marketing
+  // landing page (JoinCard) immediately. The Join button itself handles the
+  // redirect-to-login flow when clicked. Only show the loading skeleton if we're
+  // authenticated and waiting on status data.
+  if (!isAuthenticated) {
+    return (
+      <div className="min-h-screen">
+        <ClubNav />
+        <JoinCard />
+      </div>
+    );
+  }
+
+  if (statusLoading) {
     return (
       <div className="max-w-2xl mx-auto py-10 px-4 space-y-4">
         {[1, 2, 3].map((i) => (

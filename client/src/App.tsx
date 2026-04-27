@@ -22,8 +22,13 @@ import Profile from "./pages/Profile";
 function Router() {
   return (
     <Switch>
-      <Route path={"/"} component={Home} />
-      <Route path={"/subscribe"} component={Subscribe} />      <Route path={"/menu"} component={Menu} />
+      {/* Homepage now renders the FÜDA Club marketing landing page (was: Home dashboard).
+          The old Home dashboard is still reachable at /home for logged-in users
+          who want the menu/orders/admin entry-point view. */}
+      <Route path={"/"} component={FudaClub} />
+      <Route path={"/home"} component={Home} />
+      <Route path={"/subscribe"} component={Subscribe} />
+      <Route path={"/menu"} component={Menu} />
       <Route path={"/checkout"} component={Checkout} />
       <Route path={"/payment"} component={Payment} />
       <Route path={"/payment-success"} component={PaymentSuccess} />
