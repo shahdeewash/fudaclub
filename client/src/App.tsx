@@ -9,6 +9,7 @@ import Subscribe from "./pages/Subscribe";
 import Menu from "./pages/Menu";
 import Orders from "./pages/Orders";
 import Admin from "./pages/Admin";
+import AdminDashboard from "./pages/AdminDashboard";
 import AdminDishForm from "./pages/AdminDishForm";
 import Kitchen from "./pages/Kitchen";
 import Checkout from "./pages/Checkout";
@@ -38,6 +39,7 @@ function Router() {
       <Route path={"/profile"} component={Profile} />
       <Route path={"/orders"} component={Orders} />
       <Route path={"/admin"} component={Admin} />
+      <Route path={"/admin/dashboard"} component={AdminDashboard} />
       <Route path={"/admin/dish/new"} component={AdminDishForm} />
       <Route path={"/kitchen"} component={Kitchen} />
       <Route path={"/404"} component={NotFound} />

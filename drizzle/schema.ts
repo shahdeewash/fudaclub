@@ -16,6 +16,9 @@ export const users = mysqlTable("users", {
   venueAddress: text("venueAddress"),                      // full address for delivery pooling
   referralCode: varchar("referralCode", { length: 32 }).unique(), // unique code to share
   referredBy: int("referredBy"),                          // userId of referrer
+  // Admin-only note about this member (VIP, allergy, problem customer, etc.)
+  // Members never see this — visible only in /admin/dashboard.
+  adminNote: text("adminNote"),
   createdAt: timestamp("createdAt").defaultNow().notNull(),
   updatedAt: timestamp("updatedAt").defaultNow().onUpdateNow().notNull(),
   lastSignedIn: timestamp("lastSignedIn").defaultNow().notNull(),

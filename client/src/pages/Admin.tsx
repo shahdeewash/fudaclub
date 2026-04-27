@@ -857,9 +857,19 @@ export default function Admin() {
     <div className="min-h-screen bg-background">
       {/* Header */}
       <header className="bg-primary text-primary-foreground py-4 shadow-md">
-        <div className="container">
-          <h1 className="text-2xl font-bold">Admin Dashboard</h1>
-          <p className="text-sm opacity-90">FÜDA Admin Panel</p>
+        <div className="container flex items-start sm:items-center justify-between gap-3 flex-col sm:flex-row">
+          <div>
+            <h1 className="text-2xl font-bold">Admin · Settings</h1>
+            <p className="text-sm opacity-90">Square, menu, closures</p>
+          </div>
+          <button
+            type="button"
+            onClick={() => setLocation("/admin/dashboard")}
+            className="bg-amber-400 hover:bg-amber-300 text-black font-bold text-sm px-4 py-2.5 rounded-lg shadow-md flex items-center gap-2 transition"
+          >
+            📊 Operations Dashboard
+            <span className="text-xs opacity-70">→</span>
+          </button>
         </div>
       </header>
 

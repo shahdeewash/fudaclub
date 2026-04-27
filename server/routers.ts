@@ -10,6 +10,7 @@ import { nanoid } from "nanoid";
 import { notifyOwner } from "./_core/notification";
 import { getOrCreateSubscriptionPriceId, getOrCreatePriceId, SUBSCRIPTION_PLANS } from "./products";
 import { fudaClubRouter, calculateClubPricing, type ClubCartItem } from "./routers/fudaClub";
+import { adminRouter } from "./routers/admin";
 import {
   buildSquareAuthUrl,
   getSquareConnection,
@@ -48,6 +49,7 @@ export const appRouter = router({
   system: systemRouter,
   dev: devRouter,
   fudaClub: fudaClubRouter,
+  admin: adminRouter,
 
   auth: router({
     me: publicProcedure.query(opts => opts.ctx.user),

@@ -127,6 +127,13 @@
       "when": 1782100000000,
       "tag": "0017_add_welcome_coin_flag",
       "breakpoints": true
+    },
+    {
+      "idx": 18,
+      "version": "5",
+      "when": 1782110000000,
+      "tag": "0018_add_admin_note",
+      "breakpoints": true
     }
   ]
 }
