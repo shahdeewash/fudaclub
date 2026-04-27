@@ -4,7 +4,7 @@
 
 import { z } from "zod";
 import { TRPCError } from "@trpc/server";
-import { router, protectedProcedure } from "../_core/trpc";
+import { router, protectedProcedure, publicProcedure } from "../_core/trpc";
 import { getDb } from "../db";
 import {
   fudaClubSubscriptions,
@@ -120,6 +120,21 @@ export async function countActiveClubMembersAtVenue(venueName: string | null | u
 /** Minimum order subtotal (cents) for delivery — protects against $5 deliveries. */
 export const MIN_DELIVERY_SUBTOTAL_CENTS = 1500; // $15.00
 
+/** Total spots reserved for founding-50 launch pricing. After this many active subs,
+ *  new sign-ups pay the post-launch price (currently +20%). Founders' own price is
+ *  locked for 12 months from sign-up. */
+export const FOUNDING_MEMBER_CAP = 50;
+
+/** Count active (non-canceled, non-frozen) FÜDA Club subscriptions across all users. */
+export async function countActiveClubSubscriptions(): Promise<number> {
+  const db = await getDb();
+  if (!db) return 0;
+  const rows = await db
+    .select({ status: fudaClubSubscriptions.status })
+    .from(fudaClubSubscriptions);
+  return rows.filter(r => r.status !== "canceled").length;
+}
+
 /** Get unexpired, unused coins for a user */
 export async function getAvailableCoins(userId: number) {
   const db = await getDb();
@@ -162,6 +177,26 @@ export async function useFudaCoin(coinId: number, orderId: number) {
 // ─── router ──────────────────────────────────────────────────────────────────
 
 export const fudaClubRouter = router({
+  /**
+   * Public — used by the homepage to power the founding-50 progress bar.
+   * Anyone can call this (no login required) so visitors see "X / 50 spots taken"
+   * before they sign up. Returns counts only — no PII.
+   */
+  getFoundingProgress: publicProcedure.query(async () => {
+    const taken = await countActiveClubSubscriptions();
+    const cap = FOUNDING_MEMBER_CAP;
+    const remaining = Math.max(0, cap - taken);
+    const isFoundingWindowOpen = taken < cap;
+    return {
+      cap,
+      taken,
+      remaining,
+      isFoundingWindowOpen,
+      // Round percentage for a smooth progress-bar fill on the homepage.
+      percentFull: Math.min(100, Math.round((taken / cap) * 100)),
+    };
+  }),
+
   /** Get current user's FÜDA Club status, coin balance, and venue */
   getStatus: protectedProcedure.query(async ({ ctx }) => {
     const userId = ctx.user.id;
@@ -340,6 +375,14 @@ export const fudaClubRouter = router({
         },
       });
 
+      // Founding-50 — if there are still spots, mark this sub as founding and lock
+      // their price for 12 months. After the cap, new subs pay the post-launch rate.
+      const currentTaken = await countActiveClubSubscriptions();
+      const isFoundingMember = currentTaken < FOUNDING_MEMBER_CAP;
+      const lockedPriceUntil = isFoundingMember
+        ? new Date(Date.now() + 365 * 24 * 60 * 60 * 1000)
+        : null;
+
       // Store pending subscription record
       if (db) {
         await db
@@ -351,12 +394,17 @@ export const fudaClubRouter = router({
             introUsed: false,
             cancelAtPeriodEnd: false,
             planType,
+            isFoundingMember,
+            lockedPriceUntil,
           })
           .onDuplicateKeyUpdate({
             set: {
               stripeCustomerId: customer.id,
               status: initialDbStatus,
               planType,
+              // Only flip to founding on duplicate update if they haven't already been
+              // marked one — never strip an existing founder of their status.
+              ...(isFoundingMember ? { isFoundingMember: true, lockedPriceUntil } : {}),
             },
           });
       }

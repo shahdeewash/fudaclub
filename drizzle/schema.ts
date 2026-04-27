@@ -229,6 +229,10 @@ export const fudaClubSubscriptions = mysqlTable("fudaClubSubscriptions", {
   currentPeriodEnd: timestamp("currentPeriodEnd"),
   cancelAtPeriodEnd: boolean("cancelAtPeriodEnd").default(false).notNull(),
   planType: mysqlEnum("planType", ["trial", "fortnightly", "monthly"]).default("trial").notNull(),
+  // Founding-50 pricing: first 50 active subscribers lock in launch pricing for 12 months.
+  // After that, prices increase 20% but founders get a 5% loyalty discount.
+  isFoundingMember: boolean("isFoundingMember").default(false).notNull(),
+  lockedPriceUntil: timestamp("lockedPriceUntil"),
   createdAt: timestamp("createdAt").defaultNow().notNull(),
   updatedAt: timestamp("updatedAt").defaultNow().onUpdateNow().notNull(),
 });
