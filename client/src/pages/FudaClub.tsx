@@ -166,7 +166,22 @@ type JoinPlanType = "trial" | "fortnightly" | "monthly";
 function JoinCard() {
   const { user, isAuthenticated } = useAuth();
   const [referralCode, setReferralCode] = useState("");
-  const [planType, setPlanType] = useState<JoinPlanType>("fortnightly");
+  // Default to "trial" since it's the entry-level option new visitors gravitate to.
+  // Persisted to localStorage so the user's pick survives the Google-OAuth round-trip
+  // (otherwise: pick Trial → click "Sign in to join" → bounce through OAuth → land
+  // back on /fuda-club with state reset → click Join → mutation fires with the
+  // default plan, NOT the trial they originally picked).
+  const [planType, setPlanType] = useState<JoinPlanType>(() => {
+    if (typeof window === "undefined") return "trial";
+    const saved = window.localStorage.getItem("fuda_join_plan");
+    if (saved === "trial" || saved === "fortnightly" || saved === "monthly") return saved;
+    return "trial";
+  });
+  // Persist on every change so an OAuth bounce in the middle of selection doesn't lose it.
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    window.localStorage.setItem("fuda_join_plan", planType);
+  }, [planType]);
 
   const { data: founding } = trpc.fudaClub.getFoundingProgress.useQuery(undefined, {
     refetchInterval: 30 * 1000,
@@ -175,6 +190,13 @@ function JoinCard() {
   const createCheckout = trpc.fudaClub.subscribe.useMutation({
     onSuccess: (data) => {
       if (data.checkoutUrl) {
+        // Now that we're sending the user to Stripe Checkout, we can let go of
+        // the persisted plan choice — they've committed and the server-side
+        // mutation already used the right planType. Prevents stale carry-over
+        // for the next signup on the same device.
+        if (typeof window !== "undefined") {
+          window.localStorage.removeItem("fuda_join_plan");
+        }
         toast.info("Redirecting to checkout…");
         window.open(data.checkoutUrl, "_blank");
       }
