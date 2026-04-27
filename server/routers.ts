@@ -1214,7 +1214,8 @@ export const appRouter = router({
             deliveryFee: number;
             tax: number;
             coinUsed: boolean;
-            coinsApplied?: number;     // new field — number of coins to spend
+            coinsApplied?: number;     // number of coins to spend
+            memberDiscountActive?: boolean;  // false = post-cancel grace mode (no 10% off)
             specialInstructions?: string;
           };
           // Parse the comma-separated list of coin IDs the checkout reserved.
@@ -1257,7 +1258,8 @@ export const appRouter = router({
           const clubPreview = calculateClubPricing(
             clubCart,
             coinsToApply,
-            clubOrderData.deliveryFee ?? 0
+            clubOrderData.deliveryFee ?? 0,
+            clubOrderData.memberDiscountActive ?? true
           );
 
           // Project the preview line items into the orderItems shape this code path uses.

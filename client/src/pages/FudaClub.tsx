@@ -460,7 +460,7 @@ function JoinCard() {
               { q: "How does free delivery work?", a: "Within 5km of 9 Searcy St. Free if 5+ members from your workplace are subscribed; otherwise $10 flat. $15 minimum order on delivery. Pickup is always free." },
               { q: "What happens after the trial?", a: "The 7-day trial auto-rolls into the fortnightly plan ($180/fortnight) unless you cancel before the trial ends. You can cancel from your Profile in two clicks." },
               { q: "Can I freeze my subscription?", a: "Yes — pause for up to 2 weeks at a time. No billing during freeze. Use it for holidays, sick weeks, or when you're out of town." },
-              { q: "Can I cancel anytime?", a: "Yes — no contracts, no lock-in, no questions asked. Cancel from your Profile or message us. Your access continues until the end of your current billing period." },
+              { q: "Can I cancel anytime? What happens to my coins?", a: "Yes — no contracts, no lock-in, no questions asked. Cancel from your Profile or message us. The 10% member discount stops immediately, but you keep the right to spend any FÜDA Coins you've already earned until the end of the period you've paid for. After that window closes, all access ends. You won't be charged again." },
               { q: "What if I don't eat with you for a few days?", a: "The membership IS the value, not a daily lunch obligation. Use the 10% off and Coins whenever you want. There's no penalty for not ordering." },
               { q: "Is the food halal?", a: "Yes — 100% halal certified. Every plate. No exceptions." },
               { q: "How does founding-member pricing work?", a: `First ${founding?.cap ?? 50} members keep today's pricing for 12 months. After spot ${founding?.cap ?? 50}, new members pay 20% more. After year one, founders get a 5% loyalty discount on whatever the prevailing rate is.` },
@@ -857,7 +857,15 @@ function ClubDashboard() {
             variant="ghost"
             className="w-full text-destructive hover:text-destructive"
             onClick={() => {
-              if (confirm("Are you sure you want to cancel your FÜDA Club subscription?")) {
+              if (confirm(
+                "Cancel your FÜDA Club subscription?\n\n" +
+                "• 10% member discount STOPS immediately on new orders.\n" +
+                "• You can still spend any FÜDA Coins you've earned, until the end of your current paid period.\n" +
+                "• You will NOT be charged again.\n" +
+                "• No refund for unused days.\n" +
+                "• You can rejoin anytime.\n\n" +
+                "Click OK to confirm."
+              )) {
                 cancelSub.mutate();
               }
             }}

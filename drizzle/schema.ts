@@ -233,6 +233,9 @@ export const fudaClubSubscriptions = mysqlTable("fudaClubSubscriptions", {
   // After that, prices increase 20% but founders get a 5% loyalty discount.
   isFoundingMember: boolean("isFoundingMember").default(false).notNull(),
   lockedPriceUntil: timestamp("lockedPriceUntil"),
+  // Coin grace period: when a member cancels, they lose 10% off immediately but
+  // keep the right to redeem existing coins until coinGraceUntil (≈ end of paid period).
+  coinGraceUntil: timestamp("coinGraceUntil"),
   createdAt: timestamp("createdAt").defaultNow().notNull(),
   updatedAt: timestamp("updatedAt").defaultNow().onUpdateNow().notNull(),
 });

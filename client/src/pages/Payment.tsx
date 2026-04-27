@@ -42,7 +42,15 @@ export default function Payment() {
     enabled: isAuthenticated,
   });
   const isClubMember = !!(clubStatus?.subscription && clubStatus.subscription.status !== "canceled");
-  const hasAnyMembership = !!subscription || isClubMember;
+  // Coin grace mode: member cancelled but is still inside the paid period — they
+  // can spend remaining coins but get NO 10% off on anything else.
+  const inCoinGrace = !!clubStatus?.coinGrace?.active;
+  const coinGraceUntil = clubStatus?.coinGrace?.until
+    ? new Date(clubStatus.coinGrace.until)
+    : null;
+  // Either path (full member or grace) lets the user place a club order.
+  const canOrderAsClub = isClubMember || inCoinGrace;
+  const hasAnyMembership = !!subscription || canOrderAsClub;
 
   const { data: dailyCredit } = trpc.order.getDailyCredit.useQuery(undefined, {
     enabled: isAuthenticated,
@@ -226,7 +234,7 @@ export default function Payment() {
   };
 
   // Compute eligible (non-Mix-Grill) unit count — caps the coin selector.
-  const eligibleUnitCount = isClubMember
+  const eligibleUnitCount = canOrderAsClub
     ? cartItems.reduce(
         (sum, it) => sum + (isMixGrillItem(it.name) ? 0 : it.quantity),
         0
@@ -241,12 +249,14 @@ export default function Payment() {
     maxCoinsSpendable
   );
 
-  if (isClubMember) {
+  if (canOrderAsClub) {
     // Club math (mirrors server calculateClubPricing):
     //  1. Expand cart into individual units, mark Mix Grill ones as ineligible
     //  2. Sort eligible units by price DESCENDING
     //  3. Cover the top N (= effectiveCoinsToUse) with coins
-    //  4. All other units get 10% off
+    //  4. All other units get 10% off ONLY if member discount is active
+    //     (grace-mode members lost the discount but can still spend coins).
+    const effectiveDiscount = isClubMember ? CLUB_DISCOUNT : 0;
     type Unit = { price: number; eligible: boolean };
     const units: Unit[] = cartItems.flatMap(item => {
       const eligible = !isMixGrillItem(item.name);
@@ -268,7 +278,7 @@ export default function Payment() {
         coinDiscountSavings += u.price;
         // contributes 0 to subtotal
       } else {
-        const discountedUnit = Math.round(u.price * (1 - CLUB_DISCOUNT));
+        const discountedUnit = Math.round(u.price * (1 - effectiveDiscount));
         subtotal += discountedUnit;
         memberDiscountSavings += (u.price - discountedUnit);
       }
@@ -303,7 +313,7 @@ export default function Payment() {
       quantity: item.quantity,
       modifierNote: item.modifierNote,
     }));
-    if (isClubMember) {
+    if (canOrderAsClub) {
       // Club path: createFoodCheckout handles $0 case directly (no Stripe round trip).
       createFoodCheckout.mutate({
         items,
@@ -324,9 +334,10 @@ export default function Payment() {
   const handleStripeCheckout = () => {
     setIsRedirecting(true);
 
-    // Club members: route through fudaClub.createFoodCheckout, which handles
-    // coin redemption + 10% member discount + Stripe session creation server-side.
-    if (isClubMember) {
+    // Club members (active OR coin-grace): route through fudaClub.createFoodCheckout,
+    // which handles coin redemption + 10% member discount (active only) + Stripe
+    // session creation server-side.
+    if (canOrderAsClub) {
       const items = cartItems.map(item => ({
         menuItemId: item.id,
         quantity: item.quantity,
@@ -591,6 +602,15 @@ export default function Payment() {
                 <Separator />
                 <div className="space-y-2">
                   {/* Show original (full-price) subtotal so the discount math is visible */}
+                  {/* Coin-grace mode banner — member cancelled but is using up
+                      remaining coins before grace ends. No 10% discount applies. */}
+                  {!isClubMember && inCoinGrace && (
+                    <Alert className="border-orange-300 bg-orange-50">
+                      <AlertDescription className="text-xs text-orange-900">
+                        <strong>Discount paused — coin redemption only.</strong> You cancelled your FÜDA Club subscription. You can still spend remaining coins {coinGraceUntil ? <>until <strong>{coinGraceUntil.toLocaleDateString("en-AU", { day: "numeric", month: "short" })}</strong></> : "for a short window"}, but the 10% member discount no longer applies.
+                      </AlertDescription>
+                    </Alert>
+                  )}
                   {(memberDiscountSavings > 0 || coinDiscountSavings > 0) && (
                     <div className="flex justify-between text-sm text-muted-foreground">
                       <span>Items at full price</span>
@@ -600,9 +620,9 @@ export default function Payment() {
                     </div>
                   )}
                   {/* Member's choice — how many FÜDA Coins to spend on this order.
-                      Only shown for club members who have any coins available AND
-                      have at least one eligible (non-Mix-Grill) item in the cart. */}
-                  {isClubMember && coinBalance > 0 && eligibleUnitCount > 0 && (
+                      Shown for any member (active OR coin-grace) who has any coins
+                      available AND at least one eligible (non-Mix-Grill) cart item. */}
+                  {canOrderAsClub && coinBalance > 0 && eligibleUnitCount > 0 && (
                     <div className="rounded-lg border border-amber-200 bg-amber-50/60 p-3 space-y-2">
                       <div className="flex items-center justify-between">
                         <div>

@@ -65,7 +65,36 @@ function darwinMidnight(darwinDateStr: string): Date {
   return new Date(Date.UTC(y, m - 1, d, 14, 30, 0));
 }
 
-/** Check if a user has an active FÜDA Club subscription */
+/**
+ * Check if a user is in their post-cancel coin grace window — they still have
+ * unused FÜDA Coins and the period they paid for hasn't ended, so they can
+ * spend coins but get NO 10% member discount on anything else in the cart.
+ *
+ * Returns the subscription row if grace is live, otherwise null.
+ */
+export async function getCoinGracePeriodSub(userId: number) {
+  const db = await getDb();
+  if (!db) return null;
+  const [sub] = await db
+    .select()
+    .from(fudaClubSubscriptions)
+    .where(eq(fudaClubSubscriptions.userId, userId))
+    .limit(1);
+  if (!sub) return null;
+  if (sub.status !== "canceled") return null;
+  if (!sub.coinGraceUntil) return null;
+  if (sub.coinGraceUntil < new Date()) return null;
+  return sub;
+}
+
+/** Check if a user has an active FÜDA Club subscription.
+ *  Returns null for any state that should NOT grant member benefits:
+ *  - status === "canceled" (immediate-cancel flow set this directly)
+ *  - cancelAtPeriodEnd=true AND currentPeriodEnd has passed (safety net for
+ *    when Stripe webhooks haven't fired or weren't wired up — we don't want
+ *    a forgotten cancellation to leave a member with eternal free coins)
+ *  Frozen subs auto-unfreeze if their freeze window has passed.
+ */
 export async function getActiveFudaClubSub(userId: number) {
   const db = await getDb();
   if (!db) return null;
@@ -76,6 +105,19 @@ export async function getActiveFudaClubSub(userId: number) {
     .limit(1);
   if (!sub) return null;
   if (sub.status === "canceled") return null;
+  // Safety net: cancelAtPeriodEnd=true + currentPeriodEnd in the past = effectively canceled.
+  // Auto-flip the local status so future checks short-circuit on the cheap path above.
+  if (
+    sub.cancelAtPeriodEnd &&
+    sub.currentPeriodEnd &&
+    sub.currentPeriodEnd < new Date()
+  ) {
+    await db
+      .update(fudaClubSubscriptions)
+      .set({ status: "canceled" })
+      .where(eq(fudaClubSubscriptions.id, sub.id));
+    return null;
+  }
   if (sub.status === "frozen") {
     if (sub.frozenUntil && sub.frozenUntil < new Date()) {
       // auto-unfreeze
@@ -202,6 +244,9 @@ export const fudaClubRouter = router({
     const userId = ctx.user.id;
     const db = await getDb();
     const sub = await getActiveFudaClubSub(userId);
+    // If they're not actively subscribed, check whether they're in the post-cancel
+    // coin grace window — they can still spend coins, but no 10% discount.
+    const graceSub = sub ? null : await getCoinGracePeriodSub(userId);
     const coins = await getAvailableCoins(userId);
     const userData = db
       ? (
@@ -224,6 +269,14 @@ export const fudaClubRouter = router({
       venueName: userData?.venueName ?? null,
       venueAddress: userData?.venueAddress ?? null,
       referralCode: userData?.referralCode ?? null,
+      // Surface coin-grace state so the UI can render a "Discount paused" banner
+      // and let the member spend their remaining coins before the window closes.
+      coinGrace: graceSub
+        ? {
+            active: true,
+            until: graceSub.coinGraceUntil,
+          }
+        : { active: false, until: null },
     };
   }),
 
@@ -413,23 +466,61 @@ export const fudaClubRouter = router({
     }),
 
   /** Cancel subscription at period end */
+  /**
+   * Cancel the member's FÜDA Club subscription with a coin grace period.
+   *
+   * What happens at the moment of cancel:
+   * - The 10% member discount STOPS immediately on every new order.
+   * - Existing unused FÜDA Coins remain spendable until `coinGraceUntil` —
+   *   that's the end of the period the member already paid for (Stripe's
+   *   currentPeriodEnd, or now+14 days if Stripe hasn't synced that yet).
+   * - No new coins are issued (cron only issues to status='active' subs).
+   * - Stripe is told `cancel_at_period_end: true` so no future billing.
+   *
+   * After coinGraceUntil:
+   * - All access ends — coins become unspendable (the gating check requires
+   *   either an active sub or a live coin grace window).
+   *
+   * This honours what the member paid for (coins they earned during the period)
+   * while ending the perpetual perk (10% off) the moment they leave.
+   */
   cancelSubscription: protectedProcedure.mutation(async ({ ctx }) => {
     const userId = ctx.user.id;
     const sub = await getActiveFudaClubSub(userId);
-    if (!sub?.stripeSubscriptionId) {
+    if (!sub) {
       throw new TRPCError({ code: "NOT_FOUND", message: "No active subscription found." });
     }
-    await stripe.subscriptions.update(sub.stripeSubscriptionId, {
-      cancel_at_period_end: true,
-    });
+    // Tell Stripe to stop future billing (idempotent — safe to call even if the
+    // sub is already canceling). Skipped only if there's no Stripe ID yet
+    // (rare edge case for subs that never finished checkout).
+    if (sub.stripeSubscriptionId) {
+      try {
+        await stripe.subscriptions.update(sub.stripeSubscriptionId, {
+          cancel_at_period_end: true,
+        });
+      } catch (stripeErr: any) {
+        // Log but don't block — we still want to revoke discount access locally
+        // even if the Stripe API call fails (e.g. network blip). Worst case:
+        // Stripe bills them once more and we issue a refund manually.
+        console.error(`[FÜDA Club] Stripe cancel_at_period_end failed for sub ${sub.stripeSubscriptionId}:`, stripeErr?.message ?? stripeErr);
+      }
+    }
+    // Coin grace window — until end of paid period, fallback to 14 days from now.
+    const coinGraceUntil = sub.currentPeriodEnd
+      ?? new Date(Date.now() + 14 * 24 * 60 * 60 * 1000);
+
     const db = await getDb();
     if (db) {
       await db
         .update(fudaClubSubscriptions)
-        .set({ cancelAtPeriodEnd: true })
+        .set({
+          status: "canceled",
+          cancelAtPeriodEnd: true,
+          coinGraceUntil,
+        })
         .where(eq(fudaClubSubscriptions.userId, userId));
     }
-    return { success: true };
+    return { success: true, coinGraceUntil: coinGraceUntil.toISOString() };
   }),
 
   /** Freeze subscription for up to 14 days */
@@ -621,10 +712,16 @@ export const fudaClubRouter = router({
       })
     )
     .query(async ({ ctx, input }) => {
-      const sub = await getActiveFudaClubSub(ctx.user.id);
+      // Either an active sub (full member: 10% off + coins) OR a canceled sub
+      // still in coin grace (coin redemption only, no 10% off) is allowed past
+      // this gate. Frozen subs cannot order.
+      const activeSub = await getActiveFudaClubSub(ctx.user.id);
+      const graceSub = activeSub ? null : await getCoinGracePeriodSub(ctx.user.id);
+      const sub = activeSub ?? graceSub;
       if (!sub || sub.status === "frozen") {
         throw new TRPCError({ code: "FORBIDDEN", message: "No active FÜDA Club subscription." });
       }
+      const memberDiscountActive = !!activeSub;  // 10% off only for full members
       const coins = await getAvailableCoins(ctx.user.id);
       // Default to spending ALL available coins so members get max savings unless
       // they explicitly opt to spend fewer.
@@ -665,9 +762,12 @@ export const fudaClubRouter = router({
         : (venueQualifies ? 0 : 1000);
 
       return {
-        ...calculateClubPricing(cartItems, coinsToApply, deliveryFeeInCents),
+        ...calculateClubPricing(cartItems, coinsToApply, deliveryFeeInCents, memberDiscountActive),
         // Echo back so the UI can show "X of Y coins available" without a second call.
         availableCoinBalance: coins.length,
+        // Lets the UI render a "Coin grace mode — discount paused" banner.
+        memberDiscountActive,
+        coinGraceUntil: graceSub?.coinGraceUntil ?? null,
       };
     }),
 
@@ -691,10 +791,15 @@ export const fudaClubRouter = router({
       })
     )
     .mutation(async ({ ctx, input }) => {
-      const sub = await getActiveFudaClubSub(ctx.user.id);
+      // Same access-gate logic as getCheckoutPreview — either active member
+      // (full benefits) OR canceled member still in coin grace (coins only).
+      const activeSub = await getActiveFudaClubSub(ctx.user.id);
+      const graceSub = activeSub ? null : await getCoinGracePeriodSub(ctx.user.id);
+      const sub = activeSub ?? graceSub;
       if (!sub || sub.status === "frozen") {
         throw new TRPCError({ code: "FORBIDDEN", message: "No active FÜDA Club subscription." });
       }
+      const memberDiscountActive = !!activeSub;
 
       const coins = await getAvailableCoins(ctx.user.id);
       const coinsToApply = Math.min(
@@ -738,7 +843,7 @@ export const fudaClubRouter = router({
 
       // Compute preview to check the subtotal-after-discount BEFORE enforcing the
       // $15 minimum-order rule for delivery (so member discounts count).
-      const preview = calculateClubPricing(cartItems, coinsToApply, deliveryFeeInCents);
+      const preview = calculateClubPricing(cartItems, coinsToApply, deliveryFeeInCents, memberDiscountActive);
 
       // Minimum order $15 for delivery (after coin + 10% discount applied).
       // Pickup has no minimum — walk-ins are always welcome.
@@ -873,6 +978,9 @@ export const fudaClubRouter = router({
             tax: 0,
             coinUsed: preview.coinUsed,
             coinsApplied: preview.coinsApplied,
+            // Carries grace-mode info so verifyAndCreateOrder applies the same
+            // pricing rules (no 10%% off) when finalising the order post-payment.
+            memberDiscountActive,
             specialInstructions: input.specialInstructions,
           }),
         },
@@ -980,21 +1088,24 @@ export interface ClubCheckoutPreview {
  * Calculate FÜDA Club pricing for a cart:
  *
  * Rules (the actual business rules that members see):
- * 1. Mix Grill items are NEVER covered by a FÜDA Coin — they always get 10% off instead.
+ * 1. Mix Grill items are NEVER covered by a FÜDA Coin — they always get 10% off
+ *    if the member's discount is active, otherwise full price.
  * 2. Each FÜDA Coin spent covers ONE unit of food, applied to the highest-value
  *    non-Mix-Grill unit currently in the cart (so members get max value per coin).
  * 3. The member chooses how many coins to spend on this order (`coinsToApply`).
  *    If they pass more coins than they have eligible items, the extra coins are
  *    silently capped — coins they don't end up spending stay in their balance.
- * 4. Every non-coin-covered unit (including all Mix Grill units) gets 10% off the
- *    listed menu price as a Club member.
+ * 4. Every non-coin-covered unit gets 10% off ONLY if `memberDiscountActive` is true.
+ *    When a member is in the post-cancel coin grace period, they can still REDEEM
+ *    coins but no longer get the 10% discount — `memberDiscountActive=false`.
  */
 export function calculateClubPricing(
   cartItems: ClubCartItem[],
   coinsToApply: number,
-  deliveryFeeInCents: number
+  deliveryFeeInCents: number,
+  memberDiscountActive: boolean = true
 ): ClubCheckoutPreview {
-  const DISCOUNT = 0.10;
+  const DISCOUNT = memberDiscountActive ? 0.10 : 0;
   const MIX_GRILL = FUDA_CLUB.mixGrillCategory.toLowerCase();
   const safeCoinsRequested = Math.max(0, Math.floor(coinsToApply));
 
@@ -1051,7 +1162,9 @@ export function calculateClubPricing(
       discountedPriceInCents: discounted,
       isCoinCovered,
       isMixGrill: u.isMixGrill,
-      discount10pct: !isCoinCovered,  // every non-coin unit gets 10% off
+      // 10% only counts if the discount was actually active. Coin-grace orders
+      // pass DISCOUNT=0, so non-coin units pay full price (no "10% off" badge).
+      discount10pct: !isCoinCovered && memberDiscountActive,
     };
   });
 
