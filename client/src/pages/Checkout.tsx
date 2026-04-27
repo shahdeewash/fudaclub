@@ -31,6 +31,15 @@ export default function Checkout() {
     const saved = window.localStorage.getItem("fuda_fulfillment_type");
     return saved === "delivery" ? "delivery" : "pickup";
   });
+  // Member-controlled count of FÜDA Coins to spend on this order. Defaults to
+  // "use all" via null sentinel; persists to localStorage so /payment picks up
+  // the same value. Declared at the top with the other hooks (must run on every
+  // render for Rules of Hooks to be satisfied).
+  const [coinsToUse, setCoinsToUse] = useState<number | null>(() => {
+    if (typeof window === "undefined") return null;
+    const stored = window.localStorage.getItem("fuda_coins_to_use");
+    return stored !== null ? parseInt(stored, 10) : null;
+  });
 
   // 10:30 AM Darwin (UTC+9:30) cutoff — orders after this time can only be pickup.
   // Computed inline (not stored in state) so the alert reflects the actual time
@@ -85,6 +94,15 @@ export default function Checkout() {
       }
     }
   }, []);
+
+  // Persist coinsToUse choice across navigation to /payment. Must run on every
+  // render to keep hook order stable, even when the value hasn't changed.
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    if (coinsToUse !== null) {
+      window.localStorage.setItem("fuda_coins_to_use", String(coinsToUse));
+    }
+  }, [coinsToUse]);
 
   if (!isAuthenticated) {
     return (
@@ -180,18 +198,10 @@ export default function Checkout() {
     : 0;
   const maxCoinsSpendable = Math.min(coinBalance, eligibleUnitCount);
 
-  // Member-controlled count of coins to spend on this order. Defaults to "use all"
-  // and persists to localStorage so /payment picks up the same choice.
-  const [coinsToUse, setCoinsToUse] = useState<number | null>(() => {
-    if (typeof window === "undefined") return null;
-    const stored = window.localStorage.getItem("fuda_coins_to_use");
-    return stored !== null ? parseInt(stored, 10) : null;
-  });
+  // coinsToUse state is declared at the top of the component (with the other
+  // useState calls) — see Rules of Hooks. Here we just compute the effective
+  // value (clamped to what's actually spendable on this order).
   const effectiveCoinsToUse = Math.min(coinsToUse ?? maxCoinsSpendable, maxCoinsSpendable);
-  useEffect(() => {
-    if (typeof window === "undefined") return;
-    window.localStorage.setItem("fuda_coins_to_use", String(effectiveCoinsToUse));
-  }, [effectiveCoinsToUse]);
 
   // Subtotal calculation matches what the backend will charge for each user type.
   // Club members: 10% off everything (only if discount-active, not grace), plus
