@@ -108,12 +108,33 @@ export const orders = mysqlTable("orders", {
   specialInstructions: text("specialInstructions"),
   stripeSessionId: varchar("stripeSessionId", { length: 255 }),
   pushedToKdsAt: timestamp("pushedToKdsAt"),
+  // Schedule-ahead orders: optional pickup-at time. Null = ASAP.
+  scheduledFor: timestamp("scheduledFor"),
   createdAt: timestamp("createdAt").defaultNow().notNull(),
   updatedAt: timestamp("updatedAt").defaultNow().onUpdateNow().notNull(),
 });
 
 export type Order = typeof orders.$inferSelect;
 export type InsertOrder = typeof orders.$inferInsert;
+
+/**
+ * Limited-time offer banners — admin posts a message that appears at the top
+ * of /menu for the active window. Used for weekly promos / specials / events.
+ */
+export const ltOffers = mysqlTable("ltOffers", {
+  id: int("id").autoincrement().primaryKey(),
+  title: varchar("title", { length: 255 }).notNull(),
+  body: text("body").notNull(),
+  ctaText: varchar("ctaText", { length: 120 }),
+  ctaUrl: varchar("ctaUrl", { length: 500 }),
+  startsAt: timestamp("startsAt").notNull(),
+  endsAt: timestamp("endsAt").notNull(),
+  isActive: boolean("isActive").default(true).notNull(),
+  createdAt: timestamp("createdAt").defaultNow().notNull(),
+});
+
+export type LtOffer = typeof ltOffers.$inferSelect;
+export type InsertLtOffer = typeof ltOffers.$inferInsert;
 
 /**
  * Individual items in an order

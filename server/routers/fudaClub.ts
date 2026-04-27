@@ -11,8 +11,12 @@ import {
   fudaCoins,
   fudaClosureDates,
   users,
+  ltOffers,
+  orders as ordersTable,
+  orderItems as orderItemsTable,
+  menuItems as menuItemsTable,
 } from "../../drizzle/schema";
-import { eq, and, gt, desc, gte, lte } from "drizzle-orm";
+import { eq, and, gt, desc, gte, lte, inArray } from "drizzle-orm";
 import Stripe from "stripe";
 import { FUDA_CLUB } from "../stripe-products";
 import { nanoid } from "nanoid";
@@ -288,6 +292,193 @@ export const fudaClubRouter = router({
       // Round percentage for a smooth progress-bar fill on the homepage.
       percentFull: Math.min(100, Math.round((taken / cap) * 100)),
     };
+  }),
+
+  /**
+   * Public — list active LTO banners (now/upcoming).
+   * /menu and the homepage call this; returns ones where startsAt <= now <= endsAt
+   * AND isActive=true. Returns soonest-ending first so the most urgent banner shows.
+   */
+  getActiveLtOffers: publicProcedure.query(async () => {
+    const db = await getDb();
+    if (!db) return [];
+    const now = new Date();
+    const rows = await db.select().from(ltOffers).where(eq(ltOffers.isActive, true));
+    return rows
+      .filter(o => o.startsAt <= now && o.endsAt >= now)
+      .sort((a, b) => a.endsAt.getTime() - b.endsAt.getTime());
+  }),
+
+  /**
+   * Member's most recent order — used by the in-app "your order is being prepared"
+   * polling notification system. Returns null if no recent order in the last 4 hours.
+   */
+  getMyLatestOrder: protectedProcedure.query(async ({ ctx }) => {
+    const db = await getDb();
+    if (!db) return null;
+    const cutoff = new Date(Date.now() - 4 * 60 * 60 * 1000);
+    const [latest] = await db
+      .select()
+      .from(ordersTable)
+      .where(and(
+        eq(ordersTable.userId, ctx.user.id),
+        gte(ordersTable.orderDate, cutoff),
+      ))
+      .orderBy(desc(ordersTable.orderDate))
+      .limit(1);
+    if (!latest) return null;
+    const items = await db
+      .select({ itemName: orderItemsTable.itemName, quantity: orderItemsTable.quantity })
+      .from(orderItemsTable)
+      .where(eq(orderItemsTable.orderId, latest.id));
+    return { ...latest, items };
+  }),
+
+  /** Member's order history (for Profile page reorder buttons) */
+  getMyOrderHistory: protectedProcedure
+    .input(z.object({ limit: z.number().int().min(1).max(50).default(20) }).optional())
+    .query(async ({ ctx, input }) => {
+      const db = await getDb();
+      if (!db) return [];
+      const limit = input?.limit ?? 20;
+      const rows = await db
+        .select()
+        .from(ordersTable)
+        .where(eq(ordersTable.userId, ctx.user.id))
+        .orderBy(desc(ordersTable.orderDate))
+        .limit(limit);
+      const orderIds = rows.map(o => o.id);
+      let itemsByOrder = new Map<number, Array<{ menuItemId: number; itemName: string; quantity: number }>>();
+      if (orderIds.length > 0) {
+        const items = await db
+          .select({
+            orderId: orderItemsTable.orderId,
+            menuItemId: orderItemsTable.menuItemId,
+            itemName: orderItemsTable.itemName,
+            quantity: orderItemsTable.quantity,
+          })
+          .from(orderItemsTable)
+          .where(inArray(orderItemsTable.orderId, orderIds));
+        for (const it of items) {
+          const arr = itemsByOrder.get(it.orderId) ?? [];
+          arr.push({ menuItemId: it.menuItemId, itemName: it.itemName, quantity: it.quantity });
+          itemsByOrder.set(it.orderId, arr);
+        }
+      }
+      return rows.map(o => ({ ...o, items: itemsByOrder.get(o.id) ?? [] }));
+    }),
+
+  /**
+   * Reorder — given a past orderId, return the cart items needed to recreate
+   * that order. Frontend takes this and dumps it into localStorage as the new
+   * cart, then routes the user to /checkout. Skips items whose menuItemId no
+   * longer exists in the catalogue (sold out / removed).
+   */
+  reorder: protectedProcedure
+    .input(z.object({ orderId: z.number().int() }))
+    .query(async ({ ctx, input }) => {
+      const db = await getDb();
+      if (!db) throw new TRPCError({ code: "INTERNAL_SERVER_ERROR" });
+      // Verify the order belongs to this user
+      const [order] = await db
+        .select()
+        .from(ordersTable)
+        .where(and(eq(ordersTable.id, input.orderId), eq(ordersTable.userId, ctx.user.id)))
+        .limit(1);
+      if (!order) throw new TRPCError({ code: "NOT_FOUND", message: "Order not found" });
+      // Pull items + their current menu rows (price may have changed)
+      const items = await db
+        .select({
+          menuItemId: orderItemsTable.menuItemId,
+          quantity: orderItemsTable.quantity,
+          modifierNote: orderItemsTable.modifierNote,
+        })
+        .from(orderItemsTable)
+        .where(eq(orderItemsTable.orderId, input.orderId));
+      const menuIds = items.map(i => i.menuItemId);
+      if (menuIds.length === 0) return { items: [], skipped: 0 };
+      const menuRows = await db
+        .select()
+        .from(menuItemsTable)
+        .where(inArray(menuItemsTable.id, menuIds));
+      const menuMap = new Map(menuRows.map(m => [m.id, m]));
+      // Aggregate quantities for the same menuItemId (in case of split rows
+      // from coin-cover free + paid units).
+      const aggMap = new Map<number, { menuItemId: number; quantity: number; modifierNote?: string }>();
+      let skipped = 0;
+      for (const it of items) {
+        const m = menuMap.get(it.menuItemId);
+        if (!m) { skipped += 1; continue; }
+        const existing = aggMap.get(it.menuItemId);
+        if (existing) {
+          existing.quantity += it.quantity;
+        } else {
+          aggMap.set(it.menuItemId, {
+            menuItemId: it.menuItemId,
+            quantity: it.quantity,
+            modifierNote: it.modifierNote ?? undefined,
+          });
+        }
+      }
+      // Return cart shape ready for localStorage write client-side
+      const cartItems = Array.from(aggMap.values()).map(it => {
+        const m = menuMap.get(it.menuItemId)!;
+        return {
+          id: it.menuItemId,
+          name: m.name,
+          price: m.price,
+          quantity: it.quantity,
+          imageUrl: m.imageUrl ?? undefined,
+          modifierNote: it.modifierNote,
+        };
+      });
+      return { items: cartItems, skipped };
+    }),
+
+  /**
+   * Onboarding nudge — returns the most relevant in-app message based on the
+   * member's subscription age + plan. Frontend renders as a dismissible banner.
+   * No nudge → returns null.
+   */
+  getOnboardingNudge: protectedProcedure.query(async ({ ctx }) => {
+    const db = await getDb();
+    if (!db) return null;
+    const sub = await getActiveFudaClubSub(ctx.user.id);
+    if (!sub) return null;
+    const ageMs = Date.now() - new Date(sub.createdAt).getTime();
+    const ageDays = Math.floor(ageMs / (24 * 60 * 60 * 1000));
+    const coins = await getAvailableCoins(ctx.user.id);
+    if (ageDays === 0) {
+      return {
+        key: "welcome",
+        title: "Welcome to FÜDA Club 🎉",
+        body: coins.length > 0
+          ? `Your first FÜDA Coin is ready — order any item and we'll cover it.`
+          : `Your first coin lands tomorrow morning at 6 AM.`,
+      };
+    }
+    if (sub.planType === "trial" && ageDays >= 5 && ageDays <= 6) {
+      return {
+        key: "trial_ending",
+        title: "Trial ends in 1–2 days",
+        body: `After your trial wraps, you'll auto-roll into the fortnightly plan ($180/14 days). Cancel from your Profile if it's not for you — no hard feelings.`,
+      };
+    }
+    if (sub.planType === "trial" && ageDays === 7) {
+      return {
+        key: "trial_ends_today",
+        title: "Trial ends today",
+        body: `Tomorrow you'll be on the fortnightly plan unless you cancel. Loving the club? You're already locked in.`,
+      };
+    }
+    if (ageDays === 1 && coins.length > 0) {
+      return {
+        key: "use_your_coin",
+        title: "Don't forget — your FÜDA Coin is valid",
+        body: `Order anything (except Mix Grill) and your coin covers your highest-value item.`,
+      };
+    }
+    return null;
   }),
 
   /** Get current user's FÜDA Club status, coin balance, and venue */
@@ -848,6 +1039,8 @@ export const fudaClubRouter = router({
         // How many FÜDA Coins to spend on this order (member's choice in the UI).
         // Capped to coins available + eligible cart units. Undefined = use all.
         coinsToApply: z.number().int().min(0).optional(),
+        // Optional schedule-ahead pickup/delivery time (ISO datetime). Null = ASAP.
+        scheduledFor: z.string().optional(),
       })
     )
     .mutation(async ({ ctx, input }) => {
@@ -944,6 +1137,7 @@ export const fudaClubRouter = router({
             tax: 0,
             total: preview.totalInCents,
             specialInstructions: input.specialInstructions,
+            scheduledFor: input.scheduledFor ? new Date(input.scheduledFor) : null,
           });
         const orderId = (newOrder as any).insertId;
 
@@ -1042,6 +1236,7 @@ export const fudaClubRouter = router({
             // pricing rules (no 10%% off) when finalising the order post-payment.
             memberDiscountActive,
             specialInstructions: input.specialInstructions,
+            scheduledFor: input.scheduledFor ?? null,
           }),
         },
         success_url: `${input.origin}/payment-success?session_id={CHECKOUT_SESSION_ID}`,

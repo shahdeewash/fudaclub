@@ -17,6 +17,7 @@ import {
   fudaCoins,
   orders,
   orderItems,
+  ltOffers,
 } from "../../drizzle/schema";
 import { eq, and, gte, lte, desc, sql, inArray } from "drizzle-orm";
 import Stripe from "stripe";
@@ -592,5 +593,173 @@ export const adminRouter = router({
           filename: `fuda-members-${new Date().toISOString().slice(0, 10)}.csv`,
         };
       }
+    }),
+
+  /**
+   * Update an order's status (admin marks New → Preparing → Ready → Picked up).
+   * The member's order-tracking page polls and shows the new status live.
+   */
+  updateOrderStatus: protectedProcedure
+    .input(z.object({
+      orderId: z.number().int(),
+      status: z.enum(["pending", "confirmed", "preparing", "ready", "delivered", "canceled"]),
+    }))
+    .mutation(async ({ ctx, input }) => {
+      requireAdmin(ctx);
+      const db = await getDb();
+      if (!db) throw new TRPCError({ code: "INTERNAL_SERVER_ERROR" });
+      await db.update(orders).set({ status: input.status as any }).where(eq(orders.id, input.orderId));
+      return { success: true };
+    }),
+
+  /**
+   * Daily prep forecast — predicts tomorrow's expected order volume based on
+   * active member count + last-7-days same-weekday average. Minimal viable;
+   * gets smarter as we accumulate more data.
+   */
+  getPrepForecast: protectedProcedure.query(async ({ ctx }) => {
+    requireAdmin(ctx);
+    const db = await getDb();
+    if (!db) throw new TRPCError({ code: "INTERNAL_SERVER_ERROR" });
+
+    const allActiveSubs = await db
+      .select({ id: fudaClubSubscriptions.id })
+      .from(fudaClubSubscriptions)
+      .where(and(
+        // not canceled
+        sql`${fudaClubSubscriptions.status} != 'canceled'`,
+      ));
+    const activeMembers = allActiveSubs.length;
+
+    // Last 28 days of orders, group by weekday
+    const since = new Date(Date.now() - 28 * 24 * 60 * 60 * 1000);
+    const recentOrders = await db
+      .select({ orderDate: orders.orderDate })
+      .from(orders)
+      .where(gte(orders.orderDate, since));
+
+    const ordersPerWeekday = new Map<number, number>();
+    const daysPerWeekday = new Map<number, Set<string>>();
+    for (const o of recentOrders) {
+      if (!o.orderDate) continue;
+      const dow = o.orderDate.getDay();
+      ordersPerWeekday.set(dow, (ordersPerWeekday.get(dow) ?? 0) + 1);
+      const ds = daysPerWeekday.get(dow) ?? new Set<string>();
+      ds.add(o.orderDate.toISOString().slice(0, 10));
+      daysPerWeekday.set(dow, ds);
+    }
+
+    // Predict tomorrow
+    const tomorrow = new Date();
+    tomorrow.setDate(tomorrow.getDate() + 1);
+    const tomDow = tomorrow.getDay();
+    const tomTotal = ordersPerWeekday.get(tomDow) ?? 0;
+    const tomDays = daysPerWeekday.get(tomDow)?.size ?? 0;
+    const avgOrdersForThatDow = tomDays > 0 ? Math.round(tomTotal / tomDays) : 0;
+
+    // Projected = avg of (historical avg) and (members × 0.4 expected daily order rate)
+    const memberBased = Math.round(activeMembers * 0.4);
+    const projected = Math.max(avgOrdersForThatDow, memberBased);
+
+    return {
+      activeMembers,
+      tomorrowDayOfWeek: ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"][tomDow],
+      historicalAvgOrdersThisWeekday: avgOrdersForThatDow,
+      memberBasedEstimate: memberBased,
+      projectedOrdersTomorrow: projected,
+      sampleSize: tomDays,
+    };
+  }),
+
+  /**
+   * Referral leaderboard — top N members by # of successful referrals.
+   * "Successful" = the referred user has an active sub.
+   */
+  getReferralLeaderboard: protectedProcedure
+    .input(z.object({ limit: z.number().int().min(1).max(50).default(10) }))
+    .query(async ({ ctx, input }) => {
+      requireAdmin(ctx);
+      const db = await getDb();
+      if (!db) return [];
+      const referredUsers = await db
+        .select({
+          referredId: users.id,
+          referrerId: users.referredBy,
+          referrerName: sql<string>`(SELECT name FROM users WHERE id = ${users.referredBy})`,
+          referrerEmail: sql<string>`(SELECT email FROM users WHERE id = ${users.referredBy})`,
+          subStatus: fudaClubSubscriptions.status,
+        })
+        .from(users)
+        .leftJoin(fudaClubSubscriptions, eq(fudaClubSubscriptions.userId, users.id))
+        .where(sql`${users.referredBy} IS NOT NULL`);
+
+      const counts = new Map<number, { name: string; email: string; total: number; active: number }>();
+      for (const r of referredUsers) {
+        if (!r.referrerId) continue;
+        const c = counts.get(r.referrerId) ?? { name: r.referrerName ?? "Anonymous", email: r.referrerEmail ?? "", total: 0, active: 0 };
+        c.total += 1;
+        if (r.subStatus && r.subStatus !== "canceled") c.active += 1;
+        counts.set(r.referrerId, c);
+      }
+      return Array.from(counts.entries())
+        .map(([userId, v]) => ({ userId, ...v }))
+        .sort((a, b) => b.active - a.active || b.total - a.total)
+        .slice(0, input.limit);
+    }),
+
+  // ─── LTO offers (limited-time offer banners) ─────────────────────────────
+
+  listLtOffers: protectedProcedure.query(async ({ ctx }) => {
+    requireAdmin(ctx);
+    const db = await getDb();
+    if (!db) return [];
+    return db.select().from(ltOffers).orderBy(desc(ltOffers.createdAt));
+  }),
+
+  createLtOffer: protectedProcedure
+    .input(z.object({
+      title: z.string().min(1).max(255),
+      body: z.string().min(1),
+      ctaText: z.string().max(120).optional(),
+      ctaUrl: z.string().max(500).optional(),
+      startsAt: z.string(),  // ISO date string
+      endsAt: z.string(),
+    }))
+    .mutation(async ({ ctx, input }) => {
+      requireAdmin(ctx);
+      const db = await getDb();
+      if (!db) throw new TRPCError({ code: "INTERNAL_SERVER_ERROR" });
+      const inserted = await db.insert(ltOffers).values({
+        title: input.title,
+        body: input.body,
+        ctaText: input.ctaText,
+        ctaUrl: input.ctaUrl,
+        startsAt: new Date(input.startsAt),
+        endsAt: new Date(input.endsAt),
+        isActive: true,
+      });
+      return { success: true, id: (inserted as any).insertId };
+    }),
+
+  updateLtOffer: protectedProcedure
+    .input(z.object({ id: z.number().int(), isActive: z.boolean().optional() }))
+    .mutation(async ({ ctx, input }) => {
+      requireAdmin(ctx);
+      const db = await getDb();
+      if (!db) throw new TRPCError({ code: "INTERNAL_SERVER_ERROR" });
+      const set: any = {};
+      if (input.isActive !== undefined) set.isActive = input.isActive;
+      await db.update(ltOffers).set(set).where(eq(ltOffers.id, input.id));
+      return { success: true };
+    }),
+
+  deleteLtOffer: protectedProcedure
+    .input(z.object({ id: z.number().int() }))
+    .mutation(async ({ ctx, input }) => {
+      requireAdmin(ctx);
+      const db = await getDb();
+      if (!db) throw new TRPCError({ code: "INTERNAL_SERVER_ERROR" });
+      await db.delete(ltOffers).where(eq(ltOffers.id, input.id));
+      return { success: true };
     }),
 });

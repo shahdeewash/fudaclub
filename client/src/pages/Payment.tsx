@@ -38,6 +38,10 @@ export default function Payment() {
     const stored = window.localStorage.getItem("fuda_coins_to_use");
     return stored !== null ? parseInt(stored, 10) : null;
   });
+  // Schedule-ahead pickup time set on /checkout, picked up here for the mutation.
+  const scheduledFor = (typeof window !== "undefined")
+    ? (window.localStorage.getItem("fuda_scheduled_for") || undefined)
+    : undefined;
   // Persist any change here so a back-nav to /checkout sees the same value.
   useEffect(() => {
     if (typeof window === "undefined") return;
@@ -119,9 +123,9 @@ export default function Payment() {
   const createFoodCheckout = trpc.fudaClub.createFoodCheckout.useMutation({
     onSuccess: (data) => {
       localStorage.removeItem("fuda_cart");
-      // Clear the coin-spend choice so the NEXT order defaults to "use all
-      // available" again, rather than silently re-applying the previous count.
+      // Clear the coin-spend choice + schedule so the NEXT order defaults fresh.
       localStorage.removeItem("fuda_coins_to_use");
+      localStorage.removeItem("fuda_scheduled_for");
       window.dispatchEvent(new Event("cartUpdated"));
       if (data.requiresPayment && data.checkoutUrl) {
         window.location.href = data.checkoutUrl;
@@ -349,6 +353,7 @@ export default function Payment() {
         fulfillmentType,
         specialInstructions: specialInstructions || undefined,
         coinsToApply: effectiveCoinsToUse,
+        scheduledFor: scheduledFor || undefined,
       });
     } else {
       // Corporate path: original B2B order create
@@ -377,6 +382,7 @@ export default function Payment() {
         fulfillmentType,
         specialInstructions: specialInstructions || undefined,
         coinsToApply: effectiveCoinsToUse,
+        scheduledFor: scheduledFor || undefined,
       });
       return;
     }

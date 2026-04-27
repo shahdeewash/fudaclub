@@ -40,6 +40,11 @@ export default function Checkout() {
     const stored = window.localStorage.getItem("fuda_coins_to_use");
     return stored !== null ? parseInt(stored, 10) : null;
   });
+  // Schedule-ahead pickup time. Empty = ASAP. Persists to localStorage.
+  const [scheduledFor, setScheduledFor] = useState<string>(() => {
+    if (typeof window === "undefined") return "";
+    return window.localStorage.getItem("fuda_scheduled_for") ?? "";
+  });
 
   // 10:30 AM Darwin (UTC+9:30) cutoff — orders after this time can only be pickup.
   // Computed inline (not stored in state) so the alert reflects the actual time
@@ -117,6 +122,12 @@ export default function Checkout() {
       window.localStorage.setItem("fuda_coins_to_use", String(coinsToUse));
     }
   }, [coinsToUse]);
+
+  // Persist scheduledFor across navigation.
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    window.localStorage.setItem("fuda_scheduled_for", scheduledFor);
+  }, [scheduledFor]);
 
   if (!isAuthenticated) {
     return (
@@ -431,6 +442,31 @@ export default function Checkout() {
                       Delivery requires a minimum order of <strong>$15.00</strong> (your subtotal is ${(subtotal / 100).toFixed(2)}). Add another item, or switch to Pickup.
                     </AlertDescription>
                   </Alert>
+                )}
+              </CardContent>
+            </Card>
+
+            {/* Schedule ahead — optional pickup time */}
+            <Card>
+              <CardHeader>
+                <CardTitle>When?</CardTitle>
+                <CardDescription>Leave blank for ASAP, or schedule a pickup time.</CardDescription>
+              </CardHeader>
+              <CardContent className="space-y-2">
+                <input
+                  type="datetime-local"
+                  value={scheduledFor}
+                  onChange={(e) => setScheduledFor(e.target.value)}
+                  className="w-full border-2 rounded-md px-3 py-2 text-sm focus:border-amber-400 focus:outline-none"
+                />
+                {scheduledFor && (
+                  <button
+                    type="button"
+                    onClick={() => setScheduledFor("")}
+                    className="text-xs text-amber-700 underline"
+                  >
+                    Clear — order ASAP instead
+                  </button>
                 )}
               </CardContent>
             </Card>

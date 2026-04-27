@@ -134,6 +134,13 @@
       "when": 1782110000000,
       "tag": "0018_add_admin_note",
       "breakpoints": true
+    },
+    {
+      "idx": 19,
+      "version": "5",
+      "when": 1782120000000,
+      "tag": "0019_lto_and_scheduled",
+      "breakpoints": true
     }
   ]
 }

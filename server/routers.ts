@@ -1219,6 +1219,7 @@ export const appRouter = router({
             coinsApplied?: number;     // number of coins to spend
             memberDiscountActive?: boolean;  // false = post-cancel grace mode (no 10% off)
             specialInstructions?: string;
+            scheduledFor?: string | null;  // ISO datetime — schedule-ahead pickup
           };
           // Parse the comma-separated list of coin IDs the checkout reserved.
           // Falls back to the legacy single coin_id field for old sessions.
@@ -1295,7 +1296,8 @@ export const appRouter = router({
             total: clubTotal,
             specialInstructions: clubOrderData.specialInstructions,
             stripeSessionId: input.sessionId,
-          });
+            scheduledFor: clubOrderData.scheduledFor ? new Date(clubOrderData.scheduledFor) : null,
+          } as any);
 
           for (const it of clubOrderItemsData) {
             await db.createOrderItem({ orderId: clubOrder.id, ...it });

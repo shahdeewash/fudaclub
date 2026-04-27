@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import { useLocation } from "wouter";
 import { useAuth } from "@/_core/hooks/useAuth";
 import { Button } from "@/components/ui/button";
@@ -240,6 +240,12 @@ export default function Menu() {
       </header>
 
       <main className="container py-6 max-w-6xl">
+        {/* LTO offer banners (admin-controlled, time-windowed) */}
+        <LtoOfferBanners />
+
+        {/* In-app order-status toast — polls every 30s while user has a recent order */}
+        <OrderStatusWatcher />
+
         {/* FÜDA Club status banner — shows for everyone, content varies by membership */}
         {isClubMember ? (
           <Alert className="mb-6 border-amber-300 bg-amber-50">
@@ -481,4 +487,61 @@ export default function Menu() {
       )}
     </div>
   );
+}
+
+// ─── LTO Offer Banners — admin-controlled time-windowed promo banners ────────
+
+function LtoOfferBanners() {
+  const { data } = trpc.fudaClub.getActiveLtOffers.useQuery();
+  if (!data || data.length === 0) return null;
+  return (
+    <div className="space-y-3 mb-4">
+      {data.map(o => (
+        <div key={o.id} className="rounded-lg border-2 border-[#C9A84C] bg-gradient-to-br from-[#C9A84C]/10 to-[#E63946]/5 p-4">
+          <div className="flex items-start justify-between gap-3">
+            <div className="flex-1 min-w-0">
+              <div className="flex items-center gap-2 mb-1">
+                <span className="text-[10px] uppercase tracking-widest text-[#E63946] font-black">Limited time</span>
+              </div>
+              <h3 className="font-black text-base text-[#1A1A1A]">{o.title}</h3>
+              <p className="text-sm text-gray-700 mt-1">{o.body}</p>
+            </div>
+            {o.ctaText && o.ctaUrl && (
+              <a
+                href={o.ctaUrl}
+                className="bg-[#1A1A1A] text-[#C9A84C] text-xs font-bold uppercase tracking-wider px-3 py-2 rounded-lg hover:bg-[#1A1A1A]/90 shrink-0 whitespace-nowrap"
+              >
+                {o.ctaText}
+              </a>
+            )}
+          </div>
+        </div>
+      ))}
+    </div>
+  );
+}
+
+// ─── In-app order-status notification — polls latest order, toasts on change ──
+
+function OrderStatusWatcher() {
+  const { data } = trpc.fudaClub.getMyLatestOrder.useQuery(undefined, {
+    refetchInterval: 30 * 1000,
+  });
+  const lastSeenStatus = useRef<string | null>(null);
+  useEffect(() => {
+    if (!data) return;
+    if (lastSeenStatus.current && lastSeenStatus.current !== data.status) {
+      const friendly: Record<string, string> = {
+        confirmed: "Your order is confirmed.",
+        preparing: "Your order is being prepared 🥟",
+        ready: "Your order is READY for pickup ✅",
+        delivered: "Order picked up. Enjoy!",
+        canceled: "Your order was cancelled.",
+      };
+      const msg = friendly[data.status];
+      if (msg) toast.info(msg);
+    }
+    lastSeenStatus.current = data.status;
+  }, [data?.status]);
+  return null;
 }

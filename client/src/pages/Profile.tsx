@@ -1,4 +1,4 @@
-import { useMemo } from "react";
+import { useMemo, useState } from "react";
 import { useLocation } from "wouter";
 import { trpc } from "@/lib/trpc";
 import { useAuth } from "@/_core/hooks/useAuth";
@@ -146,6 +146,9 @@ export default function Profile() {
       </header>
 
       <main className="max-w-2xl mx-auto py-8 px-4 space-y-5">
+        {/* Onboarding nudge banner — context-aware welcome / trial-ending / etc. */}
+        <OnboardingNudge />
+
         {/* Header — name + role */}
         <div className="flex items-center gap-4">
           <div className="h-16 w-16 rounded-full bg-amber-100 text-amber-700 flex items-center justify-center text-2xl font-bold">
@@ -410,6 +413,9 @@ export default function Profile() {
           </CardContent>
         </Card>
 
+        {/* Order history with reorder buttons */}
+        <OrderHistorySection />
+
         {/* Help footer */}
         <Card className="border-muted bg-muted/40">
           <CardContent className="pt-4 pb-4 text-xs text-muted-foreground">
@@ -431,5 +437,102 @@ export default function Profile() {
         </Card>
       </main>
     </div>
+  );
+}
+
+// ─── Onboarding nudge — context-aware welcome / trial-ending banner ──────────
+
+function OnboardingNudge() {
+  const { data } = trpc.fudaClub.getOnboardingNudge.useQuery();
+  const [dismissed, setDismissed] = useState<Set<string>>(new Set());
+  if (!data || dismissed.has(data.key)) return null;
+  return (
+    <Card className="border-2 border-[#C9A84C] bg-gradient-to-br from-amber-50 to-amber-100/50">
+      <CardContent className="pt-5 pb-5">
+        <div className="flex items-start justify-between gap-3">
+          <div className="flex-1">
+            <p className="font-black text-base text-[#1A1A1A] mb-1">{data.title}</p>
+            <p className="text-sm text-amber-900/80">{data.body}</p>
+          </div>
+          <button
+            type="button"
+            onClick={() => setDismissed(prev => new Set(prev).add(data.key))}
+            className="text-amber-900/60 hover:text-amber-900 shrink-0"
+            aria-label="Dismiss"
+          >
+            ✕
+          </button>
+        </div>
+      </CardContent>
+    </Card>
+  );
+}
+
+// ─── Order history with reorder buttons ──────────────────────────────────────
+
+function OrderHistorySection() {
+  const [, setLocation] = useLocation();
+  const { data } = trpc.fudaClub.getMyOrderHistory.useQuery({ limit: 10 });
+  const utils = trpc.useUtils();
+
+  async function reorder(orderId: number) {
+    try {
+      const res = await utils.fudaClub.reorder.fetch({ orderId });
+      if (!res.items.length) {
+        toast.error("None of those items are available anymore.");
+        return;
+      }
+      // Replace the cart with the past order's items, then route to checkout.
+      localStorage.setItem("fuda_cart", JSON.stringify(res.items));
+      window.dispatchEvent(new Event("cartUpdated"));
+      const skippedNote = res.skipped > 0
+        ? ` (${res.skipped} item${res.skipped > 1 ? "s" : ""} no longer on menu — skipped)`
+        : "";
+      toast.success(`Cart loaded${skippedNote}`);
+      setLocation("/checkout");
+    } catch (e: any) {
+      toast.error(e.message ?? "Couldn't reorder");
+    }
+  }
+
+  if (!data || data.length === 0) return null;
+  return (
+    <Card>
+      <CardHeader>
+        <CardTitle className="text-base flex items-center gap-2">
+          <UtensilsCrossed className="h-4 w-4 text-amber-500" />
+          Recent orders
+        </CardTitle>
+        <CardDescription>One tap to reorder anything you've had before.</CardDescription>
+      </CardHeader>
+      <CardContent className="space-y-2">
+        {data.slice(0, 10).map(o => (
+          <div key={o.id} className="flex items-center justify-between border-b border-gray-100 last:border-0 py-2 gap-3">
+            <div className="min-w-0 flex-1">
+              <div className="flex items-center gap-2">
+                <span className="font-mono text-xs">{o.orderNumber}</span>
+                <span className="text-xs text-gray-500">
+                  {o.orderDate ? new Date(o.orderDate).toLocaleDateString("en-AU", { day: "numeric", month: "short" }) : ""}
+                </span>
+              </div>
+              <p className="text-xs text-gray-600 truncate">
+                {o.items.map(it => `${it.quantity}× ${it.itemName}`).join(", ")}
+              </p>
+            </div>
+            <div className="text-right shrink-0">
+              <div className="text-sm font-bold">${((o.total ?? 0) / 100).toFixed(2)}</div>
+              <Button
+                size="sm"
+                variant="outline"
+                className="text-xs mt-1 border-amber-400 text-amber-900 hover:bg-amber-50"
+                onClick={() => reorder(o.id)}
+              >
+                Reorder
+              </Button>
+            </div>
+          </div>
+        ))}
+      </CardContent>
+    </Card>
   );
 }

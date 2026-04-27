@@ -30,7 +30,7 @@ import {
   Plus, Minus, Save, DollarSign, Clock, MapPin,
 } from "lucide-react";
 
-type Tab = "today" | "orders" | "members" | "workplaces" | "insights" | "export";
+type Tab = "today" | "orders" | "members" | "workplaces" | "insights" | "promos" | "export";
 
 function fmt(cents: number | null | undefined) {
   return `$${((cents ?? 0) / 100).toFixed(2)}`;
@@ -76,6 +76,7 @@ export default function AdminDashboard() {
     { key: "members", label: "Members", icon: Users },
     { key: "workplaces", label: "Workplaces", icon: Building2 },
     { key: "insights", label: "Insights", icon: DollarSign },
+    { key: "promos", label: "Promos", icon: Coins },
     { key: "export", label: "Export", icon: Download },
   ];
 
@@ -138,6 +139,7 @@ export default function AdminDashboard() {
         {tab === "members" && <MembersTab />}
         {tab === "workplaces" && <WorkplacesTab />}
         {tab === "insights" && <InsightsTab />}
+        {tab === "promos" && <PromosTab />}
         {tab === "export" && <ExportTab />}
       </main>
     </div>
@@ -221,7 +223,45 @@ function TodayTab() {
           )}
         </CardContent>
       </Card>
+
+      <PrepForecastCard />
     </div>
+  );
+}
+
+function PrepForecastCard() {
+  const { data } = trpc.admin.getPrepForecast.useQuery();
+  if (!data) return null;
+  return (
+    <Card>
+      <CardHeader>
+        <CardTitle className="flex items-center gap-2">
+          <Clock className="h-5 w-5 text-[#C9A84C]" /> Tomorrow's prep forecast
+        </CardTitle>
+        <CardDescription>
+          Based on {data.activeMembers} active members and the last {data.sampleSize} {data.tomorrowDayOfWeek}s of order data.
+        </CardDescription>
+      </CardHeader>
+      <CardContent>
+        <div className="grid grid-cols-3 gap-4 text-center">
+          <div>
+            <div className="text-3xl font-black text-[#1A1A1A]">{data.historicalAvgOrdersThisWeekday}</div>
+            <div className="text-xs uppercase tracking-wider text-gray-500 font-semibold mt-1">Historical avg</div>
+          </div>
+          <div>
+            <div className="text-3xl font-black text-[#1A1A1A]">{data.memberBasedEstimate}</div>
+            <div className="text-xs uppercase tracking-wider text-gray-500 font-semibold mt-1">Member-based</div>
+          </div>
+          <div>
+            <div className="text-4xl font-black text-[#C9A84C]">{data.projectedOrdersTomorrow}</div>
+            <div className="text-xs uppercase tracking-wider text-gray-500 font-semibold mt-1">Projected for {data.tomorrowDayOfWeek}</div>
+          </div>
+        </div>
+        <p className="text-xs text-gray-500 mt-4">
+          Member-based assumes 40% of active members order on a given working day. Forecast picks the larger of the two so you don't under-prep on a growth week.
+        </p>
+      </CardContent>
+    </Card>
   );
 }
 
@@ -251,6 +291,27 @@ function OrdersTab() {
     },
     onError: (e: any) => toast.error(e.message),
   });
+  const updateStatus = trpc.admin.updateOrderStatus.useMutation({
+    onSuccess: () => {
+      toast.success("Status updated");
+      utils.admin.listLiveOrders.invalidate();
+    },
+    onError: (e: any) => toast.error(e.message),
+  });
+
+  // Status workflow: confirmed → preparing → ready → delivered
+  const NEXT_STATUS: Record<string, "confirmed" | "preparing" | "ready" | "delivered"> = {
+    pending: "confirmed",
+    confirmed: "preparing",
+    preparing: "ready",
+    ready: "delivered",
+  };
+  const STATUS_LABEL: Record<string, string> = {
+    pending: "Mark confirmed",
+    confirmed: "Start preparing",
+    preparing: "Mark ready",
+    ready: "Mark picked up",
+  };
 
   if (isLoading) return <div className="text-center py-20 text-gray-500">Loading orders…</div>;
 
@@ -297,13 +358,26 @@ function OrdersTab() {
                       <p className="text-xs text-amber-700 mt-2 italic">Note: {order.specialInstructions}</p>
                     )}
                   </div>
-                  <div className="text-right shrink-0">
+                  <div className="text-right shrink-0 flex flex-col items-end gap-2">
                     <div className="text-2xl font-black">{fmt(order.total)}</div>
-                    {order.stripeSessionId && order.status !== "cancelled" && (
+                    {NEXT_STATUS[order.status] && (
+                      <Button
+                        size="sm"
+                        className="text-xs bg-[#C9A84C] hover:bg-[#b89540] text-[#1A1A1A]"
+                        onClick={() => updateStatus.mutate({
+                          orderId: order.id,
+                          status: NEXT_STATUS[order.status],
+                        })}
+                        disabled={updateStatus.isPending}
+                      >
+                        {STATUS_LABEL[order.status]} →
+                      </Button>
+                    )}
+                    {order.stripeSessionId && order.status !== "canceled" && order.status !== "delivered" && (
                       <Button
                         size="sm"
                         variant="outline"
-                        className="mt-2 text-xs text-destructive hover:text-destructive"
+                        className="text-xs text-destructive hover:text-destructive"
                         onClick={() => {
                           if (confirm(`Refund order ${order.orderNumber}?\n\nThis will refund the Stripe charge and mark the order cancelled.`)) {
                             refundMut.mutate({ orderId: order.id });
@@ -695,6 +769,175 @@ function InsightsTab() {
           </div>
         </CardContent>
       </Card>
+
+      <ReferralLeaderboardCard />
+    </div>
+  );
+}
+
+function ReferralLeaderboardCard() {
+  const { data } = trpc.admin.getReferralLeaderboard.useQuery({ limit: 10 });
+  return (
+    <Card>
+      <CardHeader>
+        <CardTitle>Referral leaderboard</CardTitle>
+        <CardDescription>Top members by successful referrals (referee has an active subscription).</CardDescription>
+      </CardHeader>
+      <CardContent>
+        {!data || data.length === 0 ? (
+          <p className="text-sm text-gray-500">No referrals yet.</p>
+        ) : (
+          <div className="space-y-2">
+            {data.map((r, i) => (
+              <div key={r.userId} className="flex items-center justify-between border-b border-gray-100 last:border-0 py-2">
+                <div className="flex items-center gap-3 min-w-0">
+                  <div className="w-7 h-7 rounded-full bg-[#C9A84C] text-[#1A1A1A] font-black text-sm flex items-center justify-center shrink-0">
+                    {i + 1}
+                  </div>
+                  <div className="min-w-0">
+                    <div className="font-semibold truncate">{r.name}</div>
+                    <div className="text-xs text-gray-500 truncate">{r.email}</div>
+                  </div>
+                </div>
+                <div className="text-right shrink-0">
+                  <div className="text-2xl font-black text-[#1A1A1A]">{r.active}</div>
+                  <div className="text-[10px] uppercase tracking-wider text-gray-500 font-semibold">active</div>
+                </div>
+              </div>
+            ))}
+          </div>
+        )}
+      </CardContent>
+    </Card>
+  );
+}
+
+// ─── PROMOS TAB ──────────────────────────────────────────────────────────────
+
+function PromosTab() {
+  const { data, refetch } = trpc.admin.listLtOffers.useQuery();
+  const utils = trpc.useUtils();
+  const [showForm, setShowForm] = useState(false);
+  const [title, setTitle] = useState("");
+  const [body, setBody] = useState("");
+  const [ctaText, setCtaText] = useState("");
+  const [ctaUrl, setCtaUrl] = useState("");
+  const [startsAt, setStartsAt] = useState("");
+  const [endsAt, setEndsAt] = useState("");
+
+  const createMut = trpc.admin.createLtOffer.useMutation({
+    onSuccess: () => {
+      toast.success("Offer created");
+      refetch();
+      utils.fudaClub.getActiveLtOffers.invalidate();
+      setShowForm(false);
+      setTitle(""); setBody(""); setCtaText(""); setCtaUrl(""); setStartsAt(""); setEndsAt("");
+    },
+    onError: (e: any) => toast.error(e.message),
+  });
+  const updateMut = trpc.admin.updateLtOffer.useMutation({
+    onSuccess: () => { refetch(); utils.fudaClub.getActiveLtOffers.invalidate(); },
+    onError: (e: any) => toast.error(e.message),
+  });
+  const deleteMut = trpc.admin.deleteLtOffer.useMutation({
+    onSuccess: () => { toast.success("Offer deleted"); refetch(); utils.fudaClub.getActiveLtOffers.invalidate(); },
+    onError: (e: any) => toast.error(e.message),
+  });
+
+  return (
+    <div className="space-y-4">
+      <div className="flex items-center justify-between">
+        <h2 className="text-2xl font-black text-[#1A1A1A]">Promos &amp; Offers</h2>
+        <Button onClick={() => setShowForm(!showForm)} className="bg-[#C9A84C] text-[#1A1A1A] hover:bg-[#b89540]">
+          {showForm ? "Cancel" : "+ New offer"}
+        </Button>
+      </div>
+      <Card className="bg-blue-50/40 border-blue-200">
+        <CardContent className="pt-6 text-sm">
+          <p className="font-semibold mb-1">💡 How LTO banners work</p>
+          <p className="text-gray-700">Active offers (within their time window) show as a banner at the top of the menu page. Use them for weekly specials, holiday promos, "free upgrade" deals, etc.</p>
+        </CardContent>
+      </Card>
+      {showForm && (
+        <Card>
+          <CardHeader><CardTitle>New offer</CardTitle></CardHeader>
+          <CardContent className="space-y-3">
+            <Input placeholder="Title — e.g. Free upgrade to large bubble tea this week!" value={title} onChange={e => setTitle(e.target.value)} />
+            <Textarea placeholder="Body — short message body" value={body} onChange={e => setBody(e.target.value)} rows={3} />
+            <div className="grid grid-cols-2 gap-3">
+              <Input placeholder="CTA text (optional) — e.g. Order now" value={ctaText} onChange={e => setCtaText(e.target.value)} />
+              <Input placeholder="CTA URL (optional) — /menu" value={ctaUrl} onChange={e => setCtaUrl(e.target.value)} />
+            </div>
+            <div className="grid grid-cols-2 gap-3">
+              <div>
+                <label className="text-xs font-semibold block mb-1">Starts</label>
+                <Input type="datetime-local" value={startsAt} onChange={e => setStartsAt(e.target.value)} />
+              </div>
+              <div>
+                <label className="text-xs font-semibold block mb-1">Ends</label>
+                <Input type="datetime-local" value={endsAt} onChange={e => setEndsAt(e.target.value)} />
+              </div>
+            </div>
+            <Button
+              onClick={() => createMut.mutate({
+                title, body,
+                ctaText: ctaText || undefined,
+                ctaUrl: ctaUrl || undefined,
+                startsAt: new Date(startsAt).toISOString(),
+                endsAt: new Date(endsAt).toISOString(),
+              })}
+              disabled={createMut.isPending || !title || !body || !startsAt || !endsAt}
+              className="bg-[#C9A84C] text-[#1A1A1A] hover:bg-[#b89540]"
+            >
+              Create offer
+            </Button>
+          </CardContent>
+        </Card>
+      )}
+      {!data || data.length === 0 ? (
+        <p className="text-sm text-gray-500 py-10 text-center">No offers yet.</p>
+      ) : (
+        <div className="space-y-3">
+          {data.map(o => {
+            const now = new Date();
+            const isLive = o.isActive && new Date(o.startsAt) <= now && new Date(o.endsAt) >= now;
+            return (
+              <Card key={o.id} className={isLive ? "border-2 border-[#C9A84C]" : ""}>
+                <CardContent className="pt-6">
+                  <div className="flex items-start justify-between gap-3">
+                    <div className="flex-1 min-w-0">
+                      <div className="flex items-center gap-2 mb-1 flex-wrap">
+                        <span className="font-bold">{o.title}</span>
+                        {isLive ? (
+                          <Badge className="bg-emerald-100 text-emerald-800 hover:bg-emerald-100">LIVE</Badge>
+                        ) : !o.isActive ? (
+                          <Badge variant="outline">Paused</Badge>
+                        ) : (
+                          <Badge variant="outline">Scheduled / expired</Badge>
+                        )}
+                      </div>
+                      <p className="text-sm text-gray-600 mb-2">{o.body}</p>
+                      <div className="text-xs text-gray-500">
+                        {fmtDate(o.startsAt)} → {fmtDate(o.endsAt)}
+                      </div>
+                    </div>
+                    <div className="flex flex-col gap-2 shrink-0">
+                      <Button size="sm" variant="outline" onClick={() => updateMut.mutate({ id: o.id, isActive: !o.isActive })}>
+                        {o.isActive ? "Pause" : "Activate"}
+                      </Button>
+                      <Button size="sm" variant="ghost" className="text-destructive" onClick={() => {
+                        if (confirm("Delete this offer permanently?")) deleteMut.mutate({ id: o.id });
+                      }}>
+                        Delete
+                      </Button>
+                    </div>
+                  </div>
+                </CardContent>
+              </Card>
+            );
+          })}
+        </div>
+      )}
     </div>
   );
 }
