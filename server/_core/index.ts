@@ -464,32 +464,39 @@ function scheduleDailyFudaCoins() {
         .where(eq(fudaClosureDates.closureDate, todayDateUTC))
         .limit(1);
 
-      if (closure) {
-        console.log(`[Cron-Coins] FÜDA closed today (${closure.reason ?? "no reason given"}) — coins will roll over.`);
-        // Rollover: extend any unissued coins from yesterday that haven't been issued yet
-        // (In practice, we just don't issue today — the previous day's coin already expired.
-        //  Rollover means we issue today's coin with tomorrow's expiry instead.)
-        // Issue rollover coins with +2 day expiry (matches the standard 2-day rollover policy)
-        const rolloverExpiry = new Date();
-        rolloverExpiry.setUTCDate(rolloverExpiry.getUTCDate() + 2);
-        rolloverExpiry.setUTCHours(14, 30, 0, 0); // midnight Darwin (today + 2)
+      // ── Compute "weekly bucket" expiry — 00:00 Darwin on the upcoming Monday ──
+      // New rule: coins issued any day Mon-Sat all expire at the same moment —
+      // 00:00 Darwin time on the next Monday. So a Mon coin is valid Mon-Sun (7 days),
+      // a Sat coin is valid Sat-Sun (2 days), and the whole bucket resets on Monday.
+      // This is the "weekly bucket" model — kinder than the old 2-day rolling expiry,
+      // and easier to communicate ("up to 6 free lunches a week").
+      const daysToNextMonday: Record<string, number> = {
+        Mon: 7, Tue: 6, Wed: 5, Thu: 4, Fri: 3, Sat: 2, Sun: 1,
+      };
+      const [y, m, d] = nowDarwin.split("-").map(Number);
+      const daysAhead = daysToNextMonday[dayOfWeek] ?? 7;
+      // 14:30 UTC = 00:00 Darwin (UTC+9:30), so the coin expires precisely at the
+      // start of the upcoming Monday in Darwin time.
+      const expiresAt = new Date(Date.UTC(y, m - 1, d + daysAhead, 14, 30, 0));
 
+      if (closure) {
+        console.log(`[Cron-Coins] FÜDA closed today (${closure.reason ?? "no reason given"}) — issuing rollover coin with end-of-week expiry.`);
+        // Same weekly-bucket expiry as a regular daily coin — the only difference
+        // is the reason code ("rollover" vs "daily") so it's distinguishable in
+        // the member's coin history.
         const activeSubs = await dbInstance
           .select({ userId: fudaClubSubscriptions.userId })
           .from(fudaClubSubscriptions)
           .where(eq(fudaClubSubscriptions.status, "active"));
 
         for (const sub of activeSubs) {
-          await issueFudaCoin(sub.userId, "rollover", rolloverExpiry);
+          await issueFudaCoin(sub.userId, "rollover", expiresAt);
         }
-        console.log(`[Cron-Coins] Issued ${activeSubs.length} rollover coin(s).`);
+        console.log(`[Cron-Coins] Issued ${activeSubs.length} rollover coin(s) — expires ${expiresAt.toISOString()}.`);
         return;
       }
 
-      // Issue daily coins — expires at midnight Darwin TWO days from now (2-day rollover policy)
-      // A coin issued Mon morning is valid Mon, Tue, and Wed up to 00:00 Darwin Wed.
-      const [y, m, d] = nowDarwin.split("-").map(Number);
-      const expiresAt = new Date(Date.UTC(y, m - 1, d + 2, 14, 30, 0)); // 00:00 Darwin (today + 2)
+      // Issue daily coins — expires Monday 00:00 Darwin (weekly bucket model).
 
       const activeSubs = await dbInstance
         .select({ userId: fudaClubSubscriptions.userId })

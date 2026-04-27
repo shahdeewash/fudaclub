@@ -9,7 +9,7 @@ import * as db from "./db";
 import { nanoid } from "nanoid";
 import { notifyOwner } from "./_core/notification";
 import { getOrCreateSubscriptionPriceId, getOrCreatePriceId, SUBSCRIPTION_PLANS } from "./products";
-import { fudaClubRouter } from "./routers/fudaClub";
+import { fudaClubRouter, calculateClubPricing, type ClubCartItem } from "./routers/fudaClub";
 import {
   buildSquareAuthUrl,
   getSquareConnection,
@@ -1214,10 +1214,16 @@ export const appRouter = router({
             deliveryFee: number;
             tax: number;
             coinUsed: boolean;
+            coinsApplied?: number;     // new field — number of coins to spend
             specialInstructions?: string;
           };
-          const coinIdStr = session.metadata?.coin_id;
-          const coinId = coinIdStr ? parseInt(coinIdStr) : null;
+          // Parse the comma-separated list of coin IDs the checkout reserved.
+          // Falls back to the legacy single coin_id field for old sessions.
+          const coinIdsStr = session.metadata?.coin_ids ?? "";
+          const coinIds: number[] = coinIdsStr
+            ? coinIdsStr.split(",").map(s => parseInt(s, 10)).filter(n => !isNaN(n))
+            : (session.metadata?.coin_id ? [parseInt(session.metadata.coin_id, 10)] : []);
+          const coinsToApply = clubOrderData.coinsApplied ?? (clubOrderData.coinUsed ? 1 : 0);
 
           // Idempotency — if a previous webhook or success-page hit already created
           // this order, just return it instead of duplicating in DB / Square.
@@ -1229,67 +1235,45 @@ export const appRouter = router({
           const menuItemsAll = await db.getAllMenuItems();
           const clubItemMap = new Map(menuItemsAll.map(m => [m.id, m]));
 
-          // Apply 10% member discount + coin coverage to compute totals
-          const clubOrderItemsData: Array<{
-            menuItemId: number;
-            itemName: string;
-            quantity: number;
-            unitPrice: number;
-            totalPrice: number;
-            isFree: boolean;
-            modifierNote?: string;
-          }> = [];
-          let clubSubtotal = 0;
-          let coinApplied = false;
-
-          for (const it of clubOrderData.items) {
-            const m = clubItemMap.get(it.menuItemId);
-            if (!m) continue;
-            // 10% off every item for active club members
-            const discountedUnit = Math.round(m.price * 0.9);
-
-            if (clubOrderData.coinUsed && !coinApplied && it.quantity > 0) {
-              coinApplied = true;
-              clubOrderItemsData.push({
+          // Build the cart in the shape calculateClubPricing expects, then re-run
+          // the same pricing logic the checkout used (highest-value coin, Mix Grill
+          // exclusion, 10% on the rest). This keeps the source of truth for pricing
+          // in one function rather than duplicating it here.
+          const clubCart: ClubCartItem[] = clubOrderData.items
+            .map(it => {
+              const m = clubItemMap.get(it.menuItemId);
+              if (!m) return null;
+              return {
                 menuItemId: it.menuItemId,
-                itemName: m.name,
-                quantity: 1,
-                unitPrice: 0,
-                totalPrice: 0,
-                isFree: true,
-                modifierNote: it.modifierNote,
-              });
-              if (it.quantity > 1) {
-                const remQty = it.quantity - 1;
-                const remTotal = discountedUnit * remQty;
-                clubOrderItemsData.push({
-                  menuItemId: it.menuItemId,
-                  itemName: m.name,
-                  quantity: remQty,
-                  unitPrice: discountedUnit,
-                  totalPrice: remTotal,
-                  isFree: false,
-                  modifierNote: it.modifierNote,
-                });
-                clubSubtotal += remTotal;
-              }
-            } else {
-              const lineTotal = discountedUnit * it.quantity;
-              clubOrderItemsData.push({
-                menuItemId: it.menuItemId,
-                itemName: m.name,
+                name: m.name,
+                category: m.category ?? "",
                 quantity: it.quantity,
-                unitPrice: discountedUnit,
-                totalPrice: lineTotal,
-                isFree: false,
+                unitPriceInCents: m.price,
                 modifierNote: it.modifierNote,
-              });
-              clubSubtotal += lineTotal;
-            }
-          }
+              };
+            })
+            .filter((x): x is ClubCartItem => x !== null);
 
-          const clubDeliveryFee = clubOrderData.deliveryFee ?? 0;
-          const clubTotal = clubSubtotal + clubDeliveryFee;
+          const clubPreview = calculateClubPricing(
+            clubCart,
+            coinsToApply,
+            clubOrderData.deliveryFee ?? 0
+          );
+
+          // Project the preview line items into the orderItems shape this code path uses.
+          const clubOrderItemsData = clubPreview.items.map(item => ({
+            menuItemId: item.menuItemId,
+            itemName: item.name,
+            quantity: item.quantity,
+            unitPrice: item.discountedPriceInCents,
+            totalPrice: item.discountedPriceInCents * item.quantity,
+            isFree: item.isCoinCovered,
+            modifierNote: clubCart.find(c => c.menuItemId === item.menuItemId)?.modifierNote,
+          }));
+
+          const clubSubtotal = clubPreview.subtotalInCents;
+          const clubDeliveryFee = clubPreview.deliveryFeeInCents;
+          const clubTotal = clubPreview.totalInCents;
 
           // Create the order (FC-XXXX number, no companyId required)
           const clubOrder = await db.createOrder({
@@ -1313,20 +1297,24 @@ export const appRouter = router({
             await db.createOrderItem({ orderId: clubOrder.id, ...it });
           }
 
-          // Mark the FÜDA Coin as used if applicable
-          if (clubOrderData.coinUsed && coinId) {
+          // Mark every reserved coin as used. The checkout reserved up to
+          // clubPreview.coinsApplied coin IDs (newest-first); spend exactly that many.
+          const coinsToMarkUsed = coinIds.slice(0, clubPreview.coinsApplied);
+          if (coinsToMarkUsed.length > 0) {
             try {
               const dbInst = await db.getDb();
               if (dbInst) {
                 const { fudaCoins } = await import("../drizzle/schema");
                 const { eq: eqOp } = await import("drizzle-orm");
-                await dbInst
-                  .update(fudaCoins)
-                  .set({ usedAt: new Date(), orderId: clubOrder.id })
-                  .where(eqOp(fudaCoins.id, coinId));
+                for (const cid of coinsToMarkUsed) {
+                  await dbInst
+                    .update(fudaCoins)
+                    .set({ usedAt: new Date(), orderId: clubOrder.id })
+                    .where(eqOp(fudaCoins.id, cid));
+                }
               }
             } catch (coinErr: any) {
-              console.error("[FÜDA Club] Failed to mark coin used:", coinErr?.message ?? coinErr);
+              console.error("[FÜDA Club] Failed to mark coin(s) used:", coinErr?.message ?? coinErr);
             }
           }
 

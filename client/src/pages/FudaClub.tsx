@@ -400,7 +400,7 @@ function JoinCard() {
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 sm:gap-5">
             {[
               { icon: Zap, title: "10% off everything", body: "Every item, every time. Discount applied automatically at checkout." },
-              { icon: Coins, title: "FÜDA Coins", body: "Free lunches as a thank-you. Earn one when you join, more over time." },
+              { icon: Coins, title: "Up to 6 free lunches a week", body: "1 FÜDA Coin issued each day Mon–Sat. Each coin covers your highest-value item. Use them however you want — they all reset Monday." },
               { icon: Users, title: "Free workplace delivery", body: "5+ members at your office? Delivery to your work is on us." },
               { icon: Snowflake, title: "Freeze anytime", body: "Going on holiday? Pause your subscription for up to 2 weeks. No billing during freeze." },
               { icon: CheckCircle, title: "100% halal certified", body: "Every plate, every time. No exceptions." },
@@ -453,7 +453,10 @@ function JoinCard() {
           </div>
           <div className="bg-white rounded-2xl border border-gray-200 divide-y divide-gray-100">
             {[
-              { q: "What does the 10% discount apply to?", a: "Every item on the menu — momos, kebabs, bubble tea, coffee, sides. Auto-applied at checkout once you're logged in as a member." },
+              { q: "What does the 10% discount apply to?", a: "Every item on the menu — momos, kebabs, bubble tea, coffee, sides, even Mix Grill. Auto-applied at checkout once you're logged in as a member." },
+              { q: "How do FÜDA Coins work?", a: "1 coin is issued each day Mon–Sat (none on Sunday). Each coin covers ONE item — free. When you check out we automatically apply your coin to the highest-value item in your cart so you get the most for it. You choose how many coins to spend on each order (so you can save some for later)." },
+              { q: "Do coins expire? When do they reset?", a: "All your coins expire at the same time — midnight Sunday Darwin time. So a Monday coin lasts the full week (7 days), a Saturday coin lasts 2 days. Every Monday morning is a clean slate with up to 6 fresh coins coming through the week. Forgiving by design — sick on Tuesday? You still have 5 chances that week." },
+              { q: "Can I use a coin on Mix Grill?", a: "No — Mix Grill items are excluded from coin redemption (they always still get the 10% member discount). Coins are only valid on other menu items. If your cart is Mix Grill-only, your coins stay in your balance for next time." },
               { q: "How does free delivery work?", a: "Within 5km of 9 Searcy St. Free if 5+ members from your workplace are subscribed; otherwise $10 flat. $15 minimum order on delivery. Pickup is always free." },
               { q: "What happens after the trial?", a: "The 7-day trial auto-rolls into the fortnightly plan ($180/fortnight) unless you cancel before the trial ends. You can cancel from your Profile in two clicks." },
               { q: "Can I freeze my subscription?", a: "Yes — pause for up to 2 weeks at a time. No billing during freeze. Use it for holidays, sick weeks, or when you're out of town." },

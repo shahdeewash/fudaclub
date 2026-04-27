@@ -29,6 +29,10 @@ export default function Payment() {
   const [orderPlaced, setOrderPlaced] = useState(false);
   const [orderNumber, setOrderNumber] = useState("");
   const [isRedirecting, setIsRedirecting] = useState(false);
+  // Member-controlled count of FÜDA Coins to spend on THIS order. Defaults to
+  // "all of them" for max savings; member can dial down with +/− to save coins
+  // for later. Capped to coinBalance and to eligible (non-Mix-Grill) cart units.
+  const [coinsToUse, setCoinsToUse] = useState<number | null>(null);
 
   const { data: subscription } = trpc.subscription.getMine.useQuery(undefined, {
     enabled: isAuthenticated,
@@ -213,25 +217,62 @@ export default function Payment() {
   let memberDiscountSavings = 0;
   let coinDiscountSavings = 0;
 
+  // Helper: detect Mix Grill items by name (server uses category, but the
+  // cart only carries name on the client). Matches anything containing "mix"
+  // and "grill" in any order/case — keep generous to match real menu naming.
+  const isMixGrillItem = (name: string) => {
+    const n = name.toLowerCase();
+    return n.includes("mix") && n.includes("grill");
+  };
+
+  // Compute eligible (non-Mix-Grill) unit count — caps the coin selector.
+  const eligibleUnitCount = isClubMember
+    ? cartItems.reduce(
+        (sum, it) => sum + (isMixGrillItem(it.name) ? 0 : it.quantity),
+        0
+      )
+    : 0;
+
+  // Resolve the actual number of coins to spend: clamp the member's choice to
+  // [0, min(coinBalance, eligibleUnitCount)]. Default = use all available.
+  const maxCoinsSpendable = Math.min(coinBalance, eligibleUnitCount);
+  const effectiveCoinsToUse = Math.min(
+    coinsToUse ?? maxCoinsSpendable,
+    maxCoinsSpendable
+  );
+
   if (isClubMember) {
-    // Club math: walk each unit, apply coin to the first non-zero unit, 10% off everything else.
-    let coinUsedThisOrder = false;
-    for (const item of cartItems) {
-      const fullPrice = item.price;
-      for (let i = 0; i < item.quantity; i++) {
-        if (hasDailyCredit && !coinUsedThisOrder) {
-          // First unit: free via FÜDA Coin
-          coinUsedThisOrder = true;
-          coinDiscountSavings += fullPrice;
-          // contributes 0 to subtotal
-        } else {
-          // Discounted unit: 10% off
-          const discountedUnit = Math.round(fullPrice * (1 - CLUB_DISCOUNT));
-          subtotal += discountedUnit;
-          memberDiscountSavings += (fullPrice - discountedUnit);
-        }
+    // Club math (mirrors server calculateClubPricing):
+    //  1. Expand cart into individual units, mark Mix Grill ones as ineligible
+    //  2. Sort eligible units by price DESCENDING
+    //  3. Cover the top N (= effectiveCoinsToUse) with coins
+    //  4. All other units get 10% off
+    type Unit = { price: number; eligible: boolean };
+    const units: Unit[] = cartItems.flatMap(item => {
+      const eligible = !isMixGrillItem(item.name);
+      return Array.from({ length: item.quantity }, () => ({
+        price: item.price,
+        eligible,
+      }));
+    });
+    const eligibleIdx = units
+      .map((u, i) => ({ i, price: u.price, eligible: u.eligible }))
+      .filter(x => x.eligible)
+      .sort((a, b) => b.price - a.price)
+      .slice(0, effectiveCoinsToUse)
+      .map(x => x.i);
+    const coinSet = new Set<number>(eligibleIdx);
+
+    units.forEach((u, i) => {
+      if (coinSet.has(i)) {
+        coinDiscountSavings += u.price;
+        // contributes 0 to subtotal
+      } else {
+        const discountedUnit = Math.round(u.price * (1 - CLUB_DISCOUNT));
+        subtotal += discountedUnit;
+        memberDiscountSavings += (u.price - discountedUnit);
       }
-    }
+    });
   } else if (hasDailyCredit && cartItems.length > 0) {
     // Corporate: first unit of first item free, rest at full price
     const firstItem = cartItems[0];
@@ -269,6 +310,7 @@ export default function Payment() {
         origin: window.location.origin,
         fulfillmentType,
         specialInstructions: specialInstructions || undefined,
+        coinsToApply: effectiveCoinsToUse,
       });
     } else {
       // Corporate path: original B2B order create
@@ -295,6 +337,7 @@ export default function Payment() {
         origin: window.location.origin,
         fulfillmentType,
         specialInstructions: specialInstructions || undefined,
+        coinsToApply: effectiveCoinsToUse,
       });
       return;
     }
@@ -556,9 +599,53 @@ export default function Payment() {
                       </span>
                     </div>
                   )}
+                  {/* Member's choice — how many FÜDA Coins to spend on this order.
+                      Only shown for club members who have any coins available AND
+                      have at least one eligible (non-Mix-Grill) item in the cart. */}
+                  {isClubMember && coinBalance > 0 && eligibleUnitCount > 0 && (
+                    <div className="rounded-lg border border-amber-200 bg-amber-50/60 p-3 space-y-2">
+                      <div className="flex items-center justify-between">
+                        <div>
+                          <p className="text-sm font-semibold text-amber-900">FÜDA Coins to use</p>
+                          <p className="text-[11px] text-amber-900/70">
+                            Each coin covers your highest-value eligible item. You have <strong>{coinBalance}</strong>.
+                          </p>
+                        </div>
+                        <div className="flex items-center gap-2">
+                          <button
+                            type="button"
+                            onClick={() => setCoinsToUse(Math.max(0, effectiveCoinsToUse - 1))}
+                            className="h-7 w-7 rounded border border-amber-300 bg-white text-amber-900 font-bold hover:bg-amber-100 disabled:opacity-40"
+                            disabled={effectiveCoinsToUse <= 0}
+                            aria-label="Use one fewer coin"
+                          >−</button>
+                          <span className="min-w-[1.5rem] text-center font-bold text-amber-900">
+                            {effectiveCoinsToUse}
+                          </span>
+                          <button
+                            type="button"
+                            onClick={() => setCoinsToUse(Math.min(maxCoinsSpendable, effectiveCoinsToUse + 1))}
+                            className="h-7 w-7 rounded border border-amber-300 bg-white text-amber-900 font-bold hover:bg-amber-100 disabled:opacity-40"
+                            disabled={effectiveCoinsToUse >= maxCoinsSpendable}
+                            aria-label="Use one more coin"
+                          >+</button>
+                        </div>
+                      </div>
+                      {eligibleUnitCount < coinBalance && (
+                        <p className="text-[11px] text-amber-900/70">
+                          Mix Grill items aren't coin-eligible — you can spend up to {maxCoinsSpendable} coin{maxCoinsSpendable === 1 ? "" : "s"} on this order.
+                        </p>
+                      )}
+                    </div>
+                  )}
+
                   {coinDiscountSavings > 0 && (
                     <div className="flex justify-between text-sm text-amber-700">
-                      <span>{isClubMember ? "FÜDA Coin (1 item free)" : "Daily Credit"}</span>
+                      <span>
+                        {isClubMember
+                          ? `FÜDA Coin${effectiveCoinsToUse > 1 ? "s" : ""} (${effectiveCoinsToUse} item${effectiveCoinsToUse > 1 ? "s" : ""} free)`
+                          : "Daily Credit"}
+                      </span>
                       <span>-${(coinDiscountSavings / 100).toFixed(2)}</span>
                     </div>
                   )}

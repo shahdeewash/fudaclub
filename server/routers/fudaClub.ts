@@ -613,6 +613,11 @@ export const fudaClubRouter = router({
           })
         ),
         fulfillmentType: z.enum(["pickup", "delivery"]).default("pickup"),
+        // How many FÜDA Coins the member wants to spend on this order. The server
+        // caps this to whatever they actually have available + eligible cart units.
+        // Undefined means "use as many as possible" — backwards-compatible default
+        // for callers that haven't been updated yet.
+        coinsToApply: z.number().int().min(0).optional(),
       })
     )
     .query(async ({ ctx, input }) => {
@@ -621,7 +626,12 @@ export const fudaClubRouter = router({
         throw new TRPCError({ code: "FORBIDDEN", message: "No active FÜDA Club subscription." });
       }
       const coins = await getAvailableCoins(ctx.user.id);
-      const hasCoin = coins.length > 0;
+      // Default to spending ALL available coins so members get max savings unless
+      // they explicitly opt to spend fewer.
+      const coinsToApply = Math.min(
+        input.coinsToApply ?? coins.length,
+        coins.length
+      );
 
       const dbInstance = await getDb();
       if (!dbInstance) throw new TRPCError({ code: "INTERNAL_SERVER_ERROR", message: "DB unavailable." });
@@ -654,7 +664,11 @@ export const fudaClubRouter = router({
         ? 0
         : (venueQualifies ? 0 : 1000);
 
-      return calculateClubPricing(cartItems, hasCoin, deliveryFeeInCents);
+      return {
+        ...calculateClubPricing(cartItems, coinsToApply, deliveryFeeInCents),
+        // Echo back so the UI can show "X of Y coins available" without a second call.
+        availableCoinBalance: coins.length,
+      };
     }),
 
   /** Create Stripe checkout session for a FÜDA Club food order */
@@ -671,6 +685,9 @@ export const fudaClubRouter = router({
         origin: z.string().url(),
         fulfillmentType: z.enum(["pickup", "delivery"]).default("pickup"),
         specialInstructions: z.string().optional(),
+        // How many FÜDA Coins to spend on this order (member's choice in the UI).
+        // Capped to coins available + eligible cart units. Undefined = use all.
+        coinsToApply: z.number().int().min(0).optional(),
       })
     )
     .mutation(async ({ ctx, input }) => {
@@ -680,7 +697,10 @@ export const fudaClubRouter = router({
       }
 
       const coins = await getAvailableCoins(ctx.user.id);
-      const hasCoin = coins.length > 0;
+      const coinsToApply = Math.min(
+        input.coinsToApply ?? coins.length,
+        coins.length
+      );
 
       const dbInstance = await getDb();
       if (!dbInstance) throw new TRPCError({ code: "INTERNAL_SERVER_ERROR", message: "DB unavailable." });
@@ -718,7 +738,7 @@ export const fudaClubRouter = router({
 
       // Compute preview to check the subtotal-after-discount BEFORE enforcing the
       // $15 minimum-order rule for delivery (so member discounts count).
-      const preview = calculateClubPricing(cartItems, hasCoin, deliveryFeeInCents);
+      const preview = calculateClubPricing(cartItems, coinsToApply, deliveryFeeInCents);
 
       // Minimum order $15 for delivery (after coin + 10% discount applied).
       // Pickup has no minimum — walk-ins are always welcome.
@@ -774,9 +794,10 @@ export const fudaClubRouter = router({
           });
         }
 
-        // Mark coin as used
-        if (preview.coinUsed && coins[0]) {
-          await useFudaCoin(coins[0].id, orderId);
+        // Mark each spent coin as used. preview.coinsApplied may be > 1 if the
+        // member chose to spend multiple coins on a bigger order.
+        for (let i = 0; i < preview.coinsApplied && i < coins.length; i++) {
+          await useFudaCoin(coins[i].id, orderId);
         }
 
         // Push to Square so the order appears in Square POS / KDS and triggers
@@ -841,12 +862,17 @@ export const fudaClubRouter = router({
           user_id: ctx.user.id.toString(),
           plan_type: "fuda_club",
           coin_used: preview.coinUsed ? "1" : "0",
+          coins_applied: preview.coinsApplied.toString(),
+          // Comma-separated list of the coin IDs that will be marked used after
+          // payment. We do NOT mark them used yet — only after Stripe confirms.
+          coin_ids: coins.slice(0, preview.coinsApplied).map(c => c.id).join(","),
           coin_id: preview.coinUsed && coins[0] ? coins[0].id.toString() : "",
           order_data: JSON.stringify({
             items: input.items,
             deliveryFee: preview.deliveryFeeInCents,
             tax: 0,
             coinUsed: preview.coinUsed,
+            coinsApplied: preview.coinsApplied,
             specialInstructions: input.specialInstructions,
           }),
         },
@@ -937,7 +963,13 @@ export interface ClubCheckoutPreview {
     isMixGrill: boolean;
     discount10pct: boolean;
   }>;
+  /** True iff at least one coin was applied to this order. Kept for backward compat. */
   coinUsed: boolean;
+  /** How many coins this preview actually consumes (capped to eligible units). */
+  coinsApplied: number;
+  /** How many cart units are eligible for a coin (i.e. non-Mix-Grill units).
+   *  The Checkout UI uses this to cap the +/− coin-selector. */
+  eligibleUnitsForCoin: number;
   subtotalInCents: number;
   deliveryFeeInCents: number;
   totalInCents: number;
@@ -946,60 +978,87 @@ export interface ClubCheckoutPreview {
 
 /**
  * Calculate FÜDA Club pricing for a cart:
- * - First non-Mix-Grill item: covered by coin (free) if coin available
- * - Mix Grill items: 10% off (coin cannot be used)
- * - All other items beyond coin-covered one: 10% off
+ *
+ * Rules (the actual business rules that members see):
+ * 1. Mix Grill items are NEVER covered by a FÜDA Coin — they always get 10% off instead.
+ * 2. Each FÜDA Coin spent covers ONE unit of food, applied to the highest-value
+ *    non-Mix-Grill unit currently in the cart (so members get max value per coin).
+ * 3. The member chooses how many coins to spend on this order (`coinsToApply`).
+ *    If they pass more coins than they have eligible items, the extra coins are
+ *    silently capped — coins they don't end up spending stay in their balance.
+ * 4. Every non-coin-covered unit (including all Mix Grill units) gets 10% off the
+ *    listed menu price as a Club member.
  */
 export function calculateClubPricing(
   cartItems: ClubCartItem[],
-  hasCoin: boolean,
+  coinsToApply: number,
   deliveryFeeInCents: number
 ): ClubCheckoutPreview {
   const DISCOUNT = 0.10;
   const MIX_GRILL = FUDA_CLUB.mixGrillCategory.toLowerCase();
+  const safeCoinsRequested = Math.max(0, Math.floor(coinsToApply));
 
-  let coinUsed = false;
-  let subtotal = 0;
-
-  const items = cartItems.flatMap(item => {
+  // ── Step 1: Expand cart into individual UNITS (one per qty) ───────────────
+  // Each unit gets a stable index so we can later say "this unit is coin-covered".
+  type Unit = {
+    cartIdx: number;
+    menuItemId: number;
+    name: string;
+    unitPriceInCents: number;
+    isMixGrill: boolean;
+  };
+  const units: Unit[] = [];
+  cartItems.forEach((item, cartIdx) => {
     const isMixGrill = item.category.toLowerCase().includes(MIX_GRILL);
-    const results = [];
-
-    for (let i = 0; i < item.quantity; i++) {
-      const original = item.unitPriceInCents;
-      let discounted = original;
-      let isCoinCovered = false;
-      let discount10pct = false;
-
-      if (!isMixGrill && hasCoin && !coinUsed) {
-        // First non-Mix-Grill unit is free via coin
-        isCoinCovered = true;
-        coinUsed = true;
-        discounted = 0;
-      } else {
-        // 10% off for Mix Grill and all additional items
-        discount10pct = true;
-        discounted = Math.round(original * (1 - DISCOUNT));
-      }
-
-      subtotal += discounted;
-      results.push({
+    for (let q = 0; q < item.quantity; q++) {
+      units.push({
+        cartIdx,
         menuItemId: item.menuItemId,
         name: item.name,
-        quantity: 1,
-        unitPriceInCents: original,
-        discountedPriceInCents: discounted,
-        isCoinCovered,
+        unitPriceInCents: item.unitPriceInCents,
         isMixGrill,
-        discount10pct,
       });
     }
-    return results;
   });
 
-  // Collapse back to grouped items for display
-  const grouped = new Map<string, typeof items[0]>();
-  for (const item of items) {
+  // ── Step 2: Pick which units the coins cover ──────────────────────────────
+  // Eligible = NOT Mix Grill. Sort eligible units by unit price descending so
+  // each coin lands on the most expensive eligible unit available.
+  const eligibleUnitIndexes = units
+    .map((u, idx) => ({ idx, price: u.unitPriceInCents, eligible: !u.isMixGrill }))
+    .filter(x => x.eligible)
+    .sort((a, b) => b.price - a.price)
+    .map(x => x.idx);
+
+  const coinsActuallyApplied = Math.min(safeCoinsRequested, eligibleUnitIndexes.length);
+  const coinCoveredUnitSet = new Set<number>(
+    eligibleUnitIndexes.slice(0, coinsActuallyApplied)
+  );
+
+  // ── Step 3: Compute discounted price for each unit ────────────────────────
+  let subtotal = 0;
+  const pricedUnits = units.map((u, idx) => {
+    const isCoinCovered = coinCoveredUnitSet.has(idx);
+    const discounted = isCoinCovered
+      ? 0
+      : Math.round(u.unitPriceInCents * (1 - DISCOUNT));
+    subtotal += discounted;
+    return {
+      menuItemId: u.menuItemId,
+      name: u.name,
+      quantity: 1,
+      unitPriceInCents: u.unitPriceInCents,
+      discountedPriceInCents: discounted,
+      isCoinCovered,
+      isMixGrill: u.isMixGrill,
+      discount10pct: !isCoinCovered,  // every non-coin unit gets 10% off
+    };
+  });
+
+  // ── Step 4: Re-group identical units back into line items for display ─────
+  // Two units of the same dish at the same price+treatment collapse to qty 2.
+  const grouped = new Map<string, typeof pricedUnits[0]>();
+  for (const item of pricedUnits) {
     const key = `${item.menuItemId}-${item.isCoinCovered}-${item.discount10pct}`;
     const existing = grouped.get(key);
     if (existing) {
@@ -1016,7 +1075,9 @@ export function calculateClubPricing(
 
   return {
     items: groupedItems,
-    coinUsed,
+    coinUsed: coinsActuallyApplied > 0,
+    coinsApplied: coinsActuallyApplied,
+    eligibleUnitsForCoin: eligibleUnitIndexes.length,
     subtotalInCents: subtotal,
     deliveryFeeInCents: actualDeliveryFee,
     totalInCents: total,
