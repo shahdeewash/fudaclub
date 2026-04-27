@@ -33,7 +33,10 @@ const stripe = new Stripe(process.env.STRIPE_SECRET_KEY!, {
  */
 let _cachedTrialCouponId: string | null = null;
 async function getTrialIntroCouponId(): Promise<string> {
-  if (_cachedTrialCouponId) return _cachedTrialCouponId;
+  if (_cachedTrialCouponId) {
+    console.log(`[FÜDA Club] Using cached trial coupon: ${_cachedTrialCouponId}`);
+    return _cachedTrialCouponId;
+  }
 
   // Try to reuse an existing coupon tagged with metadata.fudaClub = "trial_intro"
   try {
@@ -43,21 +46,41 @@ async function getTrialIntroCouponId(): Promise<string> {
     );
     if (found) {
       _cachedTrialCouponId = found.id;
+      console.log(`[FÜDA Club] Found existing trial coupon by metadata: ${found.id}`);
       return found.id;
     }
-  } catch {
+    // Fallback: also search by exact amount + duration "once" (covers manually-created coupons)
+    const fallback = existing.data.find(
+      (c) => c.valid && c.amount_off === FUDA_CLUB.trialDiscountCents && c.duration === "once" && c.currency?.toLowerCase() === FUDA_CLUB.currency.toLowerCase()
+    );
+    if (fallback) {
+      _cachedTrialCouponId = fallback.id;
+      console.log(`[FÜDA Club] Found existing trial coupon by amount+duration: ${fallback.id}`);
+      return fallback.id;
+    }
+    console.log(`[FÜDA Club] No matching trial coupon found in Stripe (searched ${existing.data.length} coupons). Creating new one.`);
+  } catch (err: any) {
+    console.error(`[FÜDA Club] Error listing Stripe coupons:`, err?.message ?? err);
     // fall through to create
   }
 
-  const created = await stripe.coupons.create({
-    amount_off: FUDA_CLUB.trialDiscountCents,
-    currency: FUDA_CLUB.currency,
-    duration: "once",
-    name: "FÜDA Club — First fortnight intro",
-    metadata: { fudaClub: "trial_intro" },
-  });
-  _cachedTrialCouponId = created.id;
-  return created.id;
+  try {
+    const created = await stripe.coupons.create({
+      amount_off: FUDA_CLUB.trialDiscountCents,
+      currency: FUDA_CLUB.currency,
+      duration: "once",
+      name: "FÜDA Club — First fortnight intro",
+      metadata: { fudaClub: "trial_intro" },
+    });
+    _cachedTrialCouponId = created.id;
+    console.log(`[FÜDA Club] Created new trial coupon: ${created.id} (-$${FUDA_CLUB.trialDiscountCents / 100} once)`);
+    return created.id;
+  } catch (err: any) {
+    console.error(`[FÜDA Club] FAILED to create trial coupon:`, err?.message ?? err);
+    // Re-throw so the subscribe mutation fails loudly instead of silently
+    // creating a $180-not-$80 trial checkout.
+    throw new Error(`Trial coupon unavailable: ${err?.message ?? "unknown Stripe error"}. Trial signups disabled until fixed.`);
+  }
 }
 
 // ─── helpers ─────────────────────────────────────────────────────────────────
@@ -233,6 +256,15 @@ export async function issueWelcomeCoinIfNeeded(userId: number): Promise<boolean>
   // Only issue if the sub is in a "benefits-on" state — same gate as ordering.
   const benefitsOn = sub.status === "active" || sub.status === "trialing";
   if (!benefitsOn) return false;
+  // ⚠️ Critical payment gate: the row is inserted with status='trialing' BEFORE the
+  // user actually pays at Stripe Checkout. Without this guard, abandoned signups
+  // (open Stripe but back-button out) would still get a free welcome coin.
+  // stripeSubscriptionId only gets populated by the webhook handler AFTER payment
+  // succeeds, so its presence is our proof that money actually changed hands.
+  if (!sub.stripeSubscriptionId) {
+    console.log(`[FÜDA Club] Skipping welcome coin for user ${userId} — no stripeSubscriptionId yet (payment not confirmed)`);
+    return false;
+  }
   // Compute the same end-of-week (next Monday 00:00 Darwin) expiry used by the
   // daily cron, so the welcome coin lives or dies with that week's bucket.
   const dayOfWeek = new Date().toLocaleDateString("en-US", { timeZone: "Australia/Darwin", weekday: "short" });
