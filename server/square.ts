@@ -508,6 +508,9 @@ export async function syncSquareCatalog(
       .limit(1);
 
     if (existing.length > 0) {
+      // Update path — DELIBERATELY does not touch coinEligible. That flag is
+      // owned by the admin dashboard (and the migration backfill); preserving
+      // it here means a Square re-sync never undoes a manual override.
       await db
         .update(menuItems)
         .set({
@@ -522,6 +525,13 @@ export async function syncSquareCatalog(
       menuItemDbId = existing[0].id;
       updated++;
     } else {
+      // New item — derive initial coinEligible from category match.
+      // Admin can flip it via dashboard later; subsequent syncs won't touch.
+      const { FUDA_CLUB } = await import("./stripe-products");
+      const ineligibleCats = new Set(
+        FUDA_CLUB.coinIneligibleCategories.map(c => c.toLowerCase())
+      );
+      const initialCoinEligible = !ineligibleCats.has((categoryName ?? "").toLowerCase().trim());
       const ins = await db.insert(menuItems).values({
         squareCatalogId,
         squareVariationId: squareVariationId ?? undefined,
@@ -533,6 +543,7 @@ export async function syncSquareCatalog(
         isAvailable: true,
         sortOrder: 0,
         isTodaysSpecial: false,
+        coinEligible: initialCoinEligible,
       });
       menuItemDbId = Number((ins as unknown as [{ insertId: number }])[0].insertId);
       imported++;

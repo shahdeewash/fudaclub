@@ -64,6 +64,22 @@ export const FUDA_CLUB = {
   /** Mix Grill category name — coin cannot be applied, 10% off instead */
   mixGrillCategory: "Mix Grill",
 
+  /**
+   * Categories where the FÜDA Coin can NOT be applied (10% off only).
+   * These are pre-discounted bundles + special items where stacking a free-meal
+   * coin on top would erode margin too much. Per-item override available via
+   * the menuItems.coinEligible flag (admin dashboard). Match is case-insensitive
+   * and lower-cased; entries here are the source-of-truth display names.
+   */
+  coinIneligibleCategories: [
+    "Mix Grill",
+    "Combo Meal",
+    "Deals",
+    "Fuda Combo",
+    "Fuda Week Day Deal",
+    "Special Momo",
+  ] as const,
+
   /** Minimum order subtotal in cents to qualify for free delivery */
   minDeliverySubtotalCents: 1000, // $10.00
 

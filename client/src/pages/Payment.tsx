@@ -257,13 +257,22 @@ export default function Payment() {
   let memberDiscountSavings = 0;
   let coinDiscountSavings = 0;
 
-  // Helper: detect Mix Grill items by name (server uses category, but the
-  // cart only carries name on the client). Matches anything containing "mix"
-  // and "grill" in any order/case — keep generous to match real menu naming.
-  const isMixGrillItem = (name: string) => {
-    const n = name.toLowerCase();
-    return n.includes("mix") && n.includes("grill");
-  };
+  // Helper: detect coin-ineligible items by name (server uses
+  // menuItems.coinEligible flag with category-list fallback; client mirrors
+  // by name pattern since cart only carries name). Matches Mix Grill +
+  // meal-deal categories. Server is source of truth.
+  const COIN_INELIGIBLE_NAME_PATTERNS = [
+    /mix\s*grill/i,
+    /\bcombo\b/i,
+    /\bdeal\b/i,
+    /\bspecial\b.*momo|momo.*\bspecial\b/i,
+    /family feast/i,
+    /dinner for two/i,
+    /kebab plate/i,
+    /week\s*day/i,
+  ];
+  const isMixGrillItem = (name: string) =>
+    COIN_INELIGIBLE_NAME_PATTERNS.some((re) => re.test(name));
 
   // Compute eligible (non-Mix-Grill) unit count — caps the coin selector.
   const eligibleUnitCount = canOrderAsClub

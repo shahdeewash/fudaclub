@@ -1081,6 +1081,7 @@ export const fudaClubRouter = router({
           quantity: i.quantity,
           unitPriceInCents: m.price,
           modifierNote: i.modifierNote,
+          coinEligible: m.coinEligible,
         };
       });
 
@@ -1160,6 +1161,7 @@ export const fudaClubRouter = router({
           quantity: i.quantity,
           unitPriceInCents: m.price,
           modifierNote: i.modifierNote,
+          coinEligible: m.coinEligible,
         };
       });
 
@@ -1394,6 +1396,13 @@ export interface ClubCartItem {
   quantity: number;
   unitPriceInCents: number; // original price
   modifierNote?: string;
+  /**
+   * Per-item flag set from menuItems.coinEligible. If undefined we fall back
+   * to a category-name match against FUDA_CLUB.coinIneligibleCategories
+   * (Mix Grill + meal-deal categories) for backwards compat with old callers
+   * that didn't pass the flag through.
+   */
+  coinEligible?: boolean;
 }
 
 export interface ClubCheckoutPreview {
@@ -1424,13 +1433,16 @@ export interface ClubCheckoutPreview {
  * Calculate FÜDA Club pricing for a cart:
  *
  * Rules (the actual business rules that members see):
- * 1. Mix Grill items are NEVER covered by a FÜDA Coin — they always get 10% off
- *    if the member's discount is active, otherwise full price.
+ * 1. Coin-ineligible items (Mix Grill + meal-deal categories, OR any item with
+ *    coinEligible=false in the DB) are NEVER covered by a FÜDA Coin — they
+ *    always get 10% off if the member's discount is active, otherwise full price.
  * 2. Each FÜDA Coin spent covers ONE unit of food, applied to the highest-value
- *    non-Mix-Grill unit currently in the cart (so members get max value per coin).
+ *    coin-eligible unit currently in the cart (so members get max value per coin).
  * 3. The member chooses how many coins to spend on this order (`coinsToApply`).
  *    If they pass more coins than they have eligible items, the extra coins are
  *    silently capped — coins they don't end up spending stay in their balance.
+ *    (Cart with ONLY ineligible items + coins requested → silent fallback to
+ *    full price + 10% off, no error, coins stay banked.)
  * 4. Every non-coin-covered unit gets 10% off ONLY if `memberDiscountActive` is true.
  *    When a member is in the post-cancel coin grace period, they can still REDEEM
  *    coins but no longer get the 10% discount — `memberDiscountActive=false`.
@@ -1442,7 +1454,12 @@ export function calculateClubPricing(
   memberDiscountActive: boolean = true
 ): ClubCheckoutPreview {
   const DISCOUNT = memberDiscountActive ? 0.10 : 0;
-  const MIX_GRILL = FUDA_CLUB.mixGrillCategory.toLowerCase();
+  // Lower-case lookup set of categories where coin can never apply (fallback
+  // when an item record predates the coinEligible column or is passed by an
+  // older caller without the flag).
+  const INELIGIBLE_CATS = new Set(
+    FUDA_CLUB.coinIneligibleCategories.map(c => c.toLowerCase())
+  );
   const safeCoinsRequested = Math.max(0, Math.floor(coinsToApply));
 
   // ── Step 1: Expand cart into individual UNITS (one per qty) ───────────────
@@ -1452,25 +1469,31 @@ export function calculateClubPricing(
     menuItemId: number;
     name: string;
     unitPriceInCents: number;
-    isMixGrill: boolean;
+    isMixGrill: boolean; // kept for backward-compat in returned preview shape
   };
   const units: Unit[] = [];
   cartItems.forEach((item, cartIdx) => {
-    const isMixGrill = item.category.toLowerCase().includes(MIX_GRILL);
+    // Per-item flag wins. If undefined (legacy callers / unmigrated rows),
+    // fall back to the category list. Either way, "ineligible" means coin
+    // can't apply but 10% discount still does.
+    const catKey = (item.category ?? "").toLowerCase().trim();
+    const isIneligible = item.coinEligible === false
+      || (item.coinEligible === undefined && INELIGIBLE_CATS.has(catKey));
     for (let q = 0; q < item.quantity; q++) {
       units.push({
         cartIdx,
         menuItemId: item.menuItemId,
         name: item.name,
         unitPriceInCents: item.unitPriceInCents,
-        isMixGrill,
+        isMixGrill: isIneligible, // semantic re-use: "true = coin won't apply"
       });
     }
   });
 
   // ── Step 2: Pick which units the coins cover ──────────────────────────────
-  // Eligible = NOT Mix Grill. Sort eligible units by unit price descending so
-  // each coin lands on the most expensive eligible unit available.
+  // Eligible = passes the per-item flag (or falls back to category check).
+  // Sort by unit price desc so each coin lands on the most expensive
+  // eligible unit — members always get max value per coin.
   const eligibleUnitIndexes = units
     .map((u, idx) => ({ idx, price: u.unitPriceInCents, eligible: !u.isMixGrill }))
     .filter(x => x.eligible)

@@ -80,6 +80,10 @@ export const menuItems = mysqlTable("menuItems", {
   sortOrder: int("sortOrder").default(0).notNull(),
   isTodaysSpecial: boolean("isTodaysSpecial").default(false).notNull(),
   specialDate: timestamp("specialDate"),
+  // Per-item FÜDA Coin eligibility. False = coin can't be applied (10% off only).
+  // Backfilled false for Mix Grill + meal-deal categories in migration 0020.
+  // Survives Square sync — see square.ts: only set on insert, never overwrite update.
+  coinEligible: boolean("coinEligible").default(true).notNull(),
   createdAt: timestamp("createdAt").defaultNow().notNull(),
   updatedAt: timestamp("updatedAt").defaultNow().onUpdateNow().notNull(),
 });
