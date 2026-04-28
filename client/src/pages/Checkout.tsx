@@ -212,23 +212,12 @@ export default function Checkout() {
     ? coinBalance > 0
     : !!(dailyCredit?.available && !dailyCredit?.usedToday);
 
-  // Coin-ineligible items (server rule): Mix Grill + meal-deal categories.
-  // The cart only carries name + price, not category, so we mirror by name
-  // pattern. This is a heuristic preview — the server is the source of truth
-  // and uses menuItems.coinEligible, so a server-side cart with a per-item
-  // override will still resolve correctly even if we miss it here.
-  const COIN_INELIGIBLE_NAME_PATTERNS = [
-    /mix\s*grill/i,
-    /\bcombo\b/i,
-    /\bdeal\b/i,
-    /\bspecial\b.*momo|momo.*\bspecial\b/i,
-    /family feast/i,
-    /dinner for two/i,
-    /kebab plate/i,
-    /week\s*day/i,
-  ];
-  const isMixGrillItem = (name: string) =>
-    COIN_INELIGIBLE_NAME_PATTERNS.some((re) => re.test(name));
+  // Mix Grill items aren't coin-eligible (server rule). Mirror it client-side
+  // so the UI shows the right max-spendable count.
+  const isMixGrillItem = (name: string) => {
+    const n = name.toLowerCase();
+    return n.includes("mix") && n.includes("grill");
+  };
   const eligibleUnitCount = canOrderAsClub
     ? cartItems.reduce((s, it) => s + (isMixGrillItem(it.name) ? 0 : it.quantity), 0)
     : 0;

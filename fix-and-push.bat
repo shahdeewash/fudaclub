@@ -1,7 +1,5 @@
 @echo off
-REM Generic one-shot helper: clear stuck git locks, commit any staged changes
-REM (or auto-stage Menu.tsx if nothing staged), push to GitHub.
-REM Useful because the Linux sandbox can't delete Windows-locked .git files.
+REM Stripe webhook hardening: trial_will_end + invoice.payment_succeeded + invoice.payment_failed.
 
 cd /d "%~dp0"
 
@@ -12,14 +10,15 @@ if exist ".git\HEAD.lock.tmp"  del /f /q ".git\HEAD.lock.tmp"
 if exist ".git\HEAD.lock.tmp2" del /f /q ".git\HEAD.lock.tmp2"
 if exist ".git\index.lock.tmp"  del /f /q ".git\index.lock.tmp"
 if exist ".git\index.lock.tmp2" del /f /q ".git\index.lock.tmp2"
-if exist ".git\index.lock.delete-me" del /f /q ".git\index.lock.delete-me"
-if exist ".git\HEAD.lock.delete-me"  del /f /q ".git\HEAD.lock.delete-me"
+if exist ".git\idx.bak" del /f /q ".git\idx.bak"
+if exist ".git\head.bak" del /f /q ".git\head.bak"
+if exist ".git\idx2.bak" del /f /q ".git\idx2.bak"
 
-echo ===== Staging Menu.tsx (allow club + non-members to view menu) =====
-git add client/src/pages/Menu.tsx
+echo ===== Staging webhook changes =====
+git add server/_core/index.ts
 
 echo ===== Committing =====
-git commit -m "Allow non-corporate-subscribers to view the menu (members and non-members) - Removed the hard subscription gate that was blocking everyone without a corporate B2B subscription, including FUDA Club personal members. - Added a club-status banner: members see '10% off applied at checkout' confirmation; non-members see a soft 'Join the Club' CTA. - Menu page now usable by anyone authenticated."
+git commit -m "Stripe webhook: handle trial_will_end + invoice.paid + invoice.payment_failed for new 7-day trial. New trial structure (Stripe trial_period_days=7 + add_invoice_items for $80 trial-access fee) means new event types matter on day 1, day 4, day 8. Added three event handlers in _core/index.ts: (1) customer.subscription.trial_will_end fires on day 4 (3 days before $180 charge), mirrors stripeSub.trial_end into local currentPeriodEnd so the in-app onboarding nudge can show the exact billing date. (2) invoice.payment_succeeded logs every paid invoice with amount + customer + sub_id (audit trail for $80 trial fee on day 1 + $180 fortnightly invoices on day 8 onwards). (3) invoice.payment_failed marks the local sub as past_due (defensive race-condition guard in case it races with subscription.updated) and logs LOUDLY with email so admin can reach the member personally before Stripe's dunning emails go out."
 
 echo ===== Pushing to origin =====
 git push origin main

@@ -44,16 +44,6 @@ describe("FUDA_CLUB constants", () => {
   it("Mix Grill category is identified", () => {
     expect(FUDA_CLUB.mixGrillCategory).toBe("Mix Grill");
   });
-
-  it("coin-ineligible categories include Mix Grill + meal deals", () => {
-    const cats = FUDA_CLUB.coinIneligibleCategories.map(c => c.toLowerCase());
-    expect(cats).toContain("mix grill");
-    expect(cats).toContain("combo meal");
-    expect(cats).toContain("deals");
-    expect(cats).toContain("fuda combo");
-    expect(cats).toContain("fuda week day deal");
-    expect(cats).toContain("special momo");
-  });
 });
 
 describe("calculateClubPricing — coin + post-coin discount logic", () => {

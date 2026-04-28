@@ -413,19 +413,6 @@ export default function Menu() {
                               {item.category}
                             </Badge>
                           )}
-                          {/* Coin-ineligible badge: shown for items where the
-                              menuItems.coinEligible flag is false (Mix Grill +
-                              meal-deal categories). 10% member discount still
-                              applies — only the coin redemption is excluded. */}
-                          {(item as { coinEligible?: boolean }).coinEligible === false && (
-                            <Badge
-                              variant="outline"
-                              className="mt-1 ml-1 border-amber-500 text-amber-700 bg-amber-50"
-                              title="FÜDA Coin can't be applied — 10% member discount still applies"
-                            >
-                              10% only · no coin
-                            </Badge>
-                          )}
                         </div>
                         <span className="text-lg font-bold">
                           ${(item.price / 100).toFixed(2)}
