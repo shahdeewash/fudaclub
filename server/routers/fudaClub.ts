@@ -649,8 +649,11 @@ export const fudaClubRouter = router({
       const planType = input.planType;
 
       let lineItems: Stripe.Checkout.SessionCreateParams.LineItem[];
-      let discounts: Stripe.Checkout.SessionCreateParams.Discount[] | undefined;
       let initialDbStatus: "trialing" | "active";
+      // Trial-specific subscription_data extras (trial_period_days + first-invoice
+      // one-time fee). For non-trial plans these stay undefined.
+      let trialPeriodDays: number | undefined;
+      let addInvoiceItems: Stripe.Checkout.SessionCreateParams.SubscriptionData["add_invoice_items"] | undefined;
 
       if (planType === "monthly") {
         lineItems = [
@@ -667,7 +670,6 @@ export const fudaClubRouter = router({
             quantity: 1,
           },
         ];
-        discounts = undefined;
         initialDbStatus = "active";
       } else if (planType === "fortnightly") {
         lineItems = [
@@ -687,18 +689,21 @@ export const fudaClubRouter = router({
             quantity: 1,
           },
         ];
-        discounts = undefined;
         initialDbStatus = "active";
       } else {
         // planType === "trial"
-        const couponId = await getTrialIntroCouponId();
+        // NEW MODEL (replaces the previous "$100 off first fortnight" coupon):
+        //   Day 1: charge $80 (one-time invoice item) for 7 days of trial access
+        //   Day 8: $180 fortnightly subscription kicks in (Stripe's trial_period_days)
+        //   Day 22: $180 again, every 14 days thereafter
+        // No "discount" framing — it's a 7-day-trial price + a separate fortnightly product.
         lineItems = [
           {
             price_data: {
               currency: FUDA_CLUB.currency,
               product_data: {
-                name: "The FÜDA Club — 7-Day Trial",
-                description: "First fortnight $80, then $180 every 2 weeks · 1 FÜDA Coin/day · 10% off every order",
+                name: "The FÜDA Club — Fortnightly Membership",
+                description: "Begins on day 8 · Mon–Sat · 1 FÜDA Coin/day · 10% off every order",
               },
               recurring: {
                 interval: FUDA_CLUB.interval,
@@ -709,7 +714,21 @@ export const fudaClubRouter = router({
             quantity: 1,
           },
         ];
-        discounts = [{ coupon: couponId }];
+        // 7-day FREE trial on the recurring sub (so first $180 is on day 8 not day 1)
+        trialPeriodDays = 7;
+        // Plus a one-time $80 charge on the first invoice — the trial-access fee
+        addInvoiceItems = [
+          {
+            price_data: {
+              currency: FUDA_CLUB.currency,
+              product_data: {
+                name: "The FÜDA Club — 7-Day Trial Access",
+              },
+              unit_amount: FUDA_CLUB.introPriceCents, // $80
+            },
+            quantity: 1,
+          },
+        ];
         initialDbStatus = "trialing";
       }
 
@@ -718,11 +737,12 @@ export const fudaClubRouter = router({
         mode: "subscription",
         payment_method_types: ["card"],
         line_items: lineItems,
-        // discounts and allow_promotion_codes are mutually exclusive in Stripe.
-        // For the trial plan we apply our intro coupon; for others we let users
-        // paste their own promo codes.
-        ...(discounts ? { discounts } : { allow_promotion_codes: true }),
+        // Members can paste promo codes on non-trial plans. Trial uses native
+        // Stripe trial structure now (no coupon), so promo codes are still allowed.
+        allow_promotion_codes: true,
         subscription_data: {
+          ...(trialPeriodDays ? { trial_period_days: trialPeriodDays } : {}),
+          ...(addInvoiceItems ? { add_invoice_items: addInvoiceItems } : {}),
           metadata: {
             userId: userId.toString(),
             referralCode: input.referralCode ?? "",
