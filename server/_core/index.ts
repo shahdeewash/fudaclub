@@ -243,6 +243,77 @@ async function startServer() {
       }
     }
 
+    // ─── Trial will end (3 days before $180 billing kicks in) ────────────
+    // For the 7-day trial structure, this fires on day 4. Use it to flag the
+    // member's row so the in-app "trial ends in 3 days" nudge can render with
+    // confidence. The existing onboarding-nudge logic also handles this from
+    // sub.createdAt age, so this is belt-and-braces.
+    if (event.type === "customer.subscription.trial_will_end") {
+      const stripeSub = event.data.object as any;
+      console.log(`[Stripe Webhook] ⏰ Trial ending soon for sub ${stripeSub.id} (customer ${stripeSub.customer}). $180 will charge in ~3 days.`);
+      try {
+        const dbInstance = await db.getDb();
+        if (dbInstance) {
+          const { fudaClubSubscriptions } = await import("../../drizzle/schema");
+          const { eq } = await import("drizzle-orm");
+          const customerId = typeof stripeSub.customer === "string"
+            ? stripeSub.customer
+            : stripeSub.customer?.id;
+          if (customerId) {
+            // Mirror Stripe's trial_end timestamp locally so the frontend nudge
+            // can show "Your $180 charge happens on [date]" precisely.
+            const trialEndAt = stripeSub.trial_end
+              ? new Date(stripeSub.trial_end * 1000)
+              : null;
+            await dbInstance
+              .update(fudaClubSubscriptions)
+              .set({
+                currentPeriodEnd: trialEndAt ?? undefined,
+              })
+              .where(eq(fudaClubSubscriptions.stripeCustomerId, customerId));
+          }
+        }
+      } catch (err: any) {
+        console.error("[Stripe Webhook] Error in trial_will_end handler:", err?.message ?? err);
+      }
+    }
+
+    // ─── Invoice paid — money actually received ─────────────────────────
+    // Fires on day 1 ($80 trial fee), day 8 ($180 first fortnight), then every 14d.
+    // Logged for audit. Stripe will also fire customer.subscription.updated
+    // for the status flip, which our other handler picks up.
+    if (event.type === "invoice.payment_succeeded") {
+      const invoice = event.data.object as any;
+      const amount = (invoice.amount_paid ?? 0) / 100;
+      console.log(`[Stripe Webhook] 💰 Invoice paid: $${amount.toFixed(2)} ${invoice.currency?.toUpperCase()} from customer ${invoice.customer} (subscription: ${invoice.subscription ?? "n/a"})`);
+    }
+
+    // ─── Invoice failed — card declined, etc. ───────────────────────────
+    // Critical to handle for the day-8 $180 charge. If a card declines, Stripe
+    // marks the subscription past_due and retries automatically. We log it
+    // loudly so admin can reach out to the member personally.
+    if (event.type === "invoice.payment_failed") {
+      const invoice = event.data.object as any;
+      const amount = (invoice.amount_due ?? 0) / 100;
+      console.error(`[Stripe Webhook] ❌ INVOICE PAYMENT FAILED: $${amount.toFixed(2)} ${invoice.currency?.toUpperCase()} for customer ${invoice.customer}. Stripe will retry. Member email: ${invoice.customer_email ?? "unknown"}.`);
+      try {
+        const dbInstance = await db.getDb();
+        if (dbInstance && invoice.customer) {
+          const { fudaClubSubscriptions } = await import("../../drizzle/schema");
+          const { eq } = await import("drizzle-orm");
+          // Mark as past_due locally so admin sees it in the dashboard.
+          // Stripe will also fire subscription.updated which our other handler
+          // syncs. This is just defensive in case order of events races.
+          await dbInstance
+            .update(fudaClubSubscriptions)
+            .set({ status: "past_due" })
+            .where(eq(fudaClubSubscriptions.stripeCustomerId, invoice.customer));
+        }
+      } catch (err: any) {
+        console.error("[Stripe Webhook] Error marking sub past_due:", err?.message ?? err);
+      }
+    }
+
     return res.json({ received: true });
   });
 
