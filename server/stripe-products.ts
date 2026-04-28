@@ -64,6 +64,28 @@ export const FUDA_CLUB = {
   /** Mix Grill category name — coin cannot be applied, 10% off instead */
   mixGrillCategory: "Mix Grill",
 
+  /**
+   * Categories where the FÜDA Coin can NOT be applied (10% off only).
+   * EXACT strings matching the live DB (case + spelling + the FÜDA umlaut).
+   * Used as a fallback when a cart item is missing the coinEligible flag,
+   * AND for Square sync's initial-flag-on-insert. Per-item overrides via
+   * the menuItems.coinEligible column always take precedence.
+   */
+  coinIneligibleCategories: [
+    "COMBO MEAL",
+    "Deals",
+    "Fuda Combo",
+    "FÜDA Week Day Deal",
+    "Special Momo",
+  ] as const,
+
+  /**
+   * Mix Grill is detected by NAME (not category) since it lives inside
+   * Kebab Mains. Any item whose name contains "Mix Grill" (case-insensitive)
+   * is coin-ineligible.
+   */
+  coinIneligibleNamePatterns: ["Mix Grill"] as const,
+
   /** Minimum order subtotal in cents to qualify for free delivery */
   minDeliverySubtotalCents: 1000, // $10.00
 

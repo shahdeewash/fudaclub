@@ -508,6 +508,8 @@ export async function syncSquareCatalog(
       .limit(1);
 
     if (existing.length > 0) {
+      // Update path — DELIBERATELY does not touch coinEligible. Admin-set
+      // overrides survive Square re-syncs.
       await db
         .update(menuItems)
         .set({
@@ -522,6 +524,19 @@ export async function syncSquareCatalog(
       menuItemDbId = existing[0].id;
       updated++;
     } else {
+      // New item — derive initial coinEligible from category + name match.
+      const { FUDA_CLUB } = await import("./stripe-products");
+      const ineligibleCats = new Set(
+        FUDA_CLUB.coinIneligibleCategories.map(c => c.toLowerCase().trim())
+      );
+      const ineligibleNamePatterns = FUDA_CLUB.coinIneligibleNamePatterns.map(p =>
+        p.toLowerCase()
+      );
+      const catKey = (categoryName ?? "").toLowerCase().trim();
+      const nameKey = (itemData.name ?? "").toLowerCase();
+      const initialCoinEligible =
+        !ineligibleCats.has(catKey) &&
+        !ineligibleNamePatterns.some(p => nameKey.includes(p));
       const ins = await db.insert(menuItems).values({
         squareCatalogId,
         squareVariationId: squareVariationId ?? undefined,
@@ -533,6 +548,7 @@ export async function syncSquareCatalog(
         isAvailable: true,
         sortOrder: 0,
         isTodaysSpecial: false,
+        coinEligible: initialCoinEligible,
       });
       menuItemDbId = Number((ins as unknown as [{ insertId: number }])[0].insertId);
       imported++;

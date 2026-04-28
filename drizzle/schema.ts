@@ -80,6 +80,13 @@ export const menuItems = mysqlTable("menuItems", {
   sortOrder: int("sortOrder").default(0).notNull(),
   isTodaysSpecial: boolean("isTodaysSpecial").default(false).notNull(),
   specialDate: timestamp("specialDate"),
+  // Per-item FÜDA Coin eligibility. False = coin can't be applied (10% off only).
+  // The column was added manually via Railway's MySQL console (not a Drizzle
+  // migration) on launch day — see migration 0020 (which is intentionally a
+  // no-op). Backfill marked the 5 meal-deal categories + Mix Grill items false.
+  // Square sync (server/square.ts) preserves this flag on existing items so
+  // admin overrides survive a re-sync.
+  coinEligible: boolean("coinEligible").default(true).notNull(),
   createdAt: timestamp("createdAt").defaultNow().notNull(),
   updatedAt: timestamp("updatedAt").defaultNow().onUpdateNow().notNull(),
 });

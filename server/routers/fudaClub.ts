@@ -1081,6 +1081,7 @@ export const fudaClubRouter = router({
           quantity: i.quantity,
           unitPriceInCents: m.price,
           modifierNote: i.modifierNote,
+          coinEligible: m.coinEligible,
         };
       });
 
@@ -1160,6 +1161,7 @@ export const fudaClubRouter = router({
           quantity: i.quantity,
           unitPriceInCents: m.price,
           modifierNote: i.modifierNote,
+          coinEligible: m.coinEligible,
         };
       });
 
@@ -1394,6 +1396,12 @@ export interface ClubCartItem {
   quantity: number;
   unitPriceInCents: number; // original price
   modifierNote?: string;
+  /**
+   * Per-item flag mirrored from menuItems.coinEligible. If undefined (legacy
+   * caller), we fall back to category-list + name-pattern match against
+   * FUDA_CLUB.coinIneligibleCategories / coinIneligibleNamePatterns.
+   */
+  coinEligible?: boolean;
 }
 
 export interface ClubCheckoutPreview {
@@ -1442,7 +1450,22 @@ export function calculateClubPricing(
   memberDiscountActive: boolean = true
 ): ClubCheckoutPreview {
   const DISCOUNT = memberDiscountActive ? 0.10 : 0;
-  const MIX_GRILL = FUDA_CLUB.mixGrillCategory.toLowerCase();
+  // Per-item flag wins. If undefined (legacy callers / unmigrated data),
+  // we fall back to: (a) category match against coinIneligibleCategories,
+  // OR (b) name match against coinIneligibleNamePatterns (catches Mix Grill
+  // which sits inside Kebab Mains category, not a category of its own).
+  const INELIGIBLE_CATS = new Set(
+    FUDA_CLUB.coinIneligibleCategories.map(c => c.toLowerCase().trim())
+  );
+  const INELIGIBLE_NAME_PATTERNS = FUDA_CLUB.coinIneligibleNamePatterns.map(
+    p => p.toLowerCase()
+  );
+  const isIneligibleByFallback = (item: ClubCartItem): boolean => {
+    const cat = (item.category ?? "").toLowerCase().trim();
+    if (INELIGIBLE_CATS.has(cat)) return true;
+    const nm = (item.name ?? "").toLowerCase();
+    return INELIGIBLE_NAME_PATTERNS.some(p => nm.includes(p));
+  };
   const safeCoinsRequested = Math.max(0, Math.floor(coinsToApply));
 
   // ── Step 1: Expand cart into individual UNITS (one per qty) ───────────────
@@ -1452,18 +1475,21 @@ export function calculateClubPricing(
     menuItemId: number;
     name: string;
     unitPriceInCents: number;
-    isMixGrill: boolean;
+    isMixGrill: boolean; // semantic: "true = coin can't apply" (kept name for back-compat)
   };
   const units: Unit[] = [];
   cartItems.forEach((item, cartIdx) => {
-    const isMixGrill = item.category.toLowerCase().includes(MIX_GRILL);
+    // Per-item flag wins; fallback to category/name match.
+    const isIneligible =
+      item.coinEligible === false ||
+      (item.coinEligible === undefined && isIneligibleByFallback(item));
     for (let q = 0; q < item.quantity; q++) {
       units.push({
         cartIdx,
         menuItemId: item.menuItemId,
         name: item.name,
         unitPriceInCents: item.unitPriceInCents,
-        isMixGrill,
+        isMixGrill: isIneligible,
       });
     }
   });
