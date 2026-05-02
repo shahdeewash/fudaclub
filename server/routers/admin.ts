@@ -23,9 +23,21 @@ import { eq, and, gte, lte, desc, sql, inArray } from "drizzle-orm";
 import Stripe from "stripe";
 import { issueFudaCoin, useFudaCoin } from "./fudaClub";
 
-const stripe = new Stripe(process.env.STRIPE_SECRET_KEY!, {
-  apiVersion: "2026-02-25.clover",
-});
+// Lazy Stripe init: see fudaClub.ts for rationale. Instantiating at module load
+// with `STRIPE_SECRET_KEY!` crashes the server at boot when the env var isn't
+// set (e.g. fresh local clone). Defer until a route actually uses it.
+let _stripe: Stripe | null = null;
+function getStripe(): Stripe {
+  if (_stripe) return _stripe;
+  const key = process.env.STRIPE_SECRET_KEY;
+  if (!key) {
+    throw new Error(
+      "STRIPE_SECRET_KEY is not set. Add a sk_test_... key to .env for local dev, or set the production key in Railway's Variables tab."
+    );
+  }
+  _stripe = new Stripe(key, { apiVersion: "2026-02-25.clover" });
+  return _stripe;
+}
 
 /** Throw FORBIDDEN unless the caller is an admin. */
 function requireAdmin(ctx: { user: { role?: string | null } }) {
@@ -389,14 +401,14 @@ export const adminRouter = router({
       }
       try {
         // Pull the payment intent from the session, refund it
-        const session = await stripe.checkout.sessions.retrieve(order.stripeSessionId);
+        const session = await getStripe().checkout.sessions.retrieve(order.stripeSessionId);
         const paymentIntentId = typeof session.payment_intent === "string"
           ? session.payment_intent
           : session.payment_intent?.id;
         if (!paymentIntentId) {
           throw new TRPCError({ code: "BAD_REQUEST", message: "Stripe session has no payment intent." });
         }
-        await stripe.refunds.create({ payment_intent: paymentIntentId });
+        await getStripe().refunds.create({ payment_intent: paymentIntentId });
       } catch (err: any) {
         throw new TRPCError({
           code: "INTERNAL_SERVER_ERROR",
@@ -433,7 +445,7 @@ export const adminRouter = router({
       }
       if (sub.stripeSubscriptionId) {
         try {
-          await stripe.subscriptions.update(sub.stripeSubscriptionId, { cancel_at_period_end: true });
+          await getStripe().subscriptions.update(sub.stripeSubscriptionId, { cancel_at_period_end: true });
         } catch (err: any) {
           console.error("[Admin] Stripe cancel_at_period_end failed:", err?.message ?? err);
         }

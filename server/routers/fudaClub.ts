@@ -22,9 +22,23 @@ import { FUDA_CLUB } from "../stripe-products";
 import { nanoid } from "nanoid";
 import { createSquareOrderForPrinting, printReceiptOnTerminal } from "../square";
 
-const stripe = new Stripe(process.env.STRIPE_SECRET_KEY!, {
-  apiVersion: "2026-02-25.clover",
-});
+// Lazy Stripe init: instantiating at module load with `process.env.STRIPE_SECRET_KEY!`
+// crashes the entire server during boot when the env var isn't set (e.g. fresh
+// local clone without .env). The Stripe constructor throws on a missing/empty
+// key. Defer creation until a route actually needs it so the dev server can boot
+// and serve unrelated pages even before Stripe is configured.
+let _stripe: Stripe | null = null;
+function getStripe(): Stripe {
+  if (_stripe) return _stripe;
+  const key = process.env.STRIPE_SECRET_KEY;
+  if (!key) {
+    throw new Error(
+      "STRIPE_SECRET_KEY is not set. Add a sk_test_... key to .env for local dev, or set the production key in Railway's Variables tab."
+    );
+  }
+  _stripe = new Stripe(key, { apiVersion: "2026-02-25.clover" });
+  return _stripe;
+}
 
 /**
  * Lazy get-or-create the trial intro coupon.
@@ -40,7 +54,7 @@ async function getTrialIntroCouponId(): Promise<string> {
 
   // Try to reuse an existing coupon tagged with metadata.fudaClub = "trial_intro"
   try {
-    const existing = await stripe.coupons.list({ limit: 100 });
+    const existing = await getStripe().coupons.list({ limit: 100 });
     const found = existing.data.find(
       (c) => c.metadata?.fudaClub === "trial_intro" && c.valid && c.amount_off === FUDA_CLUB.trialDiscountCents
     );
@@ -65,7 +79,7 @@ async function getTrialIntroCouponId(): Promise<string> {
   }
 
   try {
-    const created = await stripe.coupons.create({
+    const created = await getStripe().coupons.create({
       amount_off: FUDA_CLUB.trialDiscountCents,
       currency: FUDA_CLUB.currency,
       duration: "once",
@@ -270,7 +284,7 @@ export async function issueWelcomeCoinIfNeeded(userId: number): Promise<boolean>
       return false;
     }
     try {
-      const subs = await stripe.subscriptions.list({ customer: sub.stripeCustomerId, limit: 1 });
+      const subs = await getStripe().subscriptions.list({ customer: sub.stripeCustomerId, limit: 1 });
       const stripeActive = subs.data.find(s => s.status === "active" || s.status === "trialing");
       if (!stripeActive) {
         console.log(`[FÜDA Club] Skipping welcome coin for user ${userId} — no active Stripe sub on customer ${sub.stripeCustomerId}`);
@@ -639,7 +653,7 @@ export const fudaClubRouter = router({
       }
 
       // Create Stripe customer
-      const customer = await stripe.customers.create({
+      const customer = await getStripe().customers.create({
         email: userData?.email ?? undefined,
         name: userData?.name ?? undefined,
         metadata: { userId: userId.toString() },
@@ -734,7 +748,7 @@ export const fudaClubRouter = router({
         initialDbStatus = "trialing";
       }
 
-      const session = await stripe.checkout.sessions.create({
+      const session = await getStripe().checkout.sessions.create({
         customer: customer.id,
         mode: "subscription",
         payment_method_types: ["card"],
@@ -828,7 +842,7 @@ export const fudaClubRouter = router({
     // (rare edge case for subs that never finished checkout).
     if (sub.stripeSubscriptionId) {
       try {
-        await stripe.subscriptions.update(sub.stripeSubscriptionId, {
+        await getStripe().subscriptions.update(sub.stripeSubscriptionId, {
           cancel_at_period_end: true,
         });
       } catch (stripeErr: any) {
@@ -1296,7 +1310,7 @@ export const fudaClubRouter = router({
         });
       }
 
-      const session = await stripe.checkout.sessions.create({
+      const session = await getStripe().checkout.sessions.create({
         line_items: lineItems,
         mode: "payment",
         customer_email: ctx.user.email ?? undefined,
