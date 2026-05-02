@@ -68,7 +68,11 @@ export default function Subscribe() {
 
   const getPortalUrl = trpc.subscription.getPortalUrl.useMutation({
     onSuccess: (data) => {
-      window.open(data.portalUrl, "_blank");
+      // Same-tab redirect — window.open(_blank) after an async mutation is
+      // routinely blocked by popup blockers (user-gesture context is lost by
+      // the time the response arrives). Stripe's portal returns here via
+      // returnUrl, so a new tab adds nothing.
+      window.location.href = data.portalUrl;
     },
     onError: (error: any) => {
       toast.error(error.message || "Failed to open subscription portal");
@@ -78,8 +82,10 @@ export default function Subscribe() {
   const createCheckout = trpc.subscription.createCheckout.useMutation({
     onSuccess: (data) => {
       if (data.checkoutUrl) {
-        toast.info("Redirecting to Stripe Checkout...");
-        window.open(data.checkoutUrl, "_blank");
+        // Same-tab redirect — window.open(_blank) after an async mutation is
+        // routinely blocked by popup blockers (the user-gesture context is lost
+        // by the time the response arrives), which silently swallows the join.
+        window.location.href = data.checkoutUrl;
       } else {
         toast.error("Failed to get checkout URL");
       }

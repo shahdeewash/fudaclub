@@ -650,10 +650,12 @@ export const fudaClubRouter = router({
 
       let lineItems: Stripe.Checkout.SessionCreateParams.LineItem[];
       let initialDbStatus: "trialing" | "active";
-      // Trial-specific subscription_data extras (trial_period_days + first-invoice
-      // one-time fee). For non-trial plans these stay undefined.
+      // Trial-specific: free 7-day trial on the recurring sub. The $80 trial-access
+      // fee is added as a second one-time line_item (Checkout combines recurring +
+      // one-time line_items on the first invoice). `add_invoice_items` is NOT a
+      // valid field under `subscription_data` on Checkout Sessions — Stripe rejects
+      // it with "received unknown parameter". For non-trial plans this stays undefined.
       let trialPeriodDays: number | undefined;
-      let addInvoiceItems: Stripe.Checkout.SessionCreateParams.SubscriptionData["add_invoice_items"] | undefined;
 
       if (planType === "monthly") {
         lineItems = [
@@ -713,11 +715,9 @@ export const fudaClubRouter = router({
             },
             quantity: 1,
           },
-        ];
-        // 7-day FREE trial on the recurring sub (so first $180 is on day 8 not day 1)
-        trialPeriodDays = 7;
-        // Plus a one-time $80 charge on the first invoice — the trial-access fee
-        addInvoiceItems = [
+          // One-time $80 trial-access fee. Mixed line_items (recurring + one-time)
+          // are supported in subscription-mode Checkout — both land on the first
+          // invoice; the recurring portion is $0 because of the 7-day trial below.
           {
             price_data: {
               currency: FUDA_CLUB.currency,
@@ -729,6 +729,8 @@ export const fudaClubRouter = router({
             quantity: 1,
           },
         ];
+        // 7-day FREE trial on the recurring sub (so first $180 is on day 8 not day 1)
+        trialPeriodDays = 7;
         initialDbStatus = "trialing";
       }
 
@@ -742,7 +744,6 @@ export const fudaClubRouter = router({
         allow_promotion_codes: true,
         subscription_data: {
           ...(trialPeriodDays ? { trial_period_days: trialPeriodDays } : {}),
-          ...(addInvoiceItems ? { add_invoice_items: addInvoiceItems } : {}),
           metadata: {
             userId: userId.toString(),
             referralCode: input.referralCode ?? "",

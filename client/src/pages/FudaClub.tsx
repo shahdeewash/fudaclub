@@ -197,8 +197,10 @@ function JoinCard() {
         if (typeof window !== "undefined") {
           window.localStorage.removeItem("fuda_join_plan");
         }
-        toast.info("Redirecting to checkout…");
-        window.open(data.checkoutUrl, "_blank");
+        // Same-tab redirect — window.open(_blank) after an async mutation is
+        // routinely blocked by popup blockers (the user-gesture context is lost
+        // by the time the response arrives), which silently swallows the join.
+        window.location.href = data.checkoutUrl;
       }
     },
     onError: (err: any) => toast.error(err.message),
