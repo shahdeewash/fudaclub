@@ -252,7 +252,10 @@ export const fudaClubSubscriptions = mysqlTable("fudaClubSubscriptions", {
   userId: int("userId").notNull().unique(),
   stripeSubscriptionId: varchar("stripeSubscriptionId", { length: 255 }),
   stripeCustomerId: varchar("stripeCustomerId", { length: 255 }),
-  status: mysqlEnum("status", ["active", "canceled", "past_due", "trialing", "frozen"]).default("active").notNull(),
+  // "incomplete" = row created at Stripe Checkout redirect; the webhook flips
+  // this to "active"/"trialing" once Stripe confirms payment. Without this
+  // gate, abandoned signups would get full Club benefits without paying.
+  status: mysqlEnum("status", ["incomplete", "active", "canceled", "past_due", "trialing", "frozen"]).default("incomplete").notNull(),
   introUsed: boolean("introUsed").default(false).notNull(),   // true after first $80 period
   frozenUntil: timestamp("frozenUntil"),                       // null = not frozen
   frozenAt: timestamp("frozenAt"),

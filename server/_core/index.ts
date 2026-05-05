@@ -192,18 +192,33 @@ async function startServer() {
         if (dbInstance) {
           const { subscriptions, fudaClubSubscriptions } = await import("../../drizzle/schema");
           const { eq } = await import("drizzle-orm");
-          const newStatus: "active" | "canceled" | "past_due" | "trialing" =
+          // Map Stripe's subscription status onto our local enum.
+          // - deleted event → canceled (terminal)
+          // - Stripe "incomplete" / "incomplete_expired" / "unpaid" → local "incomplete"
+          //   (payment never completed; user gets no Club benefits)
+          // - Stripe "canceled" → local "canceled"
+          // - active / trialing / past_due pass through verbatim
+          // The legacy fallback "anything else → canceled" was wrong: it mapped
+          // Stripe's "incomplete" (payment in flight) onto canceled and could
+          // permanently lock out a user mid-payment.
+          const newStatus: "active" | "canceled" | "past_due" | "trialing" | "incomplete" =
             event.type === "customer.subscription.deleted"
               ? "canceled"
               : (stripeSub.status === "active" || stripeSub.status === "trialing" || stripeSub.status === "past_due"
                 ? stripeSub.status
-                : "canceled");
+                : stripeSub.status === "canceled"
+                  ? "canceled"
+                  : "incomplete");
 
-          // Legacy corporate subs — update by stripeSubscriptionId
+          // Legacy corporate subs — update by stripeSubscriptionId. The legacy
+          // `subscriptions` enum doesn't include "incomplete"; fall back to
+          // "canceled" for those rows so MySQL accepts the value.
+          const legacyStatus: "active" | "canceled" | "past_due" | "trialing" =
+            newStatus === "incomplete" ? "canceled" : newStatus;
           await dbInstance
             .update(subscriptions)
             .set({
-              status: newStatus,
+              status: legacyStatus,
               cancelAtPeriodEnd: stripeSub.cancel_at_period_end ?? false,
               currentPeriodEnd: stripeSub.current_period_end
                 ? new Date(stripeSub.current_period_end * 1000)

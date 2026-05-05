@@ -1,0 +1,16 @@
+-- Adds "incomplete" to the fudaClubSubscriptions.status enum.
+--
+-- WHY: The previous flow inserted new subscriptions with status='active' (or
+-- 'trialing') BEFORE the user paid at Stripe Checkout. If the user abandoned
+-- checkout (back-button, closed tab, payment never completed), the unpaid row
+-- remained 'active' — so they could place orders, receive the welcome coin,
+-- AND get daily coins from the 6 AM cron. Free Club benefits with no payment.
+--
+-- FIX: New signups now insert with status='incomplete'. The Stripe webhook
+-- (customer.subscription.created/updated) is the only thing that flips the
+-- row to 'active' or 'trialing' — that event only fires after Stripe has
+-- captured a payment method (and, for non-trial, charged it).
+--
+-- The default stays 'incomplete' going forward so any code path that omits
+-- the field can't accidentally grant access.
+ALTER TABLE `fudaClubSubscriptions` MODIFY COLUMN `status` enum('incomplete','active','canceled','past_due','trialing','frozen') NOT NULL DEFAULT 'incomplete';

@@ -128,12 +128,22 @@ export async function getCoinGracePeriodSub(userId: number) {
   return sub;
 }
 
+/** How long after a row is created we still wait for the Stripe webhook to flip
+ *  it to "active"/"trialing". Anything older than this with a null subscriptionId
+ *  is treated as an abandoned signup. Stripe Checkout sessions expire after 24h
+ *  but real users complete in under a minute; 30 min is a generous safety window. */
+const ABANDONED_SIGNUP_GRACE_MS = 30 * 60 * 1000;
+
 /** Check if a user has an active FÜDA Club subscription.
  *  Returns null for any state that should NOT grant member benefits:
  *  - status === "canceled" (immediate-cancel flow set this directly)
+ *  - status === "incomplete" (row exists but Stripe never confirmed payment —
+ *    either webhook hasn't fired yet, or user abandoned Checkout)
  *  - cancelAtPeriodEnd=true AND currentPeriodEnd has passed (safety net for
  *    when Stripe webhooks haven't fired or weren't wired up — we don't want
  *    a forgotten cancellation to leave a member with eternal free coins)
+ *  - stripeSubscriptionId IS NULL AND row is older than ABANDONED_SIGNUP_GRACE_MS
+ *    (legacy rows from before the incomplete-status fix; webhook clearly missed)
  *  Frozen subs auto-unfreeze if their freeze window has passed.
  */
 export async function getActiveFudaClubSub(userId: number) {
@@ -146,6 +156,20 @@ export async function getActiveFudaClubSub(userId: number) {
     .limit(1);
   if (!sub) return null;
   if (sub.status === "canceled") return null;
+  if (sub.status === "incomplete") return null;
+  // Belt-and-braces for legacy rows created before the incomplete-status fix
+  // landed: if Stripe never populated the subscriptionId, this signup was never
+  // confirmed. Auto-flip the local row to incomplete so it stays out of every
+  // other gate (counts, getStatus, ordering preview, food checkout).
+  if (!sub.stripeSubscriptionId &&
+      sub.createdAt &&
+      Date.now() - new Date(sub.createdAt).getTime() > ABANDONED_SIGNUP_GRACE_MS) {
+    await db
+      .update(fudaClubSubscriptions)
+      .set({ status: "incomplete" })
+      .where(eq(fudaClubSubscriptions.id, sub.id));
+    return null;
+  }
   // Safety net: cancelAtPeriodEnd=true + currentPeriodEnd in the past = effectively canceled.
   // Auto-flip the local status so future checks short-circuit on the cheap path above.
   if (
@@ -196,7 +220,8 @@ export async function countActiveClubMembersAtVenue(venueName: string | null | u
     r.venueName &&
     r.venueName.trim().toLowerCase() === normalized &&
     r.status !== "canceled" &&
-    r.status !== "frozen"
+    r.status !== "frozen" &&
+    r.status !== "incomplete"
   ).length;
 }
 
@@ -208,14 +233,17 @@ export const MIN_DELIVERY_SUBTOTAL_CENTS = 1500; // $15.00
  *  locked for 12 months from sign-up. */
 export const FOUNDING_MEMBER_CAP = 50;
 
-/** Count active (non-canceled, non-frozen) FÜDA Club subscriptions across all users. */
+/** Count active (non-canceled, non-incomplete) FÜDA Club subscriptions across all users.
+ *  Used to track founding-50 spots. We exclude "incomplete" so that abandoned
+ *  Checkout sessions don't waste founding spots — those become available again
+ *  for genuine paid signups. */
 export async function countActiveClubSubscriptions(): Promise<number> {
   const db = await getDb();
   if (!db) return 0;
   const rows = await db
     .select({ status: fudaClubSubscriptions.status })
     .from(fudaClubSubscriptions);
-  return rows.filter(r => r.status !== "canceled").length;
+  return rows.filter(r => r.status !== "canceled" && r.status !== "incomplete").length;
 }
 
 /** Get unexpired, unused coins for a user */
@@ -267,17 +295,26 @@ export async function issueWelcomeCoinIfNeeded(userId: number): Promise<boolean>
     .limit(1);
   if (!sub) return false;
   if (sub.hasReceivedWelcomeCoin) return false;
-  // Only issue if the sub is in a "benefits-on" state — same gate as ordering.
-  const benefitsOn = sub.status === "active" || sub.status === "trialing";
-  if (!benefitsOn) return false;
-  // ⚠️ Critical payment gate: the row is inserted with status='trialing' BEFORE the
-  // user actually pays at Stripe Checkout. Without this guard, abandoned signups
-  // (open Stripe but back-button out) would still get a free welcome coin.
-  // stripeSubscriptionId is normally populated by the webhook handler AFTER
-  // payment, so its presence is our primary proof that money changed hands.
-  // Backfill: if it's still null but we have a stripeCustomerId AND Stripe has an
-  // active subscription on that customer, that's also proof of payment — self-heal
-  // by patching the row, then proceed.
+  // Refuse to issue if the sub has been canceled or frozen — same gate as ordering.
+  // We allow "incomplete" through to the Stripe-lookup self-heal below: if Stripe
+  // confirms the user paid (webhook just hadn't fired yet), the row is patched to
+  // active/trialing and the welcome coin issued. Otherwise the lookup returns no
+  // active sub and we bail without issuing.
+  const eligibleForWelcomeCoin =
+    sub.status === "active" || sub.status === "trialing" || sub.status === "incomplete";
+  if (!eligibleForWelcomeCoin) return false;
+  // ⚠️ Critical payment gate. Stripe is the source of truth for whether money
+  // changed hands. The row is created as status='incomplete' and only flipped
+  // to active/trialing by the customer.subscription.created webhook AFTER
+  // Stripe captures a payment method. So the presence of stripeSubscriptionId
+  // (or, equivalently, a non-null status that's already active/trialing) is
+  // proof of payment.
+  //
+  // Backfill: if stripeSubscriptionId is still null but we have a stripeCustomerId
+  // AND Stripe shows an active sub on that customer, the webhook clearly
+  // missed an event — self-heal by patching the row, then proceed. If Stripe
+  // shows no active sub, this is an abandoned signup and we MUST NOT issue
+  // a coin.
   if (!sub.stripeSubscriptionId) {
     if (!sub.stripeCustomerId) {
       console.log(`[FÜDA Club] Skipping welcome coin for user ${userId} — no Stripe customer yet`);
@@ -663,7 +700,6 @@ export const fudaClubRouter = router({
       const planType = input.planType;
 
       let lineItems: Stripe.Checkout.SessionCreateParams.LineItem[];
-      let initialDbStatus: "trialing" | "active";
       // Trial-specific: free 7-day trial on the recurring sub. The $80 trial-access
       // fee is added as a second one-time line_item (Checkout combines recurring +
       // one-time line_items on the first invoice). `add_invoice_items` is NOT a
@@ -686,7 +722,6 @@ export const fudaClubRouter = router({
             quantity: 1,
           },
         ];
-        initialDbStatus = "active";
       } else if (planType === "fortnightly") {
         lineItems = [
           {
@@ -705,7 +740,6 @@ export const fudaClubRouter = router({
             quantity: 1,
           },
         ];
-        initialDbStatus = "active";
       } else {
         // planType === "trial"
         // NEW MODEL (replaces the previous "$100 off first fortnight" coupon):
@@ -745,7 +779,6 @@ export const fudaClubRouter = router({
         ];
         // 7-day FREE trial on the recurring sub (so first $180 is on day 8 not day 1)
         trialPeriodDays = 7;
-        initialDbStatus = "trialing";
       }
 
       const session = await getStripe().checkout.sessions.create({
@@ -783,25 +816,38 @@ export const fudaClubRouter = router({
         ? new Date(Date.now() + 365 * 24 * 60 * 60 * 1000)
         : null;
 
-      // Store pending subscription record
+      // Store pending subscription record. We deliberately set status="incomplete"
+      // here — the row should NOT grant Club benefits until Stripe confirms payment.
+      // The `customer.subscription.created` webhook is what flips this to
+      // "active" / "trialing" once a payment method is captured (and, for non-trial,
+      // the first charge succeeds). Without this gate, abandoned signups would
+      // get welcome coins, daily coins, and member discounts for free.
       if (db) {
         await db
           .insert(fudaClubSubscriptions)
           .values({
             userId,
             stripeCustomerId: customer.id,
-            status: initialDbStatus,
+            status: "incomplete",
             introUsed: false,
             cancelAtPeriodEnd: false,
             planType,
             isFoundingMember,
             lockedPriceUntil,
+            // Reset welcome-coin flag on every fresh signup attempt so a new paid
+            // signup after a previously-abandoned one still gets its welcome coin.
+            hasReceivedWelcomeCoin: false,
+            // Clear stripeSubscriptionId from any prior abandoned attempt — the
+            // webhook will repopulate it on subscription.created.
+            stripeSubscriptionId: null,
           })
           .onDuplicateKeyUpdate({
             set: {
               stripeCustomerId: customer.id,
-              status: initialDbStatus,
+              status: "incomplete",
               planType,
+              hasReceivedWelcomeCoin: false,
+              stripeSubscriptionId: null,
               // Only flip to founding on duplicate update if they haven't already been
               // marked one — never strip an existing founder of their status.
               ...(isFoundingMember ? { isFoundingMember: true, lockedPriceUntil } : {}),
