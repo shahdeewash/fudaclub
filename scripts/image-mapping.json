@@ -1,0 +1,566 @@
+[
+  {
+    "id": 1,
+    "name": "#1 Momo Bubble Meal",
+    "category": "Fuda Combo",
+    "file": "1-momo-bubble-meal.jpg"
+  },
+  {
+    "id": 2,
+    "name": "#2 Wrap Bubble Meal",
+    "category": "Fuda Combo",
+    "file": "2-wrap-bubble-meal.jpg"
+  },
+  {
+    "id": 3,
+    "name": "#3 Kebab Plate Bubble",
+    "category": "Fuda Combo",
+    "file": "mixed-grill-kebab.jpg"
+  },
+  {
+    "id": 4,
+    "name": "#4 Mixed Grill Bubble",
+    "category": "Fuda Combo",
+    "file": "4-mixed-grill-bubble.jpg"
+  },
+  {
+    "id": 5,
+    "name": "#6 Family Feast",
+    "category": "Fuda Combo",
+    "file": "6-family-feast.jpg"
+  },
+  {
+    "id": 6,
+    "name": "ANY $22.99 KEBAB MAIN + BUBBLE TEA",
+    "category": "COMBO MEAL",
+    "file": "mixed-grill-kebab.jpg"
+  },
+  {
+    "id": 7,
+    "name": "ANY 21.99 KEBAB MAIN + BUBBLE TEA",
+    "category": "COMBO MEAL",
+    "file": "mixed-grill-kebab.jpg"
+  },
+  {
+    "id": 8,
+    "name": "ANY WRAP + BUBBLE TEA",
+    "category": "COMBO MEAL",
+    "file": "kofta-wrap.jpg"
+  },
+  {
+    "id": 9,
+    "name": "Bubble Tea",
+    "category": "Bubble Tea",
+    "file": "lychee-rose-oolong.jpg"
+  },
+  {
+    "id": 10,
+    "name": "Buff Momo",
+    "category": "Momo",
+    "file": "buff-momo.jpg"
+  },
+  {
+    "id": 11,
+    "name": "Buff Momo (6pcs)",
+    "category": "6 MOMO Entree",
+    "file": "buff-momo.jpg"
+  },
+  {
+    "id": 12,
+    "name": "BUFF MOMO + BUBBLE TEA",
+    "category": "COMBO MEAL",
+    "file": "buff-momo.jpg"
+  },
+  {
+    "id": 13,
+    "name": "Buff Momo Platter",
+    "category": "Special Momo",
+    "file": "buff-momo.jpg"
+  },
+  {
+    "id": 14,
+    "name": "Cabbage Momo (6pcs)",
+    "category": "Special Momo",
+    "file": "vegan-momo-6-pcs.jpg"
+  },
+  {
+    "id": 15,
+    "name": "Carrot Dip",
+    "category": "Entrees",
+    "file": "carrot-dip.jpg"
+  },
+  {
+    "id": 16,
+    "name": "Chicken Doner Wrap",
+    "category": "Kebab Wraps",
+    "file": "chicken-shish-wrap.jpg"
+  },
+  {
+    "id": 17,
+    "name": "CHICKEN DONER WRAP + BUBBLE TEA",
+    "category": "COMBO MEAL",
+    "file": "chicken-shish-wrap.jpg"
+  },
+  {
+    "id": 18,
+    "name": "Chicken Kebab",
+    "category": "Kebab Mains",
+    "file": "chicken-shish-kebab.jpg"
+  },
+  {
+    "id": 19,
+    "name": "Chicken Momo",
+    "category": "Momo",
+    "file": "chicken-momo.jpg"
+  },
+  {
+    "id": 20,
+    "name": "Chicken Momo (6pcs)",
+    "category": "6 MOMO Entree",
+    "file": "chicken-momo-6pcs.jpg"
+  },
+  {
+    "id": 21,
+    "name": "CHICKEN MOMO + BUBBLE TEA",
+    "category": "COMBO MEAL",
+    "file": "chicken-momo.jpg"
+  },
+  {
+    "id": 22,
+    "name": "Chicken Momo Platter",
+    "category": "Special Momo",
+    "file": "chicken-momo.jpg"
+  },
+  {
+    "id": 23,
+    "name": "chicken Shish Kebab",
+    "category": "Kebab Mains",
+    "file": "chicken-shish-kebab.jpg"
+  },
+  {
+    "id": 24,
+    "name": "Chicken Shish Wrap",
+    "category": "Kebab Wraps",
+    "file": "chicken-shish-wrap.jpg"
+  },
+  {
+    "id": 25,
+    "name": "Chicken Spring Roll",
+    "category": "Entrees",
+    "file": "chicken-spring-roll.jpg"
+  },
+  {
+    "id": 26,
+    "name": "Chocolate Momo (2pcs)",
+    "category": "Special Momo",
+    "file": "chocolate-momo-2pcs.jpg"
+  },
+  {
+    "id": 27,
+    "name": "Doner main",
+    "category": "Kebab Mains",
+    "file": "mixed-grill-kebab.jpg"
+  },
+  {
+    "id": 28,
+    "name": "Falafel and Haloumi Wrap",
+    "category": "Kebab Wraps",
+    "file": "falafel-and-haloumi-wrap.jpg"
+  },
+  {
+    "id": 29,
+    "name": "Hummus with Pita Bread",
+    "category": "Entrees",
+    "file": "hummus-with-pita-bread.jpg"
+  },
+  {
+    "id": 30,
+    "name": "Iskender kebab",
+    "category": "Kebab Mains",
+    "file": "iskender-kebab.jpg"
+  },
+  {
+    "id": 31,
+    "name": "Kofta main",
+    "category": "Kebab Mains",
+    "file": "kofta-main.jpg"
+  },
+  {
+    "id": 32,
+    "name": "Kofta Wrap",
+    "category": "Kebab Wraps",
+    "file": "kofta-wrap.jpg"
+  },
+  {
+    "id": 33,
+    "name": "Lamb Doner Wrap",
+    "category": "Kebab Wraps",
+    "file": "kofta-wrap.jpg"
+  },
+  {
+    "id": 34,
+    "name": "Lamb Kebab",
+    "category": "Kebab Mains",
+    "file": "lamb-shish-kebab.jpg"
+  },
+  {
+    "id": 35,
+    "name": "Lamb Kofta",
+    "category": "Kebab Mains",
+    "file": "kofta-main.jpg"
+  },
+  {
+    "id": 36,
+    "name": "Lamb Meatball with Rice",
+    "category": "Kebab Mains",
+    "file": "lamb-meatball-with-rice.jpg"
+  },
+  {
+    "id": 37,
+    "name": "Lamb meatball with rice Bowl",
+    "category": "Kebab Mains",
+    "file": "lamb-meatball-with-rice.jpg"
+  },
+  {
+    "id": 38,
+    "name": "Lamb Shish Kebab",
+    "category": "Kebab Mains",
+    "file": "lamb-shish-kebab.jpg"
+  },
+  {
+    "id": 39,
+    "name": "Lamb Shish Wrap",
+    "category": "Kebab Wraps",
+    "file": "chicken-shish-wrap.jpg"
+  },
+  {
+    "id": 40,
+    "name": "Lamb Sish",
+    "category": "Kebab Mains",
+    "file": "lamb-shish-kebab.jpg"
+  },
+  {
+    "id": 41,
+    "name": "Lamb Spring Roll",
+    "category": "Entrees",
+    "file": "lamb-spring-roll.jpg"
+  },
+  {
+    "id": 42,
+    "name": "Lhaphing",
+    "category": "Special Momo",
+    "file": "Laphing.png"
+  },
+  {
+    "id": 44,
+    "name": "Mediterranean Salad",
+    "category": "Entrees",
+    "file": "mediterranean-salad.jpg"
+  },
+  {
+    "id": 45,
+    "name": "Mixed Grill Kebab",
+    "category": "Kebab Mains",
+    "file": "mixed-grill-kebab.jpg"
+  },
+  {
+    "id": 46,
+    "name": "Paneer Momo",
+    "category": "Momo",
+    "file": "paneer-momo.jpg"
+  },
+  {
+    "id": 47,
+    "name": "Paneer Momo (6pcs)",
+    "category": "6 MOMO Entree",
+    "file": "paneer-momo-6pcs.jpg"
+  },
+  {
+    "id": 48,
+    "name": "PANEER MOMO + BUBBLE TEA",
+    "category": "COMBO MEAL",
+    "file": "paneer-momo.jpg"
+  },
+  {
+    "id": 49,
+    "name": "Paneer Momo Platter",
+    "category": "Special Momo",
+    "file": "paneer-momo-platter.jpg"
+  },
+  {
+    "id": 50,
+    "name": "Pita Bread",
+    "category": "Entrees",
+    "file": "hummus-with-pita-bread.jpg"
+  },
+  {
+    "id": 51,
+    "name": "Spinach and Fetta Spring Roll",
+    "category": "Entrees",
+    "file": "lamb-spring-roll.jpg"
+  },
+  {
+    "id": 52,
+    "name": "Trio of Dip",
+    "category": "Entrees",
+    "file": "trio-of-dip.jpg"
+  },
+  {
+    "id": 53,
+    "name": "Tzatziki with Pita Bread",
+    "category": "Entrees",
+    "file": "tzatziki-with-pita-bread.jpg"
+  },
+  {
+    "id": 54,
+    "name": "Vegan Momo",
+    "category": "Momo",
+    "file": "vegan-momo.jpg"
+  },
+  {
+    "id": 55,
+    "name": "Vegan Momo 6 pcs",
+    "category": "6 MOMO Entree",
+    "file": "vegan-momo-6-pcs.jpg"
+  },
+  {
+    "id": 56,
+    "name": "vegetarian Momo",
+    "category": "Momo",
+    "file": "vegan-momo.jpg"
+  },
+  {
+    "id": 57,
+    "name": "vegetarian Momo 6",
+    "category": "6 MOMO Entree",
+    "file": "vegan-momo-6-pcs.jpg"
+  },
+  {
+    "id": 58,
+    "name": "#5 Dinner For two",
+    "category": "Fuda Combo",
+    "file": "5-dinner-for-two.jpg"
+  },
+  {
+    "id": 59,
+    "name": "2 Lhaphing Special",
+    "category": "Deals",
+    "file": "Laphing.png"
+  },
+  {
+    "id": 61,
+    "name": "Cappucino",
+    "category": "Coffee",
+    "file": "cappucino.jpg"
+  },
+  {
+    "id": 62,
+    "name": "Chai Latte",
+    "category": "Coffee",
+    "file": "latte.jpg"
+  },
+  {
+    "id": 63,
+    "name": "Coca-Cola 600ml",
+    "category": "Beverages",
+    "file": "coca-cola-zero-sugar-can.jpg"
+  },
+  {
+    "id": 64,
+    "name": "Coca-Cola Can",
+    "category": "Beverages",
+    "file": "coca-cola-zero-sugar-can.jpg"
+  },
+  {
+    "id": 65,
+    "name": "Coca-Cola Zero Sugar 600ml",
+    "category": "Beverages",
+    "file": "coca-cola-zero-sugar-can.jpg"
+  },
+  {
+    "id": 66,
+    "name": "Coca-Cola Zero Sugar Can",
+    "category": "Beverages",
+    "file": "coca-cola-zero-sugar-can.jpg"
+  },
+  {
+    "id": 67,
+    "name": "Dirty Chai Latte",
+    "category": "Coffee",
+    "file": "latte.jpg"
+  },
+  {
+    "id": 68,
+    "name": "Espresso",
+    "category": "Coffee",
+    "file": "espresso.jpg"
+  },
+  {
+    "id": 69,
+    "name": "Fanta Orange Can",
+    "category": "Beverages",
+    "file": "fanta-orange-can.jpg"
+  },
+  {
+    "id": 70,
+    "name": "Flat White",
+    "category": "Coffee",
+    "file": "flat-white.jpg"
+  },
+  {
+    "id": 71,
+    "name": "FRIDAY-FEAST FRIDAY",
+    "category": "FÜDA Week Day Deal",
+    "file": "6-family-feast.jpg"
+  },
+  {
+    "id": 74,
+    "name": "Fuze Mango & Green Tea",
+    "category": "Beverages",
+    "file": "yuzu-green-tea-fizz.jpg"
+  },
+  {
+    "id": 76,
+    "name": "Hot Chocolate",
+    "category": "Coffee",
+    "file": "hot-chocolate.jpg"
+  },
+  {
+    "id": 77,
+    "name": "Ice Chocolate",
+    "category": "Ice Coffee",
+    "file": "hot-chocolate.jpg"
+  },
+  {
+    "id": 78,
+    "name": "Ice Latte",
+    "category": "Ice Coffee",
+    "file": "ice-latte.jpg"
+  },
+  {
+    "id": 79,
+    "name": "Ice Long Black",
+    "category": "Ice Coffee",
+    "file": "ice-long-black.jpg"
+  },
+  {
+    "id": 82,
+    "name": "Latte",
+    "category": "Coffee",
+    "file": "latte.jpg"
+  },
+  {
+    "id": 83,
+    "name": "Lemonade Can",
+    "category": "Beverages",
+    "file": "lemonade-can.jpg"
+  },
+  {
+    "id": 84,
+    "name": "Long Black",
+    "category": "Coffee",
+    "file": "long-black.jpg"
+  },
+  {
+    "id": 85,
+    "name": "Macchiato",
+    "category": "Coffee",
+    "file": "macchiato.jpg"
+  },
+  {
+    "id": 86,
+    "name": "Mocha",
+    "category": "Coffee",
+    "file": "mocha.jpg"
+  },
+  {
+    "id": 87,
+    "name": "Mocha Jelly Boba",
+    "category": "Bubble Coffee",
+    "file": "mocha-jelly-boba.jpg"
+  },
+  {
+    "id": 88,
+    "name": "Momo Monday",
+    "category": "FÜDA Week Day Deal",
+    "file": "chicken-momo.jpg"
+  },
+  {
+    "id": 89,
+    "name": "Momo Special Chicken",
+    "category": "Deals",
+    "file": "chicken-momo.jpg"
+  },
+  {
+    "id": 91,
+    "name": "Piccolo",
+    "category": "Coffee",
+    "file": "piccolo.jpg"
+  },
+  {
+    "id": 95,
+    "name": "Salted Caramel Machhiato Boba",
+    "category": "Bubble Coffee",
+    "file": "salted-caramel-machhiato-boba.jpg"
+  },
+  {
+    "id": 96,
+    "name": "Samosa",
+    "category": "Entrees",
+    "file": "samosa.jpg"
+  },
+  {
+    "id": 97,
+    "name": "Snack Pack",
+    "category": "Snack Pack",
+    "file": "snack-pack.jpg"
+  },
+  {
+    "id": 98,
+    "name": "Spanish Latte Boba",
+    "category": "Bubble Coffee",
+    "file": "spanish-latte-boba.jpg"
+  },
+  {
+    "id": 99,
+    "name": "Sprite Can",
+    "category": "Beverages",
+    "file": "sprite-can.jpg"
+  },
+  {
+    "id": 100,
+    "name": "THU (MOMO) — STAFF & STUDENT FAVES (ID)",
+    "category": "FÜDA Week Day Deal",
+    "file": "chicken-momo.jpg"
+  },
+  {
+    "id": 101,
+    "name": "THU (WRAP) — STAFF & STUDENT FAVES (ID) REQUIRED",
+    "category": "FÜDA Week Day Deal",
+    "file": "kofta-wrap.jpg"
+  },
+  {
+    "id": 102,
+    "name": "Tiramisu Cream Coffee Boba",
+    "category": "Bubble Coffee",
+    "file": "tiramisu-cream-coffee-boba.jpg"
+  },
+  {
+    "id": 103,
+    "name": "Tuesday Turiksh Kebab day",
+    "category": "FÜDA Week Day Deal",
+    "file": "mixed-grill-kebab.jpg"
+  },
+  {
+    "id": 104,
+    "name": "Vietnamese Boba Coffee",
+    "category": "Bubble Coffee",
+    "file": "vietnamese-boba-coffee.jpg"
+  },
+  {
+    "id": 105,
+    "name": "WED- WRAP WEDNESDAY",
+    "category": "FÜDA Week Day Deal",
+    "file": "kofta-wrap.jpg"
+  }
+]
