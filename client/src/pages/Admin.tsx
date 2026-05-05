@@ -37,6 +37,7 @@ import { CSS } from '@dnd-kit/utilities';
 import { Switch } from "@/components/ui/switch";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import { AuthGate } from "@/components/AuthGate";
 import { Badge } from "@/components/ui/badge";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
@@ -746,16 +747,15 @@ export default function Admin() {
     },
   });
 
-  if (!isAuthenticated || user?.role !== "admin") {
+  if (!isAuthenticated) {
+    return <AuthGate reason="Please log in to access the admin dashboard." />;
+  }
+  if (user?.role !== "admin") {
     return (
-      <div className="min-h-screen bg-background flex items-center justify-center">
-        <Card className="max-w-md">
-          <CardHeader>
-            <CardTitle>Access Denied</CardTitle>
-            <CardDescription>Admin access required</CardDescription>
-          </CardHeader>
-        </Card>
-      </div>
+      <AuthGate
+        variant="denied"
+        reason="This area is for FÜDA admins only. Ask the owner to grant your account the admin role."
+      />
     );
   }
 
@@ -915,7 +915,7 @@ export default function Admin() {
                 </CardHeader>
                 <CardContent>
                   <div className="text-2xl font-bold">{stats?.freeDeliveries || 0}</div>
-                  <p className="text-xs text-muted-foreground">5+ order threshold</p>
+                  <p className="text-xs text-muted-foreground">Venues with 5+ members</p>
                 </CardContent>
               </Card>
 

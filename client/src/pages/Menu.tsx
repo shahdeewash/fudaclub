@@ -3,6 +3,7 @@ import { useLocation } from "wouter";
 import { useAuth } from "@/_core/hooks/useAuth";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
+import { AuthGate } from "@/components/AuthGate";
 import { Badge } from "@/components/ui/badge";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { Progress } from "@/components/ui/progress";
@@ -83,21 +84,7 @@ export default function Menu() {
   }, []);
 
   if (!isAuthenticated) {
-    return (
-      <div className="min-h-screen bg-background flex items-center justify-center">
-        <Card className="max-w-md">
-          <CardHeader>
-            <CardTitle>Login Required</CardTitle>
-            <CardDescription>Please login to access the menu</CardDescription>
-          </CardHeader>
-          <CardContent>
-            <Button onClick={() => window.location.href = "/api/oauth/login"} className="w-full">
-              Login
-            </Button>
-          </CardContent>
-        </Card>
-      </div>
-    );
+    return <AuthGate reason="Please log in to access the menu." />;
   }
 
   // Menu is browsable by anyone authenticated — corporate members, FÜDA Club members,

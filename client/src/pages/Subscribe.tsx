@@ -5,6 +5,7 @@ import { trpc } from "@/lib/trpc";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import { AuthGate } from "@/components/AuthGate";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Badge } from "@/components/ui/badge";
 import {
@@ -140,21 +141,7 @@ export default function Subscribe() {
   };
 
   if (!isAuthenticated) {
-    return (
-      <div className="min-h-screen bg-background flex items-center justify-center p-4">
-        <Card className="max-w-md w-full">
-          <CardHeader>
-            <CardTitle>Authentication Required</CardTitle>
-            <CardDescription>Please log in to subscribe</CardDescription>
-          </CardHeader>
-          <CardContent>
-            <Button onClick={() => window.location.href = "/api/oauth/login"} className="w-full">
-              Log In
-            </Button>
-          </CardContent>
-        </Card>
-      </div>
-    );
+    return <AuthGate reason="Please log in to subscribe." />;
   }
 
   const plan = PLANS[selectedPlan];

@@ -469,7 +469,7 @@ function JoinCard() {
             <div className="grid grid-cols-3 gap-6 text-center">
               <div>
                 <div className="text-5xl sm:text-7xl font-black text-[#C9A84C] tracking-tighter">{founding.taken}</div>
-                <div className="text-xs sm:text-sm uppercase tracking-widest text-white/60 font-bold mt-3">Founding members joined</div>
+                <div className="text-xs sm:text-sm uppercase tracking-widest text-white/60 font-bold mt-3">Founding {founding.taken === 1 ? "member" : "members"} joined</div>
               </div>
               <div className="border-l border-r border-white/10">
                 <div className="text-5xl sm:text-7xl font-black text-[#C9A84C] tracking-tighter">10%</div>

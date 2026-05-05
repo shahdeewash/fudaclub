@@ -2,6 +2,7 @@ import { useLocation } from "wouter";
 import { useAuth } from "@/_core/hooks/useAuth";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import { AuthGate } from "@/components/AuthGate";
 import { Badge } from "@/components/ui/badge";
 import { trpc } from "@/lib/trpc";
 import { ArrowLeft, Package, Truck, LogOut, CreditCard, ExternalLink, CheckCircle2, MapPin, Loader2 } from "lucide-react";
@@ -88,20 +89,7 @@ export default function Orders() {
   });
 
   if (!isAuthenticated) {
-    return (
-      <div className="min-h-screen bg-background flex items-center justify-center">
-        <Card className="max-w-md">
-          <CardHeader>
-            <CardTitle>Login Required</CardTitle>
-          </CardHeader>
-          <CardContent>
-            <Button onClick={() => window.location.href = "/api/oauth/login"} className="w-full">
-              Login
-            </Button>
-          </CardContent>
-        </Card>
-      </div>
-    );
+    return <AuthGate reason="Please log in to see your orders." />;
   }
 
   const getStatusColor = (status: string) => {

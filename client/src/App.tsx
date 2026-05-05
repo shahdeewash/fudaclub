@@ -19,6 +19,10 @@ import SubscriptionSuccess from "./pages/SubscriptionSuccess";
 import DevLogin from "./pages/DevLogin";
 import FudaClub from "./pages/FudaClub";
 import Profile from "./pages/Profile";
+import Terms from "./pages/Terms";
+import Privacy from "./pages/Privacy";
+import Refunds from "./pages/Refunds";
+import { Footer } from "./components/Footer";
 
 function Router() {
   return (
@@ -42,6 +46,9 @@ function Router() {
       <Route path={"/admin/dashboard"} component={AdminDashboard} />
       <Route path={"/admin/dish/new"} component={AdminDishForm} />
       <Route path={"/kitchen"} component={Kitchen} />
+      <Route path={"/terms"} component={Terms} />
+      <Route path={"/privacy"} component={Privacy} />
+      <Route path={"/refunds"} component={Refunds} />
       <Route path={"/404"} component={NotFound} />
       <Route component={NotFound} />
     </Switch>
@@ -63,6 +70,7 @@ function App() {
         <TooltipProvider>
           <Toaster />
           <Router />
+          <Footer />
         </TooltipProvider>
       </ThemeProvider>
     </ErrorBoundary>

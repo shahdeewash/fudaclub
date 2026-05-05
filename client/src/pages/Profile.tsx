@@ -4,6 +4,7 @@ import { trpc } from "@/lib/trpc";
 import { useAuth } from "@/_core/hooks/useAuth";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import { AuthGate } from "@/components/AuthGate";
 import { Badge } from "@/components/ui/badge";
 import { Separator } from "@/components/ui/separator";
 import { toast } from "sonner";
@@ -80,24 +81,7 @@ export default function Profile() {
   }
 
   if (!isAuthenticated) {
-    return (
-      <div className="min-h-screen bg-background flex items-center justify-center p-4">
-        <Card className="max-w-md w-full">
-          <CardHeader>
-            <CardTitle>Login Required</CardTitle>
-            <CardDescription>Please login to view your profile</CardDescription>
-          </CardHeader>
-          <CardContent>
-            <Button
-              onClick={() => (window.location.href = "/api/oauth/login")}
-              className="w-full"
-            >
-              Login
-            </Button>
-          </CardContent>
-        </Card>
-      </div>
-    );
+    return <AuthGate reason="Please log in to view your profile." />;
   }
 
   if (clubLoading) {

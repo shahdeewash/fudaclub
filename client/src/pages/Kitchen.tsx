@@ -2,6 +2,7 @@ import { useState } from "react";
 import { useAuth } from "@/_core/hooks/useAuth";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { AuthGate } from "@/components/AuthGate";
 import { Badge } from "@/components/ui/badge";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { trpc } from "@/lib/trpc";
@@ -36,18 +37,15 @@ export default function Kitchen() {
     },
   });
 
-  if (!isAuthenticated || (user?.role !== "admin" && user?.role !== "kitchen")) {
+  if (!isAuthenticated) {
+    return <AuthGate reason="Please log in to access the kitchen display." />;
+  }
+  if (user?.role !== "admin" && user?.role !== "kitchen") {
     return (
-      <div className="min-h-screen bg-background flex items-center justify-center">
-        <Card className="max-w-md">
-          <CardHeader>
-            <CardTitle>Access Denied</CardTitle>
-          </CardHeader>
-          <CardContent>
-            <p>Kitchen or admin access required</p>
-          </CardContent>
-        </Card>
-      </div>
+      <AuthGate
+        variant="denied"
+        reason="This area is for kitchen staff. Ask the owner to grant your account the kitchen role."
+      />
     );
   }
 

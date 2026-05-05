@@ -76,7 +76,9 @@ export const adminRouter = router({
     const ordersToday = todaysOrders.length;
     const revenueTodayCents = todaysOrders.reduce((sum, o) => sum + (o.total ?? 0), 0);
 
-    // Active club members (status not canceled)
+    // Active club members. "incomplete" = signup row created at Stripe Checkout
+    // redirect that never completed payment — these MUST NOT count toward MRR,
+    // active count, churn, or "total ever" (they never converted to a real sub).
     const allSubs = await db
       .select({
         id: fudaClubSubscriptions.id,
@@ -84,10 +86,11 @@ export const adminRouter = router({
         planType: fudaClubSubscriptions.planType,
       })
       .from(fudaClubSubscriptions);
-    const activeSubs = allSubs.filter(s => s.status !== "canceled");
+    const realSubs = allSubs.filter(s => s.status !== "incomplete");
+    const activeSubs = realSubs.filter(s => s.status !== "canceled");
     const activeMembers = activeSubs.length;
-    const canceledMembers = allSubs.filter(s => s.status === "canceled").length;
-    const totalEverSubs = allSubs.length;
+    const canceledMembers = realSubs.filter(s => s.status === "canceled").length;
+    const totalEverSubs = realSubs.length;
     const churnRate = totalEverSubs > 0 ? canceledMembers / totalEverSubs : 0;
 
     // MRR estimate — sum of monthly equivalent of every active sub
@@ -500,7 +503,9 @@ export const adminRouter = router({
       const key = r.venueName?.trim() || "(no venue set)";
       const c = clusters.get(key) ?? { count: 0, canceledCount: 0 };
       if (r.status === "canceled") c.canceledCount += 1;
-      else c.count += 1;
+      // Skip 'incomplete' rows entirely — they're abandoned signups, not members.
+      // They shouldn't count toward the venue's free-delivery threshold.
+      else if (r.status !== "incomplete") c.count += 1;
       clusters.set(key, c);
     }
     return Array.from(clusters.entries())
@@ -638,8 +643,10 @@ export const adminRouter = router({
       .select({ id: fudaClubSubscriptions.id })
       .from(fudaClubSubscriptions)
       .where(and(
-        // not canceled
+        // Real, paying subs only — exclude both canceled and incomplete (the
+        // latter never completed Stripe payment so they're not real members).
         sql`${fudaClubSubscriptions.status} != 'canceled'`,
+        sql`${fudaClubSubscriptions.status} != 'incomplete'`,
       ));
     const activeMembers = allActiveSubs.length;
 
