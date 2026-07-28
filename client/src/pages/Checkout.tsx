@@ -19,6 +19,7 @@ interface CartItem {
   price: number;
   quantity: number;
   imageUrl?: string;
+  modifierNote?: string;
 }
 
 export default function Checkout() {
