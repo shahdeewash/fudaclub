@@ -333,8 +333,8 @@ export async function issueWelcomeCoinIfNeeded(userId: number): Promise<boolean>
         .set({
           stripeSubscriptionId: stripeActive.id,
           status: stripeActive.status as any,
-          currentPeriodEnd: stripeActive.current_period_end
-            ? new Date(stripeActive.current_period_end * 1000)
+          currentPeriodEnd: (stripeActive as any).current_period_end
+            ? new Date((stripeActive as any).current_period_end * 1000)
             : null,
         })
         .where(eq(fudaClubSubscriptions.id, sub.id));
@@ -1475,6 +1475,7 @@ export interface ClubCheckoutPreview {
     isCoinCovered: boolean;
     isMixGrill: boolean;
     discount10pct: boolean;
+    modifierNote?: string;
   }>;
   /** True iff at least one coin was applied to this order. Kept for backward compat. */
   coinUsed: boolean;
@@ -1537,6 +1538,7 @@ export function calculateClubPricing(
     name: string;
     unitPriceInCents: number;
     isMixGrill: boolean; // semantic: "true = coin can't apply" (kept name for back-compat)
+    modifierNote?: string;
   };
   const units: Unit[] = [];
   cartItems.forEach((item, cartIdx) => {
@@ -1551,6 +1553,7 @@ export function calculateClubPricing(
         name: item.name,
         unitPriceInCents: item.unitPriceInCents,
         isMixGrill: isIneligible,
+        modifierNote: item.modifierNote,
       });
     }
   });
@@ -1588,6 +1591,7 @@ export function calculateClubPricing(
       // 10% only counts if the discount was actually active. Coin-grace orders
       // pass DISCOUNT=0, so non-coin units pay full price (no "10% off" badge).
       discount10pct: !isCoinCovered && memberDiscountActive,
+      modifierNote: u.modifierNote,
     };
   });
 
@@ -1595,7 +1599,7 @@ export function calculateClubPricing(
   // Two units of the same dish at the same price+treatment collapse to qty 2.
   const grouped = new Map<string, typeof pricedUnits[0]>();
   for (const item of pricedUnits) {
-    const key = `${item.menuItemId}-${item.isCoinCovered}-${item.discount10pct}`;
+    const key = `${item.menuItemId}-${item.isCoinCovered}-${item.discount10pct}-${item.modifierNote ?? ""}`;
     const existing = grouped.get(key);
     if (existing) {
       existing.quantity += 1;
