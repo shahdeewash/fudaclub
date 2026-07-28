@@ -64,33 +64,24 @@ export const appRouter = router({
     detectFromEmail: publicProcedure
       .input(z.object({ email: z.string().email() }))
       .query(async ({ input }) => {
-        try {
-          const domain = extractDomain(input.email);
-          let company = await db.getCompanyByDomain(domain);
-          
-          if (!company) {
-            // Auto-create company
-            company = await db.createCompany({
-              name: capitalizeCompanyName(domain),
-              domain,
-              deliveryThreshold: 5,
-              isActive: true,
-            });
-          }
+        const domain = extractDomain(input.email);
+        let company = await db.getCompanyByDomain(domain);
 
-          // Count colleagues
-          const colleagues = await db.getUsersByCompanyId(company.id);
-          
-          return {
-            company,
-            colleagueCount: colleagues.length,
-          };
-        } catch (error) {
-          throw new TRPCError({
-            code: 'BAD_REQUEST',
-            message: 'Invalid email format',
+        if (!company) {
+          company = await db.createCompany({
+            name: capitalizeCompanyName(domain),
+            domain,
+            deliveryThreshold: 5,
+            isActive: true,
           });
         }
+
+        const colleagues = await db.getUsersByCompanyId(company.id);
+
+        return {
+          company,
+          colleagueCount: colleagues.length,
+        };
       }),
 
     getAll: protectedProcedure.query(async () => {
