@@ -19,6 +19,7 @@ export const DEV_USERS: Record<string, Omit<User, "id" | "createdAt" | "updatedA
     venueAddress: null,
     referralCode: null,
     referredBy: null,
+    adminNote: null,
   },
   admin: {
     openId: "dev-admin-001",
@@ -31,6 +32,7 @@ export const DEV_USERS: Record<string, Omit<User, "id" | "createdAt" | "updatedA
     venueAddress: null,
     referralCode: null,
     referredBy: null,
+    adminNote: null,
   },
   kitchen: {
     openId: "dev-kitchen-001",
@@ -43,6 +45,7 @@ export const DEV_USERS: Record<string, Omit<User, "id" | "createdAt" | "updatedA
     venueAddress: null,
     referralCode: null,
     referredBy: null,
+    adminNote: null,
   },
 };
 
