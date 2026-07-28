@@ -1244,19 +1244,18 @@ export const appRouter = router({
           // exclusion, 10% on the rest). This keeps the source of truth for pricing
           // in one function rather than duplicating it here.
           const clubCart: ClubCartItem[] = clubOrderData.items
-            .map(it => {
+            .flatMap(it => {
               const m = clubItemMap.get(it.menuItemId);
-              if (!m) return null;
-              return {
+              if (!m) return [];
+              return [{
                 menuItemId: it.menuItemId,
                 name: m.name,
                 category: m.category ?? "",
                 quantity: it.quantity,
                 unitPriceInCents: m.price,
-                modifierNote: it.modifierNote,
-              };
-            })
-            .filter((x): x is ClubCartItem => x !== null);
+                modifierNote: it.modifierNote ?? undefined,
+              }];
+            });
 
           const clubPreview = calculateClubPricing(
             clubCart,
@@ -1315,7 +1314,7 @@ export const appRouter = router({
                 for (const cid of coinsToMarkUsed) {
                   await dbInst
                     .update(fudaCoins)
-                    .set({ usedAt: new Date(), orderId: clubOrder.id })
+                    .set({ isUsed: true, usedAt: new Date(), usedOnOrderId: clubOrder.id })
                     .where(eqOp(fudaCoins.id, cid));
                 }
               }
